@@ -51,8 +51,9 @@ export const songRouter = router({
       artist: z.string().optional(),
       album: z.string().optional(),
       genre: z.string().optional(),
-      year: z.number().optional(),
-      coverPath: z.string().optional(),
+      year: z.number().nullable().optional(),
+      coverPath: z.string().nullable().optional(),
+      lyrics: z.string().nullable().optional(),
     }))
     .mutation(async ({ ctx, input }) => {
       const { id, ...data } = input

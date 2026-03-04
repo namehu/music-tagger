@@ -42,6 +42,7 @@ interface Song {
   year: number | null;
   filePath: string;
   coverPath: string | null;
+  lyrics: string | null;
 }
 
 export function SongTable() {
