@@ -1,11 +1,29 @@
 // @ts-ignore
 const mm = require('music-metadata')
+import { promises as fs } from 'fs'
+import path from 'path'
 
 export async function parseAudioFile(filePath: string) {
   try {
     const metadata = await mm.parseFile(filePath)
     const { common, format } = metadata
     
+    let coverPath: string | null = null
+    
+    if (common.picture && common.picture.length > 0) {
+      const picture = common.picture[0]
+      const ext = picture.format.includes('jpeg') ? 'jpg' : picture.format.includes('png') ? 'png' : 'jpg'
+      const fileName = `${Buffer.from(filePath).toString('base64').slice(0, 32)}.${ext}`
+      const coverDir = path.join(process.cwd(), 'public', 'covers')
+      const coverFilePath = path.join(coverDir, fileName)
+      
+      await fs.mkdir(coverDir, { recursive: true })
+      await fs.writeFile(coverFilePath, picture.data)
+      coverPath = `/covers/${fileName}`
+    }
+
+    const lyrics = common.lyrics?.[0] || null
+
     return {
       title: common.title || '',
       artist: common.artist || '',
@@ -14,6 +32,8 @@ export async function parseAudioFile(filePath: string) {
       year: common.year,
       duration: Math.round(format.duration || 0),
       trackNumber: common.track?.no,
+      coverPath,
+      lyrics,
     }
   } catch (error) {
     console.error(`Failed to parse ${filePath}:`, error)
