@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { trpc } from "./TRPCProvider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -44,6 +44,16 @@ export function SongEditor({ song, onClose, onSaved }: SongEditorProps) {
     song.coverPath || null,
   );
   const [uploading, setUploading] = useState(false);
+
+  useEffect(() => {
+    setTitle(song.title);
+    setArtist(song.artist || "");
+    setAlbum(song.album || "");
+    setGenre(song.genre || "");
+    setYear(song.year?.toString() || "");
+    setLyrics(song.lyrics || "");
+    setCoverPath(song.coverPath || null);
+  }, [song]);
 
   const updateMutation = trpc.song.update.useMutation({
     onSuccess: () => {
