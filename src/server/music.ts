@@ -32,7 +32,15 @@ export async function parseAudioFile(filePath: string) {
       coverPath = `/covers/${fileName}`;
     }
 
-    const lyrics = common.lyrics?.[0] || null;
+    let lyrics: string | null = null;
+    const rawLyrics = common.lyrics?.[0];
+    if (rawLyrics) {
+      if (typeof rawLyrics === "string") {
+        lyrics = rawLyrics;
+      } else {
+        lyrics = JSON.stringify(rawLyrics);
+      }
+    }
 
     return {
       title: common.title || "",
