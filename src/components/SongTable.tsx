@@ -57,7 +57,7 @@ export function SongTable() {
     limit: 20,
     search: search || undefined,
   });
-  const { play, addToPlaylist } = usePlayer();
+  const { play, addToPlaylist, setPlaylist } = usePlayer();
 
   const handleSaved = () => {
     refetch();
@@ -164,8 +164,10 @@ export function SongTable() {
                       <DropdownMenuLabel>操作</DropdownMenuLabel>
                       <DropdownMenuItem
                         onClick={() => {
+                          if (data?.songs) {
+                            setPlaylist(data.songs as any[]);
+                          }
                           play(song as any);
-                          addToPlaylist(song as any);
                         }}
                       >
                         <Play className="mr-2 h-4 w-4" />

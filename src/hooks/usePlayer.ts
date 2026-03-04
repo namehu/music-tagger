@@ -15,6 +15,7 @@ interface PlayerState {
   play: (song: Song) => void
   addToPlaylist: (song: Song) => void
   setPlaying: (playing: boolean) => void
+  setPlaylist: (songs: Song[]) => void
   next: () => void
   prev: () => void
 }
@@ -32,6 +33,8 @@ export const usePlayer = create<PlayerState>((set, get) => ({
   
   setPlaying: (playing) => set({ isPlaying: playing }),
   
+  setPlaylist: (songs) => set({ playlist: songs }),
+
   next: () => {
     const { currentSong, playlist } = get()
     if (!currentSong || playlist.length === 0) return
