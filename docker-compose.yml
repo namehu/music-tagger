@@ -1,0 +1,10 @@
+services:
+  music-tagger:
+    build: .
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./music:/app/music
+      - ./data:/app/data
+    environment:
+      - DATABASE_URL=file:/app/data/database.db
