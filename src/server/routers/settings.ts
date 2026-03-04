@@ -1,8 +1,8 @@
-import { router, publicProcedure } from '../trpc'
+import { router, publicProcedure, protectedProcedure } from '../trpc'
 import { z } from 'zod'
 
 export const settingsRouter = router({
-  get: publicProcedure
+  get: protectedProcedure
     .input(z.string().optional())
     .query(async ({ ctx, input }) => {
       const key = input || 'musicPath'
@@ -10,7 +10,7 @@ export const settingsRouter = router({
       return setting?.value || ''
     }),
 
-  update: publicProcedure
+  update: protectedProcedure
     .input(z.object({ key: z.string(), value: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const { key, value } = input

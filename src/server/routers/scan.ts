@@ -1,8 +1,7 @@
-import { router, publicProcedure } from '../trpc'
+import { router, publicProcedure, protectedProcedure } from '../trpc'
 import { z } from 'zod'
-import { promises as fs } from 'fs'
 import { parseAudioFile, SUPPORTED_EXTENSIONS } from '@/server/music'
-import { db } from '@/lib/db'
+import { promises as fs } from 'fs'
 
 async function scanDirectory(dirPath: string): Promise<string[]> {
   const files: string[] = []
@@ -27,32 +26,36 @@ async function scanDirectory(dirPath: string): Promise<string[]> {
 }
 
 export const scanRouter = router({
-  start: publicProcedure
+  start: protectedProcedure
     .input(z.object({ path: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const files = await scanDirectory(input.path)
       const results = []
 
       for (const filePath of files) {
-        const parsed = await parseAudioFile(filePath)
-        if (parsed) {
-          const song = await ctx.db.song.upsert({
-            where: { filePath },
-            update: parsed,
-            create: {
-              ...parsed,
-              filePath,
-              fileName: filePath.split('/').pop() || '',
-            },
-          })
-          results.push(song)
+        try {
+          const parsed = await parseAudioFile(filePath)
+          if (parsed) {
+            const song = await ctx.db.song.upsert({
+              where: { filePath },
+              update: parsed,
+              create: {
+                ...parsed,
+                filePath,
+                fileName: filePath.split('/').pop() || '',
+              },
+            })
+            results.push(song)
+          }
+        } catch (error) {
+          console.error(`Failed to process file ${filePath}:`, error)
         }
       }
 
       return { total: results.length, files: files.length }
     }),
 
-  status: publicProcedure.query(async ({ ctx }) => {
+  status: protectedProcedure.query(async ({ ctx }) => {
     const total = await ctx.db.song.count()
     return { total }
   }),

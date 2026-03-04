@@ -1,8 +1,8 @@
-import { router, publicProcedure } from '../trpc'
+import { router, publicProcedure, protectedProcedure } from '../trpc'
 import { z } from 'zod'
 
 export const songRouter = router({
-  list: publicProcedure
+  list: protectedProcedure
     .input(z.object({
       page: z.number().default(1),
       limit: z.number().default(20),
@@ -38,13 +38,13 @@ export const songRouter = router({
       return { songs, total, page, limit }
     }),
 
-  getById: publicProcedure
+  getById: protectedProcedure
     .input(z.string())
     .query(async ({ ctx, input }) => {
       return ctx.db.song.findUnique({ where: { id: input } })
     }),
 
-  update: publicProcedure
+  update: protectedProcedure
     .input(z.object({
       id: z.string(),
       title: z.string().optional(),
@@ -59,13 +59,13 @@ export const songRouter = router({
       return ctx.db.song.update({ where: { id }, data })
     }),
 
-  delete: publicProcedure
+  delete: protectedProcedure
     .input(z.string())
     .mutation(async ({ ctx, input }) => {
       return ctx.db.song.delete({ where: { id: input } })
     }),
 
-  batchUpdate: publicProcedure
+  batchUpdate: protectedProcedure
     .input(z.object({
       ids: z.array(z.string()),
       data: z.object({
