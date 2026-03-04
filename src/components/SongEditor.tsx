@@ -1,6 +1,17 @@
 'use client'
 import { useState } from 'react'
 import { trpc } from './TRPCProvider'
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog"
+import { Loader2, Upload } from "lucide-react"
 
 interface Song {
   id: string
@@ -72,100 +83,112 @@ export function SongEditor({ song, onClose, onSaved }: SongEditorProps) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
-        <h2 className="text-xl font-bold mb-4">编辑歌曲</h2>
+    <Dialog open={true} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>编辑歌曲</DialogTitle>
+        </DialogHeader>
         
-        <div className="space-y-4">
-          <div className="flex justify-center">
-            <div className="w-40 h-40 border-2 border-dashed border-gray-300 rounded flex items-center justify-center overflow-hidden bg-gray-50">
+        <div className="grid gap-6 py-4">
+          <div className="flex flex-col items-center gap-4">
+            <div className="relative w-40 h-40 border-2 border-dashed border-muted rounded-lg flex items-center justify-center overflow-hidden bg-muted/50 group">
               {coverPath ? (
-                <img src={coverPath} alt="封面" className="w-full h-full object-cover" />
+                <>
+                  <img src={coverPath} alt="封面" className="w-full h-full object-cover" />
+                  <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Upload className="text-white h-8 w-8" />
+                  </div>
+                </>
               ) : (
-                <span className="text-gray-400 text-sm">无封面</span>
+                <div className="flex flex-col items-center text-muted-foreground">
+                  <Upload className="h-8 w-8 mb-2" />
+                  <span className="text-xs">上传封面</span>
+                </div>
               )}
+              <Input
+                type="file"
+                accept="image/*"
+                onChange={handleCoverUpload}
+                disabled={uploading}
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
+              />
+            </div>
+            {uploading && (
+              <div className="flex items-center text-sm text-muted-foreground">
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                上传中...
+              </div>
+            )}
+          </div>
+
+          <div className="grid gap-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="title" className="text-right">
+                标题
+              </Label>
+              <Input
+                id="title"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                className="col-span-3"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="artist" className="text-right">
+                艺术家
+              </Label>
+              <Input
+                id="artist"
+                value={artist}
+                onChange={(e) => setArtist(e.target.value)}
+                className="col-span-3"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="album" className="text-right">
+                专辑
+              </Label>
+              <Input
+                id="album"
+                value={album}
+                onChange={(e) => setAlbum(e.target.value)}
+                className="col-span-3"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="genre" className="text-right">
+                流派
+              </Label>
+              <Input
+                id="genre"
+                value={genre}
+                onChange={(e) => setGenre(e.target.value)}
+                className="col-span-3"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="year" className="text-right">
+                年份
+              </Label>
+              <Input
+                id="year"
+                type="number"
+                value={year}
+                onChange={(e) => setYear(e.target.value)}
+                className="col-span-3"
+              />
             </div>
           </div>
-          
-          <div>
-            <label className="block text-sm font-medium mb-1">封面图片</label>
-            <input
-              type="file"
-              accept="image/*"
-              onChange={handleCoverUpload}
-              disabled={uploading}
-              className="w-full text-sm"
-            />
-            {uploading && <span className="text-sm text-gray-500">上传中...</span>}
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-1">标题</label>
-            <input
-              type="text"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              className="w-full border rounded px-3 py-2"
-            />
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium mb-1">艺术家</label>
-            <input
-              type="text"
-              value={artist}
-              onChange={(e) => setArtist(e.target.value)}
-              className="w-full border rounded px-3 py-2"
-            />
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium mb-1">专辑</label>
-            <input
-              type="text"
-              value={album}
-              onChange={(e) => setAlbum(e.target.value)}
-              className="w-full border rounded px-3 py-2"
-            />
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium mb-1">流派</label>
-            <input
-              type="text"
-              value={genre}
-              onChange={(e) => setGenre(e.target.value)}
-              className="w-full border rounded px-3 py-2"
-            />
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium mb-1">年份</label>
-            <input
-              type="number"
-              value={year}
-              onChange={(e) => setYear(e.target.value)}
-              className="w-full border rounded px-3 py-2"
-            />
-          </div>
         </div>
 
-        <div className="flex justify-end gap-2 mt-6">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 border rounded hover:bg-gray-50"
-          >
-            取消
-          </button>
-          <button
-            onClick={handleSave}
-            disabled={updateMutation.isPending}
-            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
-          >
-            {updateMutation.isPending ? '保存中...' : '保存'}
-          </button>
-        </div>
-      </div>
-    </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>取消</Button>
+          <Button onClick={handleSave} disabled={updateMutation.isPending}>
+            {updateMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            保存
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }

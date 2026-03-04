@@ -1,6 +1,18 @@
 'use client'
 import { useState } from 'react'
 import { trpc } from './TRPCProvider'
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog"
+import { Loader2 } from "lucide-react"
 
 interface BatchEditDialogProps {
   selectedIds: string[]
@@ -38,102 +50,123 @@ export function BatchEditDialog({ selectedIds, onClose, onSaved }: BatchEditDial
     }
   }
 
+  const toggleClear = (field: string) => {
+    setClearField(clearField === field ? null : field)
+  }
+
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-6 w-full max-w-md">
-        <h2 className="text-xl font-bold mb-2">批量编辑 ({selectedIds.length} 首歌曲)</h2>
-        <p className="text-sm text-gray-500 mb-4">留空表示不修改</p>
-        
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium mb-1">
+    <Dialog open={true} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="sm:max-w-[425px]">
+        <DialogHeader>
+          <DialogTitle>批量编辑 ({selectedIds.length} 首歌曲)</DialogTitle>
+          <DialogDescription>
+            输入要修改的字段，留空表示不修改。点击“清除”可清空该字段。
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="grid gap-4 py-4">
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="artist" className="text-right flex items-center justify-end gap-2">
               艺术家
-              <button
-                onClick={() => setClearField(clearField === 'artist' ? null : 'artist')}
-                className="ml-2 text-xs text-red-500"
+            </Label>
+            <div className="col-span-3 flex gap-2">
+              <Input
+                id="artist"
+                value={artist}
+                onChange={(e) => setArtist(e.target.value)}
+                disabled={clearField === 'artist'}
+                className={clearField === 'artist' ? 'opacity-50' : ''}
+              />
+              <Button
+                variant={clearField === 'artist' ? "destructive" : "outline"}
+                size="sm"
+                onClick={() => toggleClear('artist')}
+                className="whitespace-nowrap"
               >
-                {clearField === 'artist' ? '取消清除' : '清除'}
-              </button>
-            </label>
-            <input
-              type="text"
-              value={artist}
-              onChange={(e) => setArtist(e.target.value)}
-              className="w-full border rounded px-3 py-2"
-            />
+                {clearField === 'artist' ? '取消' : '清除'}
+              </Button>
+            </div>
           </div>
           
-          <div>
-            <label className="block text-sm font-medium mb-1">
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="album" className="text-right flex items-center justify-end gap-2">
               专辑
-              <button
-                onClick={() => setClearField(clearField === 'album' ? null : 'album')}
-                className="ml-2 text-xs text-red-500"
+            </Label>
+            <div className="col-span-3 flex gap-2">
+              <Input
+                id="album"
+                value={album}
+                onChange={(e) => setAlbum(e.target.value)}
+                disabled={clearField === 'album'}
+                className={clearField === 'album' ? 'opacity-50' : ''}
+              />
+              <Button
+                variant={clearField === 'album' ? "destructive" : "outline"}
+                size="sm"
+                onClick={() => toggleClear('album')}
+                className="whitespace-nowrap"
               >
-                {clearField === 'album' ? '取消清除' : '清除'}
-              </button>
-            </label>
-            <input
-              type="text"
-              value={album}
-              onChange={(e) => setAlbum(e.target.value)}
-              className="w-full border rounded px-3 py-2"
-            />
+                {clearField === 'album' ? '取消' : '清除'}
+              </Button>
+            </div>
           </div>
           
-          <div>
-            <label className="block text-sm font-medium mb-1">
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="genre" className="text-right flex items-center justify-end gap-2">
               流派
-              <button
-                onClick={() => setClearField(clearField === 'genre' ? null : 'genre')}
-                className="ml-2 text-xs text-red-500"
+            </Label>
+            <div className="col-span-3 flex gap-2">
+              <Input
+                id="genre"
+                value={genre}
+                onChange={(e) => setGenre(e.target.value)}
+                disabled={clearField === 'genre'}
+                className={clearField === 'genre' ? 'opacity-50' : ''}
+              />
+              <Button
+                variant={clearField === 'genre' ? "destructive" : "outline"}
+                size="sm"
+                onClick={() => toggleClear('genre')}
+                className="whitespace-nowrap"
               >
-                {clearField === 'genre' ? '取消清除' : '清除'}
-              </button>
-            </label>
-            <input
-              type="text"
-              value={genre}
-              onChange={(e) => setGenre(e.target.value)}
-              className="w-full border rounded px-3 py-2"
-            />
+                {clearField === 'genre' ? '取消' : '清除'}
+              </Button>
+            </div>
           </div>
-          
-          <div>
-            <label className="block text-sm font-medium mb-1">
+
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="year" className="text-right flex items-center justify-end gap-2">
               年份
-              <button
-                onClick={() => setClearField(clearField === 'year' ? null : 'year')}
-                className="ml-2 text-xs text-red-500"
+            </Label>
+            <div className="col-span-3 flex gap-2">
+              <Input
+                id="year"
+                type="number"
+                value={year}
+                onChange={(e) => setYear(e.target.value)}
+                disabled={clearField === 'year'}
+                className={clearField === 'year' ? 'opacity-50' : ''}
+              />
+              <Button
+                variant={clearField === 'year' ? "destructive" : "outline"}
+                size="sm"
+                onClick={() => toggleClear('year')}
+                className="whitespace-nowrap"
               >
-                {clearField === 'year' ? '取消清除' : '清除'}
-              </button>
-            </label>
-            <input
-              type="number"
-              value={year}
-              onChange={(e) => setYear(e.target.value)}
-              className="w-full border rounded px-3 py-2"
-            />
+                {clearField === 'year' ? '取消' : '清除'}
+              </Button>
+            </div>
           </div>
         </div>
 
-        <div className="flex justify-end gap-2 mt-6">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 border rounded hover:bg-gray-50"
-          >
-            取消
-          </button>
-          <button
-            onClick={handleSave}
-            disabled={batchUpdateMutation.isPending}
-            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
-          >
-            {batchUpdateMutation.isPending ? '保存中...' : '保存'}
-          </button>
-        </div>
-      </div>
-    </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>取消</Button>
+          <Button onClick={handleSave} disabled={batchUpdateMutation.isPending}>
+            {batchUpdateMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            保存
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }
