@@ -15,7 +15,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="zh">
-      <body>
+      <body suppressHydrationWarning>
         <TRPCProvider>
           {children}
           <PlayerBar />
