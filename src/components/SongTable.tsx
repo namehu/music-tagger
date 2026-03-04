@@ -220,6 +220,7 @@ export function SongTable() {
 
       {editingSong && (
         <SongEditor
+          key={editingSong.id}
           song={editingSong}
           onClose={() => setEditingSong(null)}
           onSaved={handleSaved}
