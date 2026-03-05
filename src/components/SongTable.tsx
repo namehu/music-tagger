@@ -50,15 +50,30 @@ interface SongTableProps {
   album?: string | null;
 }
 
-export function SongTable({ artist, album }: SongTableProps) {
-  const [page, setPage] = useState(1);
+export function SongTable({
+  artist,
+  album,
+  page = 1,
+  onPageChange,
+}: SongTableProps & { page?: number; onPageChange?: (page: number) => void }) {
   const [search, setSearch] = useState("");
   const [editingSong, setEditingSong] = useState<Song | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showBatchEdit, setShowBatchEdit] = useState(false);
 
+  // Local state for page if not controlled
+  const [localPage, setLocalPage] = useState(1);
+  const currentPage = onPageChange ? page : localPage;
+  const handlePageChange = (p: number) => {
+    if (onPageChange) {
+      onPageChange(p);
+    } else {
+      setLocalPage(p);
+    }
+  };
+
   const { data, isLoading, refetch } = trpc.song.list.useQuery({
-    page,
+    page: currentPage,
     limit: 20,
     search: search || undefined,
     artist: artist || undefined,
@@ -106,12 +121,12 @@ export function SongTable({ artist, album }: SongTableProps) {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-<Input
+        <Input
           placeholder="搜索歌曲..."
           value={search}
           onChange={(e) => {
             setSearch(e.target.value);
-            setPage(1);
+            handlePageChange(1);
           }}
           className="max-w-[150px] md:max-w-sm"
         />
@@ -206,10 +221,12 @@ export function SongTable({ artist, album }: SongTableProps) {
                           {playlists.map((p: { id: string; name: string }) => (
                             <DropdownMenuItem
                               key={p.id}
-                              onClick={() => addToPlaylist.mutate({
-                                playlistId: p.id,
-                                songId: song.id,
-                              })}
+                              onClick={() =>
+                                addToPlaylist.mutate({
+                                  playlistId: p.id,
+                                  songId: song.id,
+                                })
+                              }
                             >
                               <ListPlus className="mr-2 h-4 w-4" />
                               添加到 {p.name}
@@ -237,29 +254,37 @@ export function SongTable({ artist, album }: SongTableProps) {
         <Pagination>
           <PaginationContent>
             <PaginationItem>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                disabled={page === 1}
-              >
-                上一页
-              </Button>
+              <PaginationPrevious
+                href="#"
+                onClick={(e) => {
+                  e.preventDefault();
+                  if (currentPage > 1) handlePageChange(currentPage - 1);
+                }}
+              />
             </PaginationItem>
+            {Array.from({ length: totalPages }).map((_, i) => (
+              <PaginationItem key={i}>
+                <PaginationLink
+                  href="#"
+                  isActive={currentPage === i + 1}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    handlePageChange(i + 1);
+                  }}
+                >
+                  {i + 1}
+                </PaginationLink>
+              </PaginationItem>
+            ))}
             <PaginationItem>
-              <span className="px-4 text-sm text-muted-foreground">
-                第 {page} / {totalPages} 页
-              </span>
-            </PaginationItem>
-            <PaginationItem>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setPage((p) => p + 1)}
-                disabled={page >= totalPages}
-              >
-                下一页
-              </Button>
+              <PaginationNext
+                href="#"
+                onClick={(e) => {
+                  e.preventDefault();
+                  if (currentPage < totalPages)
+                    handlePageChange(currentPage + 1);
+                }}
+              />
             </PaginationItem>
           </PaginationContent>
         </Pagination>

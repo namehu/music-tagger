@@ -32,24 +32,31 @@ export const scanRouter = router({
       const files = await scanDirectory(input.path)
       const results = []
 
-      for (const filePath of files) {
-        try {
-          const parsed = await parseAudioFile(filePath)
-          if (parsed) {
-            const song = await ctx.db.song.upsert({
-              where: { filePath },
-              update: parsed,
-              create: {
-                ...parsed,
-                filePath,
-                fileName: filePath.split('/').pop() || '',
-              },
-            })
-            results.push(song)
-          }
-        } catch (error) {
-          console.error(`Failed to process file ${filePath}:`, error)
-        }
+      // Process files in batches to avoid overwhelming the database
+      const BATCH_SIZE = 10;
+      for (let i = 0; i < files.length; i += BATCH_SIZE) {
+        const batch = files.slice(i, i + BATCH_SIZE);
+        await Promise.all(
+          batch.map(async (filePath) => {
+            try {
+              const parsed = await parseAudioFile(filePath)
+              if (parsed) {
+                const song = await ctx.db.song.upsert({
+                  where: { filePath },
+                  update: parsed,
+                  create: {
+                    ...parsed,
+                    filePath,
+                    fileName: filePath.split('/').pop() || '',
+                  },
+                })
+                results.push(song)
+              }
+            } catch (error) {
+              console.error(`Failed to process file ${filePath}:`, error)
+            }
+          })
+        );
       }
 
       return { total: results.length, files: files.length }

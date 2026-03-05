@@ -1,5 +1,5 @@
-import { router, protectedProcedure } from '../trpc'
-import { z } from 'zod'
+import { router, protectedProcedure } from "../trpc";
+import { z } from "zod";
 
 export const playlistRouter = router({
   list: protectedProcedure.query(async ({ ctx }) => {
@@ -8,11 +8,11 @@ export const playlistRouter = router({
       include: {
         songs: {
           include: { song: true },
-          orderBy: { position: 'asc' },
+          orderBy: { position: "asc" },
         },
       },
-      orderBy: { updatedAt: 'desc' },
-    })
+      orderBy: { updatedAt: "desc" },
+    });
   }),
 
   create: protectedProcedure
@@ -23,7 +23,7 @@ export const playlistRouter = router({
           name: input.name,
           userId: ctx.session.user.id,
         },
-      })
+      });
     }),
 
   update: protectedProcedure
@@ -32,13 +32,13 @@ export const playlistRouter = router({
       return ctx.db.playlist.update({
         where: { id: input.id },
         data: { name: input.name },
-      })
+      });
     }),
 
   delete: protectedProcedure
     .input(z.string())
     .mutation(async ({ ctx, input }) => {
-      return ctx.db.playlist.delete({ where: { id: input } })
+      return ctx.db.playlist.delete({ where: { id: input } });
     }),
 
   addSong: protectedProcedure
@@ -46,9 +46,9 @@ export const playlistRouter = router({
     .mutation(async ({ ctx, input }) => {
       const lastSong = await ctx.db.playlistSong.findFirst({
         where: { playlistId: input.playlistId },
-        orderBy: { position: 'desc' },
-      })
-      const position = (lastSong?.position ?? -1) + 1
+        orderBy: { position: "desc" },
+      });
+      const position = (lastSong?.position ?? -1) + 1;
 
       return ctx.db.playlistSong.create({
         data: {
@@ -56,19 +56,17 @@ export const playlistRouter = router({
           songId: input.songId,
           position,
         },
-      })
+      });
     }),
 
   removeSong: protectedProcedure
     .input(z.object({ playlistId: z.string(), songId: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      return ctx.db.playlistSong.delete({
+      return ctx.db.playlistSong.deleteMany({
         where: {
-          playlistId_songId: {
-            playlistId: input.playlistId,
-            songId: input.songId,
-          },
+          playlistId: input.playlistId,
+          songId: input.songId,
         },
-      })
+      });
     }),
-})
+});

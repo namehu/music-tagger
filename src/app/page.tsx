@@ -1,28 +1,54 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense } from "react";
+import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { SongTable } from "@/components/SongTable";
 import { FilterSidebar } from "@/components/FilterSidebar";
 import { PlaylistPanel } from "@/components/PlaylistPanel";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { Filter, ListMusic, Menu } from "lucide-react";
+import { Filter, ListMusic } from "lucide-react";
 import Link from "next/link";
 
-export default function HomePage() {
-  const [selectedArtist, setSelectedArtist] = useState<string | null>(null);
-  const [selectedAlbum, setSelectedAlbum] = useState<string | null>(null);
-  const [refreshKey, setRefreshKey] = useState(0);
+function HomeContent() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+
+  const selectedArtist = searchParams.get("artist");
+  const selectedAlbum = searchParams.get("album");
+  const page = parseInt(searchParams.get("page") || "1", 10);
+
+  const updateFilters = (key: string, value: string | null) => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (value) {
+      params.set(key, value);
+    } else {
+      params.delete(key);
+    }
+    // Reset page when filter changes
+    if (key !== "page") {
+      params.delete("page");
+    }
+    
+    // Clear album if artist changes (optional, based on previous logic)
+    if (key === 'artist') {
+        params.delete('album');
+    }
+
+    router.push(`${pathname}?${params.toString()}`);
+  };
 
   const handleArtistChange = (artist: string | null) => {
-    setSelectedArtist(artist);
-    setSelectedAlbum(null);
-    setRefreshKey((k) => k + 1);
+    updateFilters("artist", artist);
   };
 
   const handleAlbumChange = (album: string | null) => {
-    setSelectedAlbum(album);
-    setRefreshKey((k) => k + 1);
+    updateFilters("album", album);
+  };
+
+  const handlePageChange = (page: number) => {
+    updateFilters("page", page.toString());
   };
 
   return (
@@ -71,13 +97,26 @@ export default function HomePage() {
             onAlbumChange={handleAlbumChange}
           />
         </div>
-        <div className="flex-1 min-w-0" key={refreshKey}>
-          <SongTable artist={selectedArtist} album={selectedAlbum} />
+        <div className="flex-1 min-w-0">
+          <SongTable 
+            artist={selectedArtist} 
+            album={selectedAlbum} 
+            page={page}
+            onPageChange={handlePageChange}
+          />
         </div>
         <div className="hidden lg:block w-72">
           <PlaylistPanel />
         </div>
       </div>
     </main>
+  );
+}
+
+export default function HomePage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <HomeContent />
+    </Suspense>
   );
 }
