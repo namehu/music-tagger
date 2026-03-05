@@ -19,7 +19,16 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Plus, MoreHorizontal, Play, Trash2, ListMusic } from "lucide-react";
+import {
+  Plus,
+  MoreHorizontal,
+  Play,
+  Trash2,
+  ListMusic,
+  ChevronDown,
+  ChevronRight,
+  X,
+} from "lucide-react";
 
 interface PlaylistSong {
   song: {
@@ -42,6 +51,9 @@ interface Playlist {
 export function PlaylistPanel() {
   const [newPlaylistName, setNewPlaylistName] = useState("");
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [expandedPlaylistId, setExpandedPlaylistId] = useState<string | null>(
+    null
+  );
 
   const { data: playlists, refetch } = trpc.playlist.list.useQuery();
   const createPlaylist = trpc.playlist.create.useMutation({
@@ -52,6 +64,9 @@ export function PlaylistPanel() {
     },
   });
   const deletePlaylist = trpc.playlist.delete.useMutation({
+    onSuccess: () => refetch(),
+  });
+  const removeSong = trpc.playlist.removeSong.useMutation({
     onSuccess: () => refetch(),
   });
 
@@ -70,9 +85,13 @@ export function PlaylistPanel() {
     }
   };
 
+  const toggleExpand = (id: string) => {
+    setExpandedPlaylistId(expandedPlaylistId === id ? null : id);
+  };
+
   return (
-    <div className="border rounded-lg p-4">
-      <div className="flex items-center justify-between mb-4">
+    <div className="border rounded-lg p-4 h-full flex flex-col">
+      <div className="flex items-center justify-between mb-4 flex-shrink-0">
         <h2 className="font-semibold flex items-center gap-2">
           <ListMusic className="w-5 h-5" />
           播放列表
@@ -100,44 +119,99 @@ export function PlaylistPanel() {
         </Dialog>
       </div>
 
-      <ScrollArea className="h-[300px]">
-        <div className="space-y-2">
+      <ScrollArea className="flex-1 -mx-4 px-4">
+        <div className="space-y-2 pb-4">
           {playlists?.map((playlist: Playlist) => (
-            <div
-              key={playlist.id}
-              className="flex items-center justify-between p-2 rounded hover:bg-gray-100"
-            >
-              <div
-                className="flex-1 cursor-pointer min-w-0"
-                onClick={() => handlePlayPlaylist(playlist)}
-              >
-                <div className="font-medium truncate">{playlist.name}</div>
-                <div className="text-xs text-muted-foreground">
-                  {playlist.songs.length} 首歌曲
+            <div key={playlist.id} className="border rounded-md">
+              <div className="flex items-center justify-between p-2 hover:bg-gray-100 rounded-t-md transition-colors">
+                <div
+                  className="flex-1 cursor-pointer min-w-0 flex items-center gap-2"
+                  onClick={() => toggleExpand(playlist.id)}
+                >
+                  {expandedPlaylistId === playlist.id ? (
+                    <ChevronDown className="w-4 h-4 text-gray-500 flex-shrink-0" />
+                  ) : (
+                    <ChevronRight className="w-4 h-4 text-gray-500 flex-shrink-0" />
+                  )}
+                  <div className="min-w-0">
+                    <div className="font-medium truncate">{playlist.name}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {playlist.songs.length} 首歌曲
+                    </div>
+                  </div>
                 </div>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                      <MoreHorizontal className="w-4 h-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem
+                      onClick={() => handlePlayPlaylist(playlist)}
+                    >
+                      <Play className="w-4 h-4 mr-2" />
+                      播放列表
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => deletePlaylist.mutate(playlist.id)}
+                      className="text-red-600"
+                    >
+                      <Trash2 className="w-4 h-4 mr-2" />
+                      删除列表
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="sm">
-                    <MoreHorizontal className="w-4 h-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem
-                    onClick={() => handlePlayPlaylist(playlist)}
-                  >
-                    <Play className="w-4 h-4 mr-2" />
-                    播放
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => deletePlaylist.mutate(playlist.id)}
-                    className="text-red-600"
-                  >
-                    <Trash2 className="w-4 h-4 mr-2" />
-                    删除
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+
+              {expandedPlaylistId === playlist.id && (
+                <div className="border-t bg-gray-50/50 p-2 space-y-1">
+                  {playlist.songs.length === 0 ? (
+                    <div className="text-center text-xs text-muted-foreground py-2">
+                      暂无歌曲
+                    </div>
+                  ) : (
+                    playlist.songs.map((ps, index) => (
+                      <div
+                        key={`${ps.song.id}-${index}`}
+                        className="flex items-center justify-between group p-1.5 hover:bg-gray-200 rounded text-sm transition-colors"
+                      >
+                        <div
+                          className="flex-1 min-w-0 cursor-pointer flex items-center gap-2"
+                          onClick={() => {
+                            setPlaylist(
+                              playlist.songs.map((s: PlaylistSong) => s.song)
+                            );
+                            play(ps.song);
+                          }}
+                        >
+                          <div className="truncate font-medium text-gray-700">
+                            {ps.song.title}
+                          </div>
+                          <div className="truncate text-gray-500 text-xs hidden sm:block">
+                            - {ps.song.artist || "未知"}
+                          </div>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity text-gray-400 hover:text-red-600 hover:bg-transparent"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            removeSong.mutate({
+                              playlistId: playlist.id,
+                              songId: ps.song.id,
+                            });
+                          }}
+                          title="从列表中移除"
+                        >
+                          <X className="w-3 h-3" />
+                        </Button>
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
             </div>
           ))}
           {playlists?.length === 0 && (

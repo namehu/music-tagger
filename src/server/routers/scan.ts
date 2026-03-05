@@ -26,44 +26,44 @@ async function scanDirectory(dirPath: string): Promise<string[]> {
 }
 
 export const scanRouter = router({
-  start: protectedProcedure
+  discover: protectedProcedure
     .input(z.object({ path: z.string() }))
-    .mutation(async ({ ctx, input }) => {
-      const files = await scanDirectory(input.path)
-      const results = []
-
-      // Process files in batches to avoid overwhelming the database
-      const BATCH_SIZE = 10;
-      for (let i = 0; i < files.length; i += BATCH_SIZE) {
-        const batch = files.slice(i, i + BATCH_SIZE);
-        await Promise.all(
-          batch.map(async (filePath) => {
-            try {
-              const parsed = await parseAudioFile(filePath)
-              if (parsed) {
-                const song = await ctx.db.song.upsert({
-                  where: { filePath },
-                  update: parsed,
-                  create: {
-                    ...parsed,
-                    filePath,
-                    fileName: filePath.split('/').pop() || '',
-                  },
-                })
-                results.push(song)
-              }
-            } catch (error) {
-              console.error(`Failed to process file ${filePath}:`, error)
-            }
-          })
-        );
-      }
-
-      return { total: results.length, files: files.length }
+    .mutation(async ({ input }) => {
+      const files = await scanDirectory(input.path);
+      return { files, total: files.length };
     }),
 
-  status: protectedProcedure.query(async ({ ctx }) => {
-    const total = await ctx.db.song.count()
-    return { total }
-  }),
-})
+  processBatch: protectedProcedure
+    .input(z.object({ files: z.array(z.string()) }))
+    .mutation(async ({ ctx, input }) => {
+      let processed = 0;
+      let failed = 0;
+
+      await Promise.all(
+        input.files.map(async (filePath) => {
+          try {
+            const parsed = await parseAudioFile(filePath);
+            if (parsed) {
+              await ctx.db.song.upsert({
+                where: { filePath },
+                update: parsed,
+                create: {
+                  ...parsed,
+                  filePath,
+                  fileName: filePath.split("/").pop() || "",
+                },
+              });
+              processed++;
+            } else {
+              failed++;
+            }
+          } catch (error) {
+            console.error(`Failed to process file ${filePath}:`, error);
+            failed++;
+          }
+        })
+      );
+
+      return { processed, failed };
+    }),
+});
