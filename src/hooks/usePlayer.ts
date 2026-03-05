@@ -6,6 +6,8 @@ interface Song {
   artist: string | null
   album: string | null
   filePath: string
+  coverPath: string | null
+  lyrics: string | null
 }
 
 interface PlayerState {

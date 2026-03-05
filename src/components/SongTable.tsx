@@ -15,7 +15,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Play, Edit, MoreHorizontal } from "lucide-react";
+import { Play, Edit, MoreHorizontal, ListPlus } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -45,7 +45,12 @@ interface Song {
   lyrics: string | null;
 }
 
-export function SongTable() {
+interface SongTableProps {
+  artist?: string | null;
+  album?: string | null;
+}
+
+export function SongTable({ artist, album }: SongTableProps) {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [editingSong, setEditingSong] = useState<Song | null>(null);
@@ -56,8 +61,16 @@ export function SongTable() {
     page,
     limit: 20,
     search: search || undefined,
+    artist: artist || undefined,
+    album: album || undefined,
   });
-  const { play, addToPlaylist, setPlaylist } = usePlayer();
+  const { data: playlists } = trpc.playlist.list.useQuery();
+  const addToPlaylist = trpc.playlist.addSong.useMutation({
+    onSuccess: () => {
+      refetch();
+    },
+  });
+  const { play, addToPlaylist: addToQueue, setPlaylist } = usePlayer();
 
   const handleSaved = () => {
     refetch();
@@ -93,14 +106,14 @@ export function SongTable() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <Input
+<Input
           placeholder="搜索歌曲..."
           value={search}
           onChange={(e) => {
             setSearch(e.target.value);
             setPage(1);
           }}
-          className="max-w-sm"
+          className="max-w-[150px] md:max-w-sm"
         />
         {selectedIds.size > 0 && (
           <Button onClick={() => setShowBatchEdit(true)} variant="default">
@@ -109,7 +122,7 @@ export function SongTable() {
         )}
       </div>
 
-      <div className="rounded-md border">
+      <div className="rounded-md border overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>
@@ -124,6 +137,7 @@ export function SongTable() {
                   onCheckedChange={toggleSelectAll}
                 />
               </TableHead>
+              <TableHead className="w-[60px]">封面</TableHead>
               <TableHead>标题</TableHead>
               <TableHead>艺术家</TableHead>
               <TableHead>专辑</TableHead>
@@ -133,7 +147,7 @@ export function SongTable() {
           <TableBody>
             {data?.songs.length === 0 && (
               <TableRow>
-                <TableCell colSpan={5} className="h-24 text-center">
+                <TableCell colSpan={6} className="h-24 text-center">
                   暂无歌曲
                 </TableCell>
               </TableRow>
@@ -148,6 +162,19 @@ export function SongTable() {
                     checked={selectedIds.has(song.id)}
                     onCheckedChange={() => toggleSelect(song.id)}
                   />
+                </TableCell>
+                <TableCell>
+                  {song.coverPath ? (
+                    <img
+                      src={song.coverPath}
+                      alt=""
+                      className="w-10 h-10 object-cover rounded"
+                    />
+                  ) : (
+                    <div className="w-10 h-10 bg-gray-200 rounded flex items-center justify-center text-gray-400">
+                      ♪
+                    </div>
+                  )}
                 </TableCell>
                 <TableCell className="font-medium">{song.title}</TableCell>
                 <TableCell>{song.artist || "-"}</TableCell>
@@ -173,6 +200,24 @@ export function SongTable() {
                         <Play className="mr-2 h-4 w-4" />
                         播放
                       </DropdownMenuItem>
+                      {playlists && playlists.length > 0 && (
+                        <>
+                          <DropdownMenuSeparator />
+                          {playlists.map((p: { id: string; name: string }) => (
+                            <DropdownMenuItem
+                              key={p.id}
+                              onClick={() => addToPlaylist.mutate({
+                                playlistId: p.id,
+                                songId: song.id,
+                              })}
+                            >
+                              <ListPlus className="mr-2 h-4 w-4" />
+                              添加到 {p.name}
+                            </DropdownMenuItem>
+                          ))}
+                        </>
+                      )}
+                      <DropdownMenuSeparator />
                       <DropdownMenuItem
                         onClick={() => setEditingSong(song as any)}
                       >

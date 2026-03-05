@@ -83,4 +83,25 @@ export const songRouter = router({
         data,
       })
     }),
+
+  getFilters: protectedProcedure.query(async ({ ctx }) => {
+    const [artists, albums] = await Promise.all([
+      ctx.db.song.findMany({
+        where: { artist: { not: '' } },
+        select: { artist: true },
+        distinct: ['artist'],
+        orderBy: { artist: 'asc' },
+      }),
+      ctx.db.song.findMany({
+        where: { album: { not: '' } },
+        select: { album: true },
+        distinct: ['album'],
+        orderBy: { album: 'asc' },
+      }),
+    ])
+    return {
+      artists: artists.map(a => a.artist).filter(Boolean),
+      albums: albums.map(a => a.album).filter(Boolean),
+    }
+  }),
 })
