@@ -21,3 +21,5 @@ Thumbs.db
 .nuxt
 .vercel
 output
+
+.pnpm-store

@@ -12,6 +12,16 @@ export function proxy(req: NextRequest) {
   // ---- Allowlist: 静态资源与 API 永远放行 ----
   // Next internal assets
   if (pathname.startsWith("/_next/")) return NextResponse.next();
+  // Next dev overlay / internal endpoints (e.g. /__nextjs_original-stack-frame)
+  if (pathname.startsWith("/__")) return NextResponse.next();
+  // Some dev tooling / browser extensions may request Vite-style endpoints (e.g. /@vite/client).
+  // If we return HTML 404, it can break the whole page bootstrapping. Serve a tiny JS stub instead.
+  if (pathname === "/@vite/client") {
+    return new NextResponse("/* vite client stub (served by Next proxy) */\nexport {};\n", {
+      headers: { "content-type": "application/javascript; charset=utf-8" },
+    });
+  }
+  if (pathname.startsWith("/@")) return NextResponse.next();
   // Common public assets
   if (pathname === "/favicon.ico") return NextResponse.next();
   // All API routes should be reachable (auth/trpc 需要）

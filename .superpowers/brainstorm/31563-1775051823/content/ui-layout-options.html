@@ -1,0 +1,111 @@
+<h2>选择 UI 布局方向（shadcn/ui）</h2>
+<p class="subtitle">先定“结构”，再做“视觉”。点击卡片选择一个你更想要的基础布局。</p>
+
+<div class="cards">
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="mockup">
+        <div class="mockup-header">A / 侧边栏 + 顶部栏（Dashboard）</div>
+        <div class="mockup-body">
+          <div style="display:flex; height:220px; border:1px solid rgba(0,0,0,.06); border-radius:10px; overflow:hidden;">
+            <div style="width:180px; background:rgba(0,0,0,.04); padding:10px;">
+              <div class="label" style="margin-bottom:8px;">Local Music</div>
+              <div style="display:grid; gap:6px;">
+                <div class="mock-button" style="justify-content:flex-start;">库浏览</div>
+                <div class="mock-button" style="justify-content:flex-start;">搜索</div>
+                <div class="mock-button" style="justify-content:flex-start;">任务队列</div>
+                <div class="mock-button" style="justify-content:flex-start;">设置</div>
+              </div>
+            </div>
+            <div style="flex:1; display:flex; flex-direction:column;">
+              <div style="height:44px; display:flex; align-items:center; justify-content:space-between; padding:0 12px; border-bottom:1px solid rgba(0,0,0,.06);">
+                <div style="font-weight:600;">库浏览</div>
+                <div style="display:flex; gap:8px; align-items:center;">
+                  <div class="mock-input" style="width:180px;">搜索…</div>
+                  <div class="mock-button">退出</div>
+                </div>
+              </div>
+              <div style="padding:12px; display:grid; gap:10px;">
+                <div class="placeholder" style="height:46px;">统计：曲目/专辑/艺术家</div>
+                <div class="placeholder" style="height:120px;">曲目表格（可排序 / 分页）</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>侧边栏为主</h3>
+      <p>适合“后台管理/工具”类；未来扩展（库、搜索、播放、计划、设置）很顺。</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="mockup">
+        <div class="mockup-header">B / 顶部导航 + 双栏（Library-first）</div>
+        <div class="mockup-body">
+          <div style="height:220px; border:1px solid rgba(0,0,0,.06); border-radius:10px; overflow:hidden; display:flex; flex-direction:column;">
+            <div style="height:44px; display:flex; align-items:center; justify-content:space-between; padding:0 12px; border-bottom:1px solid rgba(0,0,0,.06);">
+              <div style="font-weight:700;">Local Music</div>
+              <div style="display:flex; gap:10px;">
+                <div class="mock-button">库</div>
+                <div class="mock-button">播放</div>
+                <div class="mock-button">任务</div>
+                <div class="mock-button">设置</div>
+              </div>
+              <div class="mock-button">登录/退出</div>
+            </div>
+            <div style="display:flex; flex:1;">
+              <div style="width:240px; padding:12px; border-right:1px solid rgba(0,0,0,.06);">
+                <div class="label" style="margin-bottom:8px;">筛选</div>
+                <div class="placeholder" style="height:34px; margin-bottom:8px;">艺术家</div>
+                <div class="placeholder" style="height:34px; margin-bottom:8px;">专辑</div>
+                <div class="placeholder" style="height:34px;">年份/格式</div>
+              </div>
+              <div style="flex:1; padding:12px; display:grid; gap:10px;">
+                <div class="placeholder" style="height:38px;">搜索框 + 排序</div>
+                <div class="placeholder" style="height:136px;">曲目列表（主内容）</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>库浏览优先</h3>
+      <p>更像播放器/媒体库；筛选/浏览体验好，但“管理功能”会分散在顶部入口。</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="c" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="mockup">
+        <div class="mockup-header">C / 极简（单页 + 抽屉/对话框）</div>
+        <div class="mockup-body">
+          <div style="height:220px; border:1px solid rgba(0,0,0,.06); border-radius:10px; overflow:hidden; padding:12px; display:grid; gap:10px;">
+            <div style="display:flex; align-items:center; justify-content:space-between;">
+              <div style="font-weight:700;">Local Music</div>
+              <div style="display:flex; gap:8px;">
+                <div class="mock-button">任务</div>
+                <div class="mock-button">设置</div>
+                <div class="mock-button">登录</div>
+              </div>
+            </div>
+            <div class="placeholder" style="height:38px;">全局搜索（命令面板式）</div>
+            <div class="placeholder" style="height:136px;">最近/推荐/队列（卡片流）</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>极简起步</h3>
+      <p>实现最快，但后续页面变多会“长在一起”，扩展性一般。</p>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <p class="subtitle">建议：如果你要做“工具型后台 + 计划执行”，我倾向选 A。</p>
+</div>
+
