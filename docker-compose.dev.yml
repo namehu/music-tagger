@@ -1,0 +1,16 @@
+services:
+  worker:
+    build:
+      context: .
+      dockerfile: worker/Dockerfile
+    image: music-tagger-worker:dev
+    container_name: music-worker-dev
+    environment:
+      DATABASE_URL: file:/workspace/web/dev.db
+      MUSIC_ROOT: /music
+      WORKER_ID: ${WORKER_ID:-worker-dev}
+    volumes:
+      - ./worker:/app/worker
+      - ./web:/workspace/web
+      - ${LOCAL_MUSIC_DIR:?LOCAL_MUSIC_DIR is required}:/music:ro
+    restart: unless-stopped

@@ -4,7 +4,8 @@
 
 ## 依赖
 
-- Python 3.9+（标准库即可）
+- Python 3.9+
+- `ffprobe`（真实扫描时用于提取音频元数据）
 - 已存在的 SQLite 数据库（默认使用 `web/dev.db`）
 
 ## 运行
@@ -41,5 +42,15 @@ INSERT INTO "jobs" (
 );
 ```
 
-worker 领取后会调用 `scan_full`，并在 `tracks` 表写入（或更新）一条占位记录。
+worker 领取后会调用 `scan_full`，遍历 `MUSIC_ROOT` 下支持的音频文件，并把基础元数据与技术信息写入（或更新）`tracks` 表。
 
+## Docker
+
+如果通过 Docker 部署，推荐直接使用 [`worker/Dockerfile`](/Users/namehu/github/music-tagger/worker/Dockerfile)，镜像内已经安装 `ffmpeg`，因此同时具备 `ffprobe` 能力，无需在 NAS 宿主机额外手工安装。
+
+启动方式分成两条：
+
+- 本地开发：使用 [`docker-compose.dev.yml`](/Users/namehu/github/music-tagger/docker-compose.dev.yml)，让 worker 跑在 Docker，Web 跑在宿主机
+- 生产部署：使用 [`docker-compose.prod.yml`](/Users/namehu/github/music-tagger/docker-compose.prod.yml)，让 NAS 只拉镜像并启动
+
+完整步骤见 [`docs/local-development.md`](/Users/namehu/github/music-tagger/docs/local-development.md) 和 [`docs/production-deployment.md`](/Users/namehu/github/music-tagger/docs/production-deployment.md)。

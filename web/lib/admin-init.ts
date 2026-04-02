@@ -12,6 +12,15 @@ export const createAdminInputSchema = z.object({
 export type CreateAdminInput = z.infer<typeof createAdminInputSchema>;
 export type AdminInitState = "none" | "locking" | "done";
 
+function isMissingTableError(error: unknown) {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    (error as { code?: unknown }).code === "P2021"
+  );
+}
+
 export class AdminInitializationError extends Error {
   constructor(
     public readonly code: "ALREADY_INITIALIZED" | "INITIALIZING" | "INITIALIZATION_FAILED",
@@ -40,10 +49,17 @@ export function getAdminInitState(dataJson: string | null | undefined): AdminIni
 }
 
 export async function getAdminInitializationStatus() {
-  const settings = await prisma.adminSettings.findUnique({
-    where: { id: "singleton" },
-    select: { dataJson: true },
-  });
+  let settings: { dataJson: string } | null = null;
+  try {
+    settings = await prisma.adminSettings.findUnique({
+      where: { id: "singleton" },
+      select: { dataJson: true },
+    });
+  } catch (error) {
+    if (!isMissingTableError(error)) {
+      throw error;
+    }
+  }
 
   const state = getAdminInitState(settings?.dataJson);
 

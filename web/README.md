@@ -55,3 +55,23 @@ pnpm prisma:studio
 - 流媒体播放与转码缓存
 - FTS 搜索
 - Plan/预览/执行工作流
+
+## Docker 运行
+
+`web/Dockerfile` 会在镜像构建阶段完成 `next build`，并在容器启动时自动执行：
+
+```bash
+pnpm prisma migrate deploy && pnpm start
+```
+
+生产环境请至少提供：
+
+- `DATABASE_URL=file:/data/app.db`
+- `BETTER_AUTH_SECRET`
+- `BETTER_AUTH_URL`
+- `BETTER_AUTH_TRUSTED_ORIGINS`（可选）
+
+如果你需要完整启动说明：
+
+- 本地开发看 [`docs/local-development.md`](/Users/namehu/github/music-tagger/docs/local-development.md)
+- NAS 生产部署看 [`docs/production-deployment.md`](/Users/namehu/github/music-tagger/docs/production-deployment.md)

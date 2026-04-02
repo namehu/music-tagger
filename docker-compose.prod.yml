@@ -1,0 +1,37 @@
+services:
+  web:
+    image: ${WEB_IMAGE:?WEB_IMAGE is required}
+    pull_policy: always
+    container_name: music-web
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: file:/data/app.db
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?BETTER_AUTH_SECRET is required}
+      BETTER_AUTH_URL: ${BETTER_AUTH_URL:?BETTER_AUTH_URL is required}
+      BETTER_AUTH_TRUSTED_ORIGINS: ${BETTER_AUTH_TRUSTED_ORIGINS:-}
+    volumes:
+      - data:/data
+      - transcode_cache:/cache
+    ports:
+      - "${WEB_PORT:-3000}:3000"
+    restart: unless-stopped
+
+  worker:
+    image: ${WORKER_IMAGE:?WORKER_IMAGE is required}
+    pull_policy: always
+    container_name: music-worker
+    environment:
+      DATABASE_URL: file:/data/app.db
+      MUSIC_ROOT: /music
+      WORKER_ID: ${WORKER_ID:-worker-1}
+    volumes:
+      - data:/data
+      - transcode_cache:/cache
+      - ${NAS_MUSIC_DIR:?NAS_MUSIC_DIR is required}:/music:ro
+    depends_on:
+      - web
+    restart: unless-stopped
+
+volumes:
+  data:
+  transcode_cache:

@@ -7,10 +7,20 @@ import { PrismaClient } from "@/generated/prisma/client";
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
 
 function getSqliteConnectionString(): string {
-  // Requirement: PrismaBetterSqlite3({ url: <absolute file path> })
-  // For SQLite connection strings Prisma expects `file:` protocol.
-  // When running `pnpm -C web dev`, process.cwd() should be `<repo>/web`.
-  const absoluteDbPath = path.resolve(process.cwd(), "dev.db");
+  const configuredUrl = process.env.DATABASE_URL?.trim();
+  if (configuredUrl) {
+    if (configuredUrl.startsWith("file:")) {
+      const rawPath = configuredUrl.slice("file:".length);
+      const normalizedPath = path.isAbsolute(rawPath)
+        ? rawPath
+        : path.resolve(/* turbopackIgnore: true */ process.cwd(), rawPath);
+      return `file:${normalizedPath}`;
+    }
+
+    throw new Error("DATABASE_URL must use the file: SQLite protocol");
+  }
+
+  const absoluteDbPath = path.resolve(/* turbopackIgnore: true */ process.cwd(), "dev.db");
   return `file:${absoluteDbPath}`;
 }
 
@@ -21,4 +31,3 @@ export const prisma =
   });
 
 if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
-

@@ -18,46 +18,36 @@
 
 - [`web/`](/Users/namehu/github/music-tagger/web): Next.js 16 控制台，包含认证、tRPC、Prisma 与管理页面
 - [`worker/`](/Users/namehu/github/music-tagger/worker): Python worker，负责领取 jobs 并执行扫描
-- [`docs/`](/Users/namehu/github/music-tagger/docs): 设计稿与阶段性实现计划
+- [`docs/`](/Users/namehu/github/music-tagger/docs): 设计稿与使用文档
 
-## 快速开始
+## 两套启动方案
 
-1. 安装依赖：
+### 1. 本地快速开发
 
-```bash
-pnpm install
-```
+- Web 跑在宿主机：`pnpm dev:web`
+- worker 跑在 Docker：[`docker-compose.dev.yml`](/Users/namehu/github/music-tagger/docker-compose.dev.yml)
+- 适合日常开发与调试页面
 
-2. 准备环境变量：
+完整教程见 [`docs/local-development.md`](/Users/namehu/github/music-tagger/docs/local-development.md)。
 
-```bash
-cp web/.env.example web/.env
-```
+### 2. NAS 生产部署
 
-3. 启动 Web：
+- Web 和 worker 都跑 Docker
+- NAS 只拉取镜像并启动，不在 NAS 上构建
+- 使用 [`docker-compose.prod.yml`](/Users/namehu/github/music-tagger/docker-compose.prod.yml)
 
-```bash
-pnpm dev:web
-```
+完整教程见 [`docs/production-deployment.md`](/Users/namehu/github/music-tagger/docs/production-deployment.md)。
 
-4. 在浏览器打开 `http://localhost:3000/setup`，创建首个管理员。
+## 环境文件模板
 
-5. 启动 worker：
-
-```bash
-python3 worker/worker.py
-```
-
-可选环境变量：
-
-- `DATABASE_URL`: 默认读取 `web/dev.db`
-- `MUSIC_ROOT`: 默认 `/music`
-- `WORKER_ID`: worker 实例标识
-- `BETTER_AUTH_TRUSTED_ORIGINS`: 额外可信来源，多个值用英文逗号分隔
+- 本地开发 worker 环境：[`.env.dev.example`](/Users/namehu/github/music-tagger/.env.dev.example)
+- 生产部署环境：[`.env.prod.example`](/Users/namehu/github/music-tagger/.env.prod.example)
+- Web 本地开发环境：[`web/.env.example`](/Users/namehu/github/music-tagger/web/.env.example)
 
 ## 常用命令
 
 ```bash
+pnpm install
 pnpm dev:web
 pnpm lint:web
 pnpm build:web
@@ -67,8 +57,8 @@ pnpm prisma:studio
 
 ## 当前使用方式
 
-1. 登录后进入 [`/admin/library`](/Users/namehu/github/music-tagger/web/app/(app)/admin/library/page.tsx) 查看库统计与曲目列表。
-2. 进入 [`/admin/jobs`](/Users/namehu/github/music-tagger/web/app/(app)/admin/jobs/page.tsx) 触发 `scan_full`，页面会自动轮询任务状态。
-3. worker 扫描 `MUSIC_ROOT` 下的音频文件，并把基础元数据和技术信息写入 `tracks` 表。
+1. 打开 `/setup` 创建首个管理员。
+2. 进入 `/admin/jobs` 触发 `scan_full`。
+3. 进入 `/admin/library` 验证扫描结果。
 
-更多 worker 细节见 [`worker/README.md`](/Users/namehu/github/music-tagger/worker/README.md)。
+更多细节见 [`web/README.md`](/Users/namehu/github/music-tagger/web/README.md) 和 [`worker/README.md`](/Users/namehu/github/music-tagger/worker/README.md)。
