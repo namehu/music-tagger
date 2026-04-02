@@ -8,7 +8,7 @@ from pathlib import Path
 
 # 以 `python worker/worker.py` 方式运行时，sys.path[0] 为 worker/ 目录，
 # 因此使用同目录导入（避免要求 worker/ 作为带 __init__.py 的包）。
-from jobs import claim_next_job, heartbeat, mark_done, mark_failed
+from jobs import claim_next_job, heartbeat, mark_done, mark_failed, update_progress
 from scanner import scan_full
 
 
@@ -61,7 +61,11 @@ def _handle_job(conn: sqlite3.Connection, worker_id: str, job: dict, music_root:
 
         if job_type == "scan_full":
             root = payload.get("musicRoot") or music_root
-            scan_full(conn, root)
+            scan_full(
+                conn,
+                root,
+                on_progress=lambda progress: update_progress(conn, job_id, worker_id, progress),
+            )
             mark_done(conn, job_id, worker_id)
             return
 

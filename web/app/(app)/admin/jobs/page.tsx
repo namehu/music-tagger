@@ -29,15 +29,30 @@ export default function AdminJobsPage() {
   const utils = trpc.useUtils();
 
   const jobsQuery = trpc.jobs.list.useQuery();
+  const { refetch } = jobsQuery;
   const enqueueScanFull = trpc.jobs.enqueueScanFull.useMutation({
-    onSuccess: async () => {
-      toast.success("已入队");
+    onSuccess: async (result) => {
+      toast.success(result.deduped ? "已有进行中的 scan_full 任务" : "已入队");
       await utils.jobs.list.invalidate();
     },
     onError: (err) => {
       toast.error(err.message ?? "触发失败");
     },
   });
+
+  const hasActiveJobs = (jobsQuery.data ?? []).some((job) =>
+    job.status === "pending" || job.status === "running"
+  );
+
+  React.useEffect(() => {
+    if (!hasActiveJobs) return;
+
+    const timer = window.setInterval(() => {
+      void refetch();
+    }, 2000);
+
+    return () => window.clearInterval(timer);
+  }, [hasActiveJobs, refetch]);
 
   const jobsErrorCode = jobsQuery.error?.data?.code;
   const shouldShowSignInHint =

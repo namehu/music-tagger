@@ -131,6 +131,27 @@ def heartbeat(conn: sqlite3.Connection, job_id: str, worker_id: str) -> bool:
     return cur.rowcount == 1
 
 
+def update_progress(
+    conn: sqlite3.Connection,
+    job_id: str,
+    worker_id: str,
+    progress: float,
+) -> bool:
+    """更新任务进度并刷新 heartbeatAt（仅允许锁持有者更新）。"""
+    now = _utc_now_sqlite()
+    safe_progress = max(0.0, min(1.0, progress))
+    cur = conn.execute(
+        """
+        UPDATE "jobs"
+        SET "progress" = ?, "heartbeatAt" = ?, "updatedAt" = ?
+        WHERE "id" = ? AND "status" = 'running' AND "lockedBy" = ?
+        """,
+        (safe_progress, now, now, job_id, worker_id),
+    )
+    conn.commit()
+    return cur.rowcount == 1
+
+
 def mark_done(conn: sqlite3.Connection, job_id: str, worker_id: str) -> None:
     """标记任务完成，释放锁。"""
     now = _utc_now_sqlite()
@@ -202,4 +223,3 @@ def mark_failed(conn: sqlite3.Connection, job_id: str, worker_id: str, err: Exce
         (error_json, now, job_id, worker_id),
     )
     conn.commit()
-

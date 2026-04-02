@@ -14,7 +14,7 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
-import { BriefcaseIcon, LayoutDashboardIcon, MenuIcon, SettingsIcon } from "lucide-react";
+import { BriefcaseIcon, FolderIcon, LayoutDashboardIcon, MenuIcon } from "lucide-react";
 
 type NavItem = {
   title: string;
@@ -25,7 +25,7 @@ type NavItem = {
 const NAV_ITEMS: NavItem[] = [
   { title: "概览", href: "/admin", icon: LayoutDashboardIcon },
   { title: "Jobs", href: "/admin/jobs", icon: BriefcaseIcon },
-  { title: "设置", href: "/admin/settings", icon: SettingsIcon },
+  { title: "音乐库", href: "/admin/library", icon: FolderIcon },
 ];
 
 function isActivePath(pathname: string, href: string) {
@@ -112,4 +112,3 @@ export function SidebarNavSheet({ className }: { className?: string }) {
     </Sheet>
   );
 }
-

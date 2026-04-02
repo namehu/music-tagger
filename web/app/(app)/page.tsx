@@ -45,11 +45,11 @@ export default function Home() {
             </div>
 
             <div className="flex flex-wrap gap-2">
+              <Link href="/admin/library" className={buttonVariants({ variant: "default" })}>
+                音乐库
+              </Link>
               <Link href="/admin/jobs" className={buttonVariants({ variant: "default" })}>
                 Jobs
-              </Link>
-              <Link href="/admin/settings" className={buttonVariants({ variant: "outline" })}>
-                Settings
               </Link>
             </div>
           </CardContent>
@@ -62,8 +62,8 @@ export default function Home() {
           </CardHeader>
           <CardContent className="space-y-4 pt-4">
             <ul className="space-y-1 text-sm text-muted-foreground">
+              <li>• 音乐库：查看扫描结果并做基础搜索。</li>
               <li>• Jobs：查看最近任务与运行状态。</li>
-              <li>• Settings：配置项页面（若尚未实现，先保留入口）。</li>
               <li>• scan_full：管理员触发的全量扫描任务。</li>
             </ul>
 

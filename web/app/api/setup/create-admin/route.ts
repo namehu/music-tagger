@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
 
-import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import {
+  AdminInitializationError,
+  createAdminInputSchema,
+  getAdminInitializationStatus,
+  initializeAdmin,
+} from "@/lib/admin-init";
 
 function getRequestBaseUrl(req: Request): string {
   const forwardedProto = req.headers.get("x-forwarded-proto");
@@ -22,20 +26,6 @@ function getRequestBaseUrl(req: Request): string {
     return `${proto}://localhost${port ? `:${port}` : ""}`;
   }
   return `${proto}://${hostHeader}`;
-}
-
-function safeJsonParse(value: string): unknown {
-  try {
-    return JSON.parse(value);
-  } catch {
-    return null;
-  }
-}
-
-function isDoneState(dataJson: string | null | undefined): boolean {
-  const parsed = typeof dataJson === "string" ? safeJsonParse(dataJson) : null;
-  if (!parsed || typeof parsed !== "object") return false;
-  return (parsed as { state?: unknown }).state === "done";
 }
 
 async function readBody(req: Request): Promise<{ name?: string; email?: string; password?: string }> {
@@ -63,70 +53,36 @@ async function readBody(req: Request): Promise<{ name?: string; email?: string; 
 export async function POST(req: Request) {
   const baseUrl = getRequestBaseUrl(req);
 
-  // If already initialized => redirect to sign-in
-  const settings = await prisma.adminSettings.findUnique({
-    where: { id: "singleton" },
-    select: { dataJson: true },
-  });
-  if (settings?.dataJson && isDoneState(settings.dataJson)) {
+  const status = await getAdminInitializationStatus();
+  if (status.initialized) {
     return NextResponse.redirect(new URL("/sign-in", baseUrl), { status: 303 });
   }
 
   const body = await readBody(req);
-  const email = (body.email ?? "").trim();
-  const password = body.password ?? "";
-  const name = (body.name ?? "").trim() || "Admin";
+  const parsed = createAdminInputSchema.safeParse({
+    email: body.email?.trim(),
+    password: body.password ?? "",
+    name: body.name?.trim() || undefined,
+  });
 
-  if (!email || !email.includes("@") || password.length < 8) {
-    return NextResponse.redirect(new URL("/setup", baseUrl), { status: 303 });
-  }
-
-  // acquire lock
-  try {
-    await prisma.adminSettings.create({
-      data: {
-        id: "singleton",
-        dataJson: JSON.stringify({ state: "locking", startedAt: new Date().toISOString() }),
-        updatedAt: new Date(),
-      },
-    });
-  } catch {
-    // lock exists => go setup again (UI will show “初始化中/已初始化”)
+  if (!parsed.success) {
     return NextResponse.redirect(new URL("/setup", baseUrl), { status: 303 });
   }
 
   try {
-    const result = await auth.api.signUpEmail({
-      body: { email, password, name },
-    });
+    await initializeAdmin(parsed.data);
 
-    const userId = result?.user?.id;
-    if (!userId) throw new Error("No userId returned from signUpEmail");
-
-    await prisma.user.update({
-      where: { id: userId },
-      data: { role: "admin" },
-    });
-
-    await prisma.adminSettings.update({
-      where: { id: "singleton" },
-      data: {
-        dataJson: JSON.stringify({
-          state: "done",
-          doneAt: new Date().toISOString(),
-          adminUserId: userId,
-        }),
-        updatedAt: new Date(),
-      },
-    });
-
-    // redirect to sign-in and prefill email
     const url = new URL("/sign-in", baseUrl);
-    url.searchParams.set("email", email);
+    url.searchParams.set("email", parsed.data.email);
     return NextResponse.redirect(url, { status: 303 });
-  } catch {
-    // rollback lock
-    await prisma.adminSettings.delete({ where: { id: "singleton" } }).catch(() => undefined);
+  } catch (error) {
+    if (
+      error instanceof AdminInitializationError &&
+      (error.code === "ALREADY_INITIALIZED" || error.code === "INITIALIZING")
+    ) {
+      return NextResponse.redirect(new URL("/setup", baseUrl), { status: 303 });
+    }
+
     return NextResponse.redirect(new URL("/setup", baseUrl), { status: 303 });
   }
 }

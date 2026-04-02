@@ -2,28 +2,50 @@ import { TRPCError } from "@trpc/server";
 import { randomUUID } from "crypto";
 import { z } from "zod";
 
-import { adminProcedure, protectedProcedure, router } from "../trpc";
+import { adminProcedure, router } from "../trpc";
 
 export const jobsRouter = router({
   enqueueScanFull: adminProcedure.mutation(async ({ ctx }) => {
+    const existingJob = await ctx.prisma.job.findFirst({
+      where: {
+        type: "scan_full",
+        status: {
+          in: ["pending", "running"],
+        },
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+      select: {
+        id: true,
+        status: true,
+      },
+    });
+
+    if (existingJob) {
+      return { jobId: existingJob.id, deduped: true as const, status: existingJob.status };
+    }
+
     const jobId = `job_${randomUUID()}`;
+    const payloadJson = JSON.stringify({
+      jobKey: "scan_full:default",
+      musicRoot: null,
+    });
 
     await ctx.prisma.job.create({
       data: {
         id: jobId,
         type: "scan_full",
         status: "pending",
-        payloadJson: JSON.stringify({
-          jobKey: jobId,
-        }),
+        payloadJson,
       },
       select: { id: true },
     });
 
-    return { jobId };
+    return { jobId, deduped: false as const, status: "pending" as const };
   }),
 
-  get: protectedProcedure
+  get: adminProcedure
     .input(
       z.object({
         jobId: z.string().min(1),
@@ -50,7 +72,7 @@ export const jobsRouter = router({
       return job;
     }),
 
-  list: protectedProcedure.query(async ({ ctx }) => {
+  list: adminProcedure.query(async ({ ctx }) => {
     return ctx.prisma.job.findMany({
       take: 50,
       orderBy: { createdAt: "desc" },
@@ -66,4 +88,3 @@ export const jobsRouter = router({
     });
   }),
 });
-

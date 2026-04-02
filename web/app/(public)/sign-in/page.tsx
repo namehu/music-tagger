@@ -19,6 +19,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 export default function SignInPage() {
+  return (
+    <React.Suspense fallback={<SignInPageFallback />}>
+      <SignInPageContent />
+    </React.Suspense>
+  );
+}
+
+function SignInPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -33,7 +41,7 @@ export default function SignInPage() {
     setEmail(emailFromQuery);
   }, [emailFromQuery]);
 
-  const callbackURL = nextFromQuery.length > 0 ? nextFromQuery : "/admin/jobs";
+  const callbackURL = nextFromQuery.length > 0 ? nextFromQuery : "/admin/library";
 
   return (
     <main className="flex min-h-dvh items-center justify-center p-4">
@@ -116,6 +124,22 @@ export default function SignInPage() {
             </Link>
           </p>
         </CardFooter>
+      </Card>
+    </main>
+  );
+}
+
+function SignInPageFallback() {
+  return (
+    <main className="flex min-h-dvh items-center justify-center p-4">
+      <Card className="w-full max-w-md">
+        <CardHeader className="border-b">
+          <CardTitle>登录</CardTitle>
+          <CardDescription>正在准备登录页面…</CardDescription>
+        </CardHeader>
+        <CardContent className="pt-6">
+          <div className="text-sm text-muted-foreground">请稍候。</div>
+        </CardContent>
       </Card>
     </main>
   );
