@@ -10,8 +10,8 @@
 
 ## 总体流程
 
-1. 在你的开发机或 CI 上构建镜像
-2. 把镜像推送到远程镜像仓库
+1. 在 GitHub 上打一个 `v*` tag
+2. GitHub Actions 自动构建并推送镜像到 GHCR
 3. 在 NAS 上填写生产环境变量
 4. 让 NAS 只执行 `pull` 和 `up`
 
@@ -19,31 +19,47 @@
 
 1. 确认 NAS 已安装 Docker / Container Manager。
 2. 确认 NAS 宿主机已经能访问音乐目录，例如 `/volume1/music`。
-3. 准备一个远程镜像仓库，例如 Docker Hub、GHCR 或私有 registry。
+3. 使用本仓库自带的 GitHub Actions，把镜像发布到 GHCR。
 
-## 第一步：在开发机或 CI 构建并推送镜像
+## 第一步：启用 GitHub Actions 自动发布
 
-以下命令在你的开发机执行，不在 NAS 执行。
+仓库已经包含自动发布 workflow：
 
-### 单平台构建
+- [`.github/workflows/release-images.yml`](/Users/namehu/github/music-tagger/.github/workflows/release-images.yml)
 
-如果你已经确认 NAS 架构，例如 `linux/amd64` 或 `linux/arm64`，可以直接构建对应平台：
+这个 workflow 会在你推送 `v*` tag 时自动：
+
+- 构建 `web` 镜像
+- 构建 `worker` 镜像
+- 同时发布 `linux/amd64` 和 `linux/arm64`
+- 推送到 `ghcr.io`
+
+默认镜像名：
+
+- `ghcr.io/<github-owner>/music-tagger-web:<tag>`
+- `ghcr.io/<github-owner>/music-tagger-worker:<tag>`
+
+例如这个仓库会发布成：
+
+- `ghcr.io/namehu/music-tagger-web:v0.1.0`
+- `ghcr.io/namehu/music-tagger-worker:v0.1.0`
+
+### 如何触发一次发布
+
+在本地执行：
 
 ```bash
-docker buildx build --platform linux/amd64 -f web/Dockerfile -t registry.example.com/music-tagger/web:2026-04-02 --push .
-docker buildx build --platform linux/amd64 -f worker/Dockerfile -t registry.example.com/music-tagger/worker:2026-04-02 --push .
+git tag v0.1.0
+git push origin v0.1.0
 ```
 
-如果 NAS 是 ARM，请把 `linux/amd64` 改成 `linux/arm64`。
+推送后，GitHub Actions 会自动开始构建并发布镜像。
 
-### 多平台构建
+### 第一次使用时需要确认
 
-如果你希望以后兼容不同 NAS，可以直接推送 multi-arch 镜像：
-
-```bash
-docker buildx build --platform linux/amd64,linux/arm64 -f web/Dockerfile -t registry.example.com/music-tagger/web:2026-04-02 --push .
-docker buildx build --platform linux/amd64,linux/arm64 -f worker/Dockerfile -t registry.example.com/music-tagger/worker:2026-04-02 --push .
-```
+1. 仓库的 GitHub Actions 已启用。
+2. 仓库允许 `GITHUB_TOKEN` 写入 packages。
+3. 如果 GHCR 包默认是私有的，NAS 拉取时要先 `docker login ghcr.io`。
 
 ## 第二步：在 NAS 准备环境文件
 
@@ -56,8 +72,8 @@ cp .env.prod.example .env.prod
 然后参考 [`.env.prod.example`](/Users/namehu/github/music-tagger/.env.prod.example) 修改 `.env.prod`：
 
 ```dotenv
-WEB_IMAGE="registry.example.com/music-tagger/web:2026-04-02"
-WORKER_IMAGE="registry.example.com/music-tagger/worker:2026-04-02"
+WEB_IMAGE="ghcr.io/namehu/music-tagger-web:v0.1.0"
+WORKER_IMAGE="ghcr.io/namehu/music-tagger-worker:v0.1.0"
 BETTER_AUTH_SECRET="replace-me-with-a-long-random-secret"
 BETTER_AUTH_URL="http://nas-or-domain:3000"
 BETTER_AUTH_TRUSTED_ORIGINS="http://nas-ip:3000,https://music.example.com"
@@ -76,12 +92,12 @@ WEB_PORT="3000"
 - `NAS_MUSIC_DIR`：NAS 宿主机上的音乐目录绝对路径
 - `WEB_PORT`：宿主机对外暴露端口
 
-## 第三步：在 NAS 登录镜像仓库
+## 第三步：在 NAS 登录 GHCR
 
-如果你的镜像仓库需要认证，先登录：
+如果镜像是私有包，先在 NAS 上登录 GHCR：
 
 ```bash
-docker login registry.example.com
+docker login ghcr.io
 ```
 
 ## 第四步：在 NAS 拉取并启动
@@ -122,7 +138,7 @@ docker compose --env-file .env.prod -f docker-compose.prod.yml logs -f
 
 你的更新流程应该始终保持下面这条线：
 
-1. 在开发机或 CI 构建新 tag 镜像并推送
+1. 在本地创建并推送新的 `v*` tag
 2. 在 NAS 修改 `.env.prod` 中的镜像 tag
 3. 在 NAS 执行：
 
@@ -131,7 +147,7 @@ docker compose --env-file .env.prod -f docker-compose.prod.yml pull
 docker compose --env-file .env.prod -f docker-compose.prod.yml up -d
 ```
 
-这条流程不会在 NAS 本地执行构建。
+这条流程不会在 NAS 本地执行构建；构建发生在 GitHub Actions。
 
 ## 持久化与备份
 

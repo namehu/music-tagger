@@ -38,6 +38,11 @@
 
 完整教程见 [`docs/production-deployment.md`](/Users/namehu/github/music-tagger/docs/production-deployment.md)。
 
+### 3. 自动镜像发布
+
+- 打 `v*` tag 后，GitHub Actions 会自动构建并推送 `web` / `worker` 镜像到 GHCR
+- workflow 文件在 [`.github/workflows/release-images.yml`](/Users/namehu/github/music-tagger/.github/workflows/release-images.yml)
+
 ## 环境文件模板
 
 - 本地开发 worker 环境：[`.env.dev.example`](/Users/namehu/github/music-tagger/.env.dev.example)
