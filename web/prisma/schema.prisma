@@ -1,0 +1,147 @@
+generator client {
+  // Prisma ORM v7: use the new ESM-first Prisma Client generator
+  provider = "prisma-client"
+  // Keep the generated client in web/generated so it can be imported via @/*
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+enum UserRole {
+  admin
+  user
+}
+
+// ===== Better Auth models (based on Prisma guide) =====
+model User {
+  id            String    @id
+  name          String
+  email         String
+  emailVerified Boolean
+  image         String?
+  createdAt     DateTime
+  updatedAt     DateTime
+  sessions      Session[]
+  accounts      Account[]
+
+  role          UserRole  @default(user)
+
+  @@unique([email])
+  @@map("user")
+}
+
+model Session {
+  id        String   @id
+  expiresAt DateTime
+  token     String
+  createdAt DateTime
+  updatedAt DateTime
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([token])
+  @@map("session")
+}
+
+model Account {
+  id                   String   @id
+  accountId            String
+  providerId           String
+  userId               String
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken          String?
+  refreshToken         String?
+  idToken              String?
+  accessTokenExpiresAt DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                String?
+  password             String?
+  createdAt            DateTime
+  updatedAt            DateTime
+
+  @@map("account")
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime?
+  updatedAt  DateTime?
+
+  @@map("verification")
+}
+
+// ===== App settings =====
+model AdminSettings {
+  id        String   @id @default("singleton")
+  dataJson  String
+  updatedAt DateTime @default(now())
+
+  @@map("admin_settings")
+}
+
+// ===== Jobs queue =====
+model Job {
+  id          String   @id
+  type        String
+  status      String
+  priority    Int      @default(0)
+  payloadJson String
+  progress    Float    @default(0)
+  attempts    Int      @default(0)
+  maxAttempts Int      @default(3)
+  lockedBy    String?
+  lockedAt    DateTime?
+  heartbeatAt DateTime?
+  errorJson   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([status, priority, createdAt], map: "idx_jobs_status_pri")
+  @@index([lockedAt, lockedBy], map: "idx_jobs_locked")
+  @@map("jobs")
+}
+
+// ===== Media index (M0 minimal) =====
+model Track {
+  id          String   @id
+  path        String   @unique
+  dirPath     String
+  filename    String
+  fileSize    Int
+  mtimeMs     BigInt
+  container   String
+  durationMs  Int
+  bitrateKbps Int?
+  sampleRate  Int?
+  bitDepth    Int?
+  channels    Int?
+  title       String?
+  artist      String?
+  album       String?
+  albumArtist String?
+  trackNo     Int?
+  discNo      Int?
+  year        Int?
+  genre       String?
+  tagsJson    String?
+  artworkKind String?
+  artworkMime String?
+  artworkHash String?
+  lyricsKind  String?
+  lyricsHash  String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([dirPath], map: "idx_tracks_dir_path")
+  @@index([album, albumArtist], map: "idx_tracks_album")
+  @@index([artist], map: "idx_tracks_artist")
+  @@index([updatedAt], map: "idx_tracks_updated_at")
+  @@map("tracks")
+}

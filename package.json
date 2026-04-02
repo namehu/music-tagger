@@ -1,0 +1,13 @@
+{
+  "name": "local-music-manager",
+  "private": true,
+  "packageManager": "pnpm@10.33.0",
+  "scripts": {
+    "dev:web": "pnpm -C web dev",
+    "build:web": "pnpm -C web build",
+    "start:web": "pnpm -C web start",
+    "prisma:studio": "pnpm -C web prisma studio",
+    "prisma:migrate": "pnpm -C web prisma migrate dev",
+    "lint:web": "pnpm -C web lint"
+  }
+}

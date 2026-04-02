@@ -1,0 +1,7 @@
+packages:
+  - "web"
+  - "worker"
+allowBuilds:
+  '@prisma/engines': true
+  better-sqlite3: true
+  prisma: true

@@ -1,0 +1,23 @@
+// 忽略 node_modules 目录
+node_modules
+dist
+build
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.log
+.DS_Store
+Thumbs.db
+.vscode
+.idea
+*.swp
+*.swo
+*~
+.cache
+.parcel-cache
+.next
+.nuxt
+.vercel
+output
