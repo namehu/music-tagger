@@ -390,7 +390,8 @@ export const ModelName = {
   Verification: 'Verification',
   AdminSettings: 'AdminSettings',
   Job: 'Job',
-  Track: 'Track'
+  Track: 'Track',
+  TranscodeCache: 'TranscodeCache'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -406,7 +407,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "user" | "session" | "account" | "verification" | "adminSettings" | "job" | "track"
+    modelProps: "user" | "session" | "account" | "verification" | "adminSettings" | "job" | "track" | "transcodeCache"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -928,6 +929,80 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         }
       }
     }
+    TranscodeCache: {
+      payload: Prisma.$TranscodeCachePayload<ExtArgs>
+      fields: Prisma.TranscodeCacheFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.TranscodeCacheFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$TranscodeCachePayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.TranscodeCacheFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$TranscodeCachePayload>
+        }
+        findFirst: {
+          args: Prisma.TranscodeCacheFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$TranscodeCachePayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.TranscodeCacheFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$TranscodeCachePayload>
+        }
+        findMany: {
+          args: Prisma.TranscodeCacheFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$TranscodeCachePayload>[]
+        }
+        create: {
+          args: Prisma.TranscodeCacheCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$TranscodeCachePayload>
+        }
+        createMany: {
+          args: Prisma.TranscodeCacheCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.TranscodeCacheCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$TranscodeCachePayload>[]
+        }
+        delete: {
+          args: Prisma.TranscodeCacheDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$TranscodeCachePayload>
+        }
+        update: {
+          args: Prisma.TranscodeCacheUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$TranscodeCachePayload>
+        }
+        deleteMany: {
+          args: Prisma.TranscodeCacheDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.TranscodeCacheUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.TranscodeCacheUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$TranscodeCachePayload>[]
+        }
+        upsert: {
+          args: Prisma.TranscodeCacheUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$TranscodeCachePayload>
+        }
+        aggregate: {
+          args: Prisma.TranscodeCacheAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateTranscodeCache>
+        }
+        groupBy: {
+          args: Prisma.TranscodeCacheGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.TranscodeCacheGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.TranscodeCacheCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.TranscodeCacheCountAggregateOutputType> | number
+        }
+      }
+    }
   }
 } & {
   other: {
@@ -1084,6 +1159,23 @@ export const TrackScalarFieldEnum = {
 } as const
 
 export type TrackScalarFieldEnum = (typeof TrackScalarFieldEnum)[keyof typeof TrackScalarFieldEnum]
+
+
+export const TranscodeCacheScalarFieldEnum = {
+  id: 'id',
+  trackId: 'trackId',
+  profile: 'profile',
+  sourceMtimeMs: 'sourceMtimeMs',
+  cachePath: 'cachePath',
+  contentType: 'contentType',
+  fileSize: 'fileSize',
+  status: 'status',
+  errorJson: 'errorJson',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type TranscodeCacheScalarFieldEnum = (typeof TranscodeCacheScalarFieldEnum)[keyof typeof TranscodeCacheScalarFieldEnum]
 
 
 export const SortOrder = {
@@ -1258,6 +1350,7 @@ export type GlobalOmitConfig = {
   adminSettings?: Prisma.AdminSettingsOmit
   job?: Prisma.JobOmit
   track?: Prisma.TrackOmit
+  transcodeCache?: Prisma.TranscodeCacheOmit
 }
 
 /* Types for Logging */

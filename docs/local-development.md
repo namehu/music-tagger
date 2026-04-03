@@ -37,9 +37,11 @@ BETTER_AUTH_SECRET="replace-me"
 BETTER_AUTH_URL="http://localhost:3000"
 BETTER_AUTH_TRUSTED_ORIGINS=""
 MUSIC_ROOT_HOST_PATH="/absolute/path/to/your/music"
+CACHE_ROOT_HOST_PATH="/absolute/path/to/your/repo/.cache/transcode_cache"
 ```
 
 `MUSIC_ROOT_HOST_PATH` 用于播放原始音频时把数据库里的容器路径 `/music/...` 映射回宿主机真实路径；建议与 `.env.dev` 里的 `LOCAL_MUSIC_DIR` 保持一致。
+`CACHE_ROOT_HOST_PATH` 用于播放转码缓存时把数据库里的容器路径 `/cache/...` 映射回宿主机真实路径；建议与 `.env.dev` 里的 `LOCAL_CACHE_DIR` 保持一致。
 
 4. 准备 Docker worker 的环境文件：
 
@@ -51,10 +53,12 @@ cp .env.dev.example .env.dev
 
 ```dotenv
 LOCAL_MUSIC_DIR="/absolute/path/to/your/music"
+LOCAL_CACHE_DIR="/absolute/path/to/your/repo/.cache/transcode_cache"
 WORKER_ID="worker-dev"
 ```
 
 `LOCAL_MUSIC_DIR` 必须填宿主机上的绝对路径。
+`LOCAL_CACHE_DIR` 建议填一个可持久化的宿主机目录，开发环境下 worker 会把 `mp3_192` 转码缓存写到这里。
 
 6. 初始化数据库迁移：
 
@@ -114,3 +118,4 @@ docker compose --env-file .env.dev -f docker-compose.dev.yml down
 - Web 改代码后直接走 Next.js 本地开发体验
 - worker 改代码后重启容器即可生效
 - 数据仍然落在本地 `web/dev.db`，排查方便
+- 转码缓存也会落在宿主机目录里，本地 Web 可直接读取并验证完整播放链路

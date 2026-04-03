@@ -57,7 +57,8 @@ export const ModelName = {
   Verification: 'Verification',
   AdminSettings: 'AdminSettings',
   Job: 'Job',
-  Track: 'Track'
+  Track: 'Track',
+  TranscodeCache: 'TranscodeCache'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -193,6 +194,23 @@ export const TrackScalarFieldEnum = {
 } as const
 
 export type TrackScalarFieldEnum = (typeof TrackScalarFieldEnum)[keyof typeof TrackScalarFieldEnum]
+
+
+export const TranscodeCacheScalarFieldEnum = {
+  id: 'id',
+  trackId: 'trackId',
+  profile: 'profile',
+  sourceMtimeMs: 'sourceMtimeMs',
+  cachePath: 'cachePath',
+  contentType: 'contentType',
+  fileSize: 'fileSize',
+  status: 'status',
+  errorJson: 'errorJson',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type TranscodeCacheScalarFieldEnum = (typeof TranscodeCacheScalarFieldEnum)[keyof typeof TranscodeCacheScalarFieldEnum]
 
 
 export const SortOrder = {

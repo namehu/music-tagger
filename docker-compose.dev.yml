@@ -8,9 +8,11 @@ services:
     environment:
       DATABASE_URL: file:/workspace/web/dev.db
       MUSIC_ROOT: /music
+      CACHE_ROOT: /cache
       WORKER_ID: ${WORKER_ID:-worker-dev}
     volumes:
       - ./worker:/app/worker
       - ./web:/workspace/web
+      - ${LOCAL_CACHE_DIR:-./.cache/transcode_cache}:/cache
       - ${LOCAL_MUSIC_DIR:?LOCAL_MUSIC_DIR is required}:/music:ro
     restart: unless-stopped

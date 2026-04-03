@@ -138,10 +138,31 @@ model Track {
   lyricsHash  String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+  transcodes  TranscodeCache[]
 
   @@index([dirPath], map: "idx_tracks_dir_path")
   @@index([album, albumArtist], map: "idx_tracks_album")
   @@index([artist], map: "idx_tracks_artist")
   @@index([updatedAt], map: "idx_tracks_updated_at")
   @@map("tracks")
+}
+
+model TranscodeCache {
+  id             String   @id
+  trackId        String
+  track          Track    @relation(fields: [trackId], references: [id], onDelete: Cascade)
+  profile        String
+  sourceMtimeMs  BigInt
+  cachePath      String
+  contentType    String
+  fileSize       Int
+  status         String
+  errorJson      String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([trackId, profile, sourceMtimeMs], map: "transcode_cache_trackId_profile_sourceMtimeMs_key")
+  @@index([profile, status], map: "idx_transcode_cache_profile_status")
+  @@index([updatedAt], map: "idx_transcode_cache_updated_at")
+  @@map("transcode_cache")
 }

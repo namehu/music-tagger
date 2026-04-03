@@ -54,7 +54,7 @@ export default function AdminLibraryPage() {
   const [order, setOrder] = React.useState<TrackOrder>("recent");
   const deferredSearch = React.useDeferredValue(search);
   const query = deferredSearch.trim();
-  const { activeTrackId, pendingTrackId, isAudioPlaying, setQueue, toggleTrack } = useGlobalPlayback();
+  const { activeTrackId, pendingTrackId, isAudioPlaying, isPreparing, setQueue, toggleTrack } = useGlobalPlayback();
 
   const statsQuery = trpc.library.stats.useQuery();
   const tracksQuery = trpc.tracks.list.useQuery({
@@ -210,7 +210,13 @@ export default function AdminLibraryPage() {
                     <TableCell>
                       <div className="flex items-center gap-2">
                         <span>{renderCell(track.title, track.filename)}</span>
-                        {isActiveTrack ? <Badge variant="secondary">当前播放</Badge> : null}
+                        {isPendingTrack ? (
+                          <Badge variant="outline">准备中</Badge>
+                        ) : isActiveTrack ? (
+                          <Badge variant="secondary">
+                            {isAudioPlaying && !isPreparing ? "当前播放" : "当前已暂停"}
+                          </Badge>
+                        ) : null}
                       </div>
                     </TableCell>
                     <TableCell>{renderCell(track.artist, "-")}</TableCell>

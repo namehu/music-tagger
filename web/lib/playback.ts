@@ -3,11 +3,12 @@ import { constants as fsConstants } from "node:fs";
 import { access } from "node:fs/promises";
 import path from "node:path";
 
-export const PLAYBACK_PROFILES = ["original"] as const;
+export const PLAYBACK_PROFILES = ["original", "mp3_192"] as const;
 export type PlaybackProfile = (typeof PLAYBACK_PROFILES)[number];
 
 const STREAM_TOKEN_TTL_SECONDS = 60 * 60;
 const STREAM_PATH_PREFIX = "/music";
+const CACHE_PATH_PREFIX = "/cache";
 
 type PlaybackTokenPayload = {
   trackId: string;
@@ -113,26 +114,61 @@ export function getAudioContentType(filePath: string) {
   }
 }
 
-function mapContainerPathToHostPath(trackPath: string) {
-  const hostRoot = process.env.MUSIC_ROOT_HOST_PATH?.trim();
+export function getPlaybackContentType(profile: PlaybackProfile, filename: string) {
+  if (profile === "mp3_192") {
+    return "audio/mpeg";
+  }
+
+  return getAudioContentType(filename);
+}
+
+export function getPlaybackFilename(filename: string, profile: PlaybackProfile) {
+  if (profile === "mp3_192") {
+    return `${path.basename(filename, path.extname(filename))}.mp3`;
+  }
+
+  return filename;
+}
+
+export function getPlaybackCachePath(input: {
+  trackId: string;
+  sourceMtimeMs: bigint | number;
+  profile: PlaybackProfile;
+}) {
+  if (input.profile !== "mp3_192") {
+    throw new Error(`Playback profile ${input.profile} does not use the transcode cache`);
+  }
+
+  return path.posix.join(
+    CACHE_PATH_PREFIX,
+    "tracks",
+    input.trackId,
+    String(input.sourceMtimeMs),
+    "mp3_192.mp3",
+  );
+}
+
+function mapMountedPathToHostPath(mountedPath: string, mountedPrefix: string, envVarName: string) {
+  const hostRoot = process.env[envVarName]?.trim();
   if (!hostRoot) {
     return null;
   }
 
-  if (trackPath === STREAM_PATH_PREFIX) {
-    return hostRoot;
+  const absoluteHostRoot = path.resolve(hostRoot);
+  if (mountedPath === mountedPrefix) {
+    return absoluteHostRoot;
   }
 
-  if (!trackPath.startsWith(`${STREAM_PATH_PREFIX}/`)) {
+  if (!mountedPath.startsWith(`${mountedPrefix}/`)) {
     return null;
   }
 
-  const relativePath = trackPath.slice(STREAM_PATH_PREFIX.length + 1);
-  return path.join(hostRoot, relativePath);
+  const relativePath = mountedPath.slice(mountedPrefix.length + 1);
+  return path.join(absoluteHostRoot, relativePath);
 }
 
-export async function resolveTrackSourcePath(trackPath: string) {
-  const candidates = [trackPath, mapContainerPathToHostPath(trackPath)].filter(
+async function resolveReadablePath(mountedPath: string, hostPathCandidate: string | null) {
+  const candidates = [mountedPath, hostPathCandidate].filter(
     (candidate): candidate is string => Boolean(candidate),
   );
 
@@ -146,4 +182,18 @@ export async function resolveTrackSourcePath(trackPath: string) {
   }
 
   return null;
+}
+
+export async function resolveTrackSourcePath(trackPath: string) {
+  return resolveReadablePath(
+    trackPath,
+    mapMountedPathToHostPath(trackPath, STREAM_PATH_PREFIX, "MUSIC_ROOT_HOST_PATH"),
+  );
+}
+
+export async function resolvePlaybackCachePath(cachePath: string) {
+  return resolveReadablePath(
+    cachePath,
+    mapMountedPathToHostPath(cachePath, CACHE_PATH_PREFIX, "CACHE_ROOT_HOST_PATH"),
+  );
 }

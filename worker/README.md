@@ -6,6 +6,7 @@
 
 - Python 3.9+
 - `ffprobe`（真实扫描时用于提取音频元数据）
+- `ffmpeg`（转码缓存时用于生成 `mp3_192`）
 - 已存在的 SQLite 数据库（默认使用 `web/dev.db`）
 
 ## 运行
@@ -22,6 +23,7 @@ python worker/worker.py
   - 默认：`../web/dev.db`（相对 `worker/worker.py`）
   - 示例：`DATABASE_URL=file:./web/dev.db`
 - `MUSIC_ROOT`：音乐根目录（默认 `/music`）
+- `CACHE_ROOT`：转码缓存根目录（默认 `/cache`）
 - `WORKER_ID`：worker 标识（默认自动生成 `worker-xxxxxx`）
 
 示例：
@@ -43,6 +45,11 @@ INSERT INTO "jobs" (
 ```
 
 worker 领取后会调用 `scan_full`，遍历 `MUSIC_ROOT` 下支持的音频文件，并把基础元数据与技术信息写入（或更新）`tracks` 表。
+
+当前 worker 已支持两类任务：
+
+- `scan_full`
+- `transcode_prepare`
 
 ## SQLite 自动重连
 

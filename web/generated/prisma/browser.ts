@@ -52,3 +52,8 @@ export type Job = Prisma.JobModel
  * 
  */
 export type Track = Prisma.TrackModel
+/**
+ * Model TranscodeCache
+ * 
+ */
+export type TranscodeCache = Prisma.TranscodeCacheModel

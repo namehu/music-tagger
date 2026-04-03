@@ -21,6 +21,8 @@ cp .env.example .env
 - `BETTER_AUTH_SECRET`: better-auth 密钥
 - `BETTER_AUTH_URL`: Web 控制台访问地址
 - `BETTER_AUTH_TRUSTED_ORIGINS`: 额外可信来源，多个值用英文逗号分隔
+- `MUSIC_ROOT_HOST_PATH`: 本地开发时把 `/music/...` 映射回宿主机音乐目录
+- `CACHE_ROOT_HOST_PATH`: 本地开发时把 `/cache/...` 映射回宿主机转码缓存目录
 
 ## 开发命令
 
@@ -47,13 +49,15 @@ pnpm prisma:studio
 - 首次管理员初始化
 - 管理员登录
 - `scan_full` 入队、去重、轮询查看
-- 音乐目录真实扫描、基础索引浏览、全文搜索与原始音频播放
+- 音乐目录真实扫描、基础索引浏览与全文搜索
+- 全局原始音频播放与 `mp3_192` 转码缓存播放
 
 暂未支持：
 
 - 设置页
-- 转码缓存与多档位流媒体播放
 - Plan/预览/执行工作流
+- Dashboard / Jobs 当前播放摘要
+- 播放模式：顺序 / 随机 / 单曲循环
 
 ## Docker 运行
 

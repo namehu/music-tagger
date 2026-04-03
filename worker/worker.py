@@ -11,6 +11,7 @@ from typing import Optional
 # 因此使用同目录导入（避免要求 worker/ 作为带 __init__.py 的包）。
 from jobs import claim_next_job, heartbeat, mark_done, mark_failed, update_progress
 from scanner import scan_full
+from transcoder import transcode_prepare
 
 
 POLL_INTERVAL_S = 2
@@ -109,7 +110,13 @@ def _ensure_fresh_connection(
     )
 
 
-def _handle_job(conn: sqlite3.Connection, worker_id: str, job: dict, music_root: str) -> None:
+def _handle_job(
+    conn: sqlite3.Connection,
+    worker_id: str,
+    job: dict,
+    music_root: str,
+    cache_root: str,
+) -> None:
     job_id = job["id"]
     job_type = job["type"]
 
@@ -133,6 +140,16 @@ def _handle_job(conn: sqlite3.Connection, worker_id: str, job: dict, music_root:
             mark_done(conn, job_id, worker_id)
             return
 
+        if job_type == "transcode_prepare":
+            transcode_prepare(
+                conn,
+                payload,
+                cache_root=cache_root,
+                on_progress=lambda progress: update_progress(conn, job_id, worker_id, progress),
+            )
+            mark_done(conn, job_id, worker_id)
+            return
+
         raise RuntimeError(f"Unsupported job type: {job_type}")
     except Exception as e:
         try:
@@ -145,11 +162,13 @@ def _handle_job(conn: sqlite3.Connection, worker_id: str, job: dict, music_root:
 def main() -> None:
     db_path = _db_path_from_env()
     music_root = os.environ.get("MUSIC_ROOT", "/music")
+    cache_root = os.environ.get("CACHE_ROOT", "/cache")
     worker_id = os.environ.get("WORKER_ID", _default_worker_id())
 
     print(f"[worker] WORKER_ID={worker_id}")
     print(f"[worker] DATABASE_PATH={db_path}")
     print(f"[worker] MUSIC_ROOT={music_root}")
+    print(f"[worker] CACHE_ROOT={cache_root}")
 
     conn, fingerprint = _open_connection(db_path)
 
@@ -179,7 +198,7 @@ def main() -> None:
             )
 
             try:
-                _handle_job(conn, worker_id, job, music_root)
+                _handle_job(conn, worker_id, job, music_root, cache_root)
             except sqlite3.Error as error:
                 conn, fingerprint = _reconnect(
                     conn,

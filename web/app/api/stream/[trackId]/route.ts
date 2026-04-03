@@ -4,7 +4,15 @@ import path from "node:path";
 import { Readable } from "node:stream";
 
 import { auth } from "@/lib/auth";
-import { getAudioContentType, resolveTrackSourcePath, verifyPlaybackToken } from "@/lib/playback";
+import {
+  getPlaybackContentType,
+  getPlaybackFilename,
+  PLAYBACK_PROFILES,
+  resolvePlaybackCachePath,
+  resolveTrackSourcePath,
+  verifyPlaybackToken,
+  type PlaybackProfile,
+} from "@/lib/playback";
 import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
@@ -77,9 +85,10 @@ export async function GET(
   const profile = url.searchParams.get("profile");
   const token = url.searchParams.get("token");
 
-  if (profile !== "original" || !token) {
+  if (!profile || !PLAYBACK_PROFILES.includes(profile as PlaybackProfile) || !token) {
     return jsonError("缺少必要的播放参数", 400);
   }
+  const playbackProfile = profile as PlaybackProfile;
 
   const payload = verifyPlaybackToken(token);
   if (!payload) {
@@ -88,7 +97,7 @@ export async function GET(
 
   if (
     payload.trackId !== trackId ||
-    payload.profile !== profile ||
+    payload.profile !== playbackProfile ||
     payload.userId !== session.user.id
   ) {
     return jsonError("播放令牌与当前请求不匹配", 403);
@@ -100,6 +109,7 @@ export async function GET(
       id: true,
       path: true,
       filename: true,
+      mtimeMs: true,
     },
   });
 
@@ -107,12 +117,44 @@ export async function GET(
     return jsonError("曲目不存在", 404);
   }
 
-  const sourcePath = await resolveTrackSourcePath(track.path);
-  if (!sourcePath) {
-    return jsonError("音频文件不存在或当前 Web 进程无法读取", 404);
+  let streamPath: string | null = null;
+  let contentType = getPlaybackContentType(playbackProfile, track.filename);
+  const filename = getPlaybackFilename(track.filename, playbackProfile);
+
+  if (playbackProfile === "original") {
+    streamPath = await resolveTrackSourcePath(track.path);
+    if (!streamPath) {
+      return jsonError("音频文件不存在或当前 Web 进程无法读取", 404);
+    }
+  } else {
+    const cache = await prisma.transcodeCache.findUnique({
+      where: {
+        trackId_profile_sourceMtimeMs: {
+          trackId: track.id,
+          profile: playbackProfile,
+          sourceMtimeMs: track.mtimeMs,
+        },
+      },
+      select: {
+        cachePath: true,
+        contentType: true,
+        status: true,
+      },
+    });
+
+    if (!cache || cache.status !== "ready") {
+      return jsonError("转码缓存尚未准备完成", 404);
+    }
+
+    streamPath = await resolvePlaybackCachePath(cache.cachePath);
+    if (!streamPath) {
+      return jsonError("转码缓存文件不存在或当前 Web 进程无法读取", 404);
+    }
+
+    contentType = cache.contentType;
   }
 
-  const fileStat = await stat(sourcePath).catch(() => null);
+  const fileStat = await stat(streamPath).catch(() => null);
   if (!fileStat || !fileStat.isFile()) {
     return jsonError("音频文件不存在", 404);
   }
@@ -131,7 +173,7 @@ export async function GET(
   const end = range?.end ?? fileStat.size - 1;
   const contentLength = end - start + 1;
   const body = Readable.toWeb(
-    createReadStream(sourcePath, {
+    createReadStream(streamPath, {
       start,
       end,
     }),
@@ -142,9 +184,9 @@ export async function GET(
     headers: {
       "Accept-Ranges": "bytes",
       "Cache-Control": "private, max-age=300",
-      "Content-Disposition": buildContentDisposition(path.basename(track.filename)),
+      "Content-Disposition": buildContentDisposition(path.basename(filename)),
       "Content-Length": String(contentLength),
-      "Content-Type": getAudioContentType(track.filename),
+      "Content-Type": contentType,
       ...(range
         ? {
             "Content-Range": `bytes ${start}-${end}/${fileStat.size}`,

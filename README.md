@@ -5,13 +5,15 @@
 - 首次初始化管理员账号
 - 触发与查看 `scan_full` 后台任务
 - 扫描本地音乐目录并写入 SQLite 索引
-- 在 Web 控制台浏览最小音乐库统计、曲目列表、全文搜索与原始音频播放
+- 在 Web 控制台浏览最小音乐库统计、曲目列表与全文搜索
+- 原始音频直出播放与 `mp3_192` 转码缓存播放
 
 暂未支持：
 
-- 转码缓存播放
 - 设置页
 - Plan 执行链路
+- Dashboard / Jobs 当前播放摘要
+- 播放模式：顺序 / 随机 / 单曲循环
 
 ## 项目结构
 
@@ -48,6 +50,12 @@
 - 本地开发 worker 环境：[`.env.dev.example`](./.env.dev.example)
 - 生产部署环境：[`.env.prod.example`](./.env.prod.example)
 - Web 本地开发环境：[`web/.env.example`](./web/.env.example)
+
+## 关键文档
+
+- 系统架构说明：[`docs/architecture.md`](./docs/architecture.md)
+- 本地开发：[`docs/local-development.md`](./docs/local-development.md)
+- 生产部署与缓存持久化：[`docs/production-deployment.md`](./docs/production-deployment.md)
 
 ## 常用命令
 

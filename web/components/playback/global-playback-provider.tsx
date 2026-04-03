@@ -17,8 +17,10 @@ type ActivePlayback = PlaybackQueueTrack & {
 
 type GlobalPlaybackContextValue = {
   activePlayback: ActivePlayback | null;
+  currentTrack: PlaybackQueueTrack | null;
   activeTrackId: string | null;
   pendingTrackId: string | null;
+  isPreparing: boolean;
   isAudioPlaying: boolean;
   playbackError: string | null;
   queue: PlaybackQueueTrack[];
@@ -33,6 +35,7 @@ type GlobalPlaybackContextValue = {
 };
 
 const GlobalPlaybackContext = React.createContext<GlobalPlaybackContextValue | null>(null);
+const PREPARING_POLL_INTERVAL_MS = 1500;
 
 function tracksEqual(left: PlaybackQueueTrack[], right: PlaybackQueueTrack[]) {
   if (left.length != right.length) {
@@ -65,33 +68,91 @@ function getAudioErrorMessage(audio: HTMLAudioElement | null) {
   }
 }
 
+function getJobErrorMessage(errorJson: string | null | undefined) {
+  if (!errorJson) {
+    return "转码任务失败，请稍后重试";
+  }
+
+  try {
+    const parsed = JSON.parse(errorJson) as { message?: string };
+    if (parsed.message?.trim()) {
+      return `转码任务失败：${parsed.message}`;
+    }
+  } catch {
+    return "转码任务失败，请稍后重试";
+  }
+
+  return "转码任务失败，请稍后重试";
+}
+
 export function GlobalPlaybackProvider({ children }: { children: React.ReactNode }) {
   const [queue, setQueueState] = React.useState<PlaybackQueueTrack[]>([]);
+  const [displayTrack, setDisplayTrack] = React.useState<PlaybackQueueTrack | null>(null);
   const [activePlayback, setActivePlayback] = React.useState<ActivePlayback | null>(null);
   const [pendingTrackId, setPendingTrackId] = React.useState<string | null>(null);
+  const [preparingJobId, setPreparingJobId] = React.useState<string | null>(null);
   const [isAudioPlaying, setIsAudioPlaying] = React.useState(false);
   const [playbackError, setPlaybackError] = React.useState<string | null>(null);
   const audioRef = React.useRef<HTMLAudioElement | null>(null);
   const queueRef = React.useRef<PlaybackQueueTrack[]>([]);
+  const displayTrackRef = React.useRef<PlaybackQueueTrack | null>(null);
+  const activePlaybackRef = React.useRef<ActivePlayback | null>(null);
+  const requestIdRef = React.useRef(0);
 
   const resolvePlayback = trpc.playback.resolve.useMutation({
     onMutate: (variables) => {
-      setPendingTrackId(variables.trackId);
-      setPlaybackError(null);
-    },
-    onSuccess: (result, variables) => {
+      const requestId = requestIdRef.current + 1;
+      requestIdRef.current = requestId;
+
+      const activeTrackSnapshot =
+        activePlaybackRef.current &&
+        activePlaybackRef.current.id === variables.trackId
+          ? {
+              id: activePlaybackRef.current.id,
+              title: activePlaybackRef.current.title,
+              artist: activePlaybackRef.current.artist,
+            }
+          : null;
       const track =
         queueRef.current.find((item) => item.id === variables.trackId) ??
-        (activePlayback?.id === variables.trackId
-          ? {
-              id: activePlayback.id,
-              title: activePlayback.title,
-              artist: activePlayback.artist,
-            }
-          : null);
+        (displayTrackRef.current?.id === variables.trackId ? displayTrackRef.current : null) ??
+        activeTrackSnapshot;
+
+      const audio = audioRef.current;
+      if (audio) {
+        audio.pause();
+      }
+
+      setDisplayTrack(track);
+      setPendingTrackId(variables.trackId);
+      setPreparingJobId(null);
+      setActivePlayback(null);
+      setIsAudioPlaying(false);
+      setPlaybackError(null);
+      return {
+        requestId,
+        track,
+      };
+    },
+    onSuccess: (result, variables, context) => {
+      if (context && context.requestId !== requestIdRef.current) {
+        return;
+      }
+
+      const track =
+        context?.track ??
+        queueRef.current.find((item) => item.id === variables.trackId) ??
+        (displayTrackRef.current?.id === variables.trackId ? displayTrackRef.current : null);
 
       if (!track) {
         setPendingTrackId(null);
+        setPreparingJobId(null);
+        return;
+      }
+
+      setDisplayTrack(track);
+      if (result.status === "preparing") {
+        setPreparingJobId(result.jobId);
         return;
       }
 
@@ -101,17 +162,46 @@ export function GlobalPlaybackProvider({ children }: { children: React.ReactNode
         artist: track.artist,
         url: result.url,
       });
+      setPreparingJobId(null);
       setPendingTrackId(null);
     },
-    onError: (error) => {
+    onError: (error, _variables, context) => {
+      if (context && context.requestId !== requestIdRef.current) {
+        return;
+      }
+
       setPendingTrackId(null);
+      setPreparingJobId(null);
       const message = error.message ?? "播放地址解析失败";
       setPlaybackError(message);
       toast.error(message);
     },
   });
 
-  const activeTrackId = activePlayback?.id ?? null;
+  const preparingJobQuery = trpc.jobs.get.useQuery(
+    {
+      jobId: preparingJobId ?? "",
+    },
+    {
+      enabled: Boolean(preparingJobId),
+      refetchOnWindowFocus: false,
+      retry: false,
+      refetchInterval: (query) => {
+        if (!preparingJobId) {
+          return false;
+        }
+
+        const status = query.state.data?.status;
+        if (status === "done" || status === "failed" || status === "cancelled") {
+          return false;
+        }
+
+        return PREPARING_POLL_INTERVAL_MS;
+      },
+    },
+  );
+
+  const activeTrackId = displayTrack?.id ?? activePlayback?.id ?? null;
   const activeTrackIndex = queue.findIndex((track) => track.id === activeTrackId);
   const previousTrack = activeTrackIndex > 0 ? queue[activeTrackIndex - 1] : null;
   const nextTrack =
@@ -125,12 +215,60 @@ export function GlobalPlaybackProvider({ children }: { children: React.ReactNode
     queueRef.current = queue;
   }, [queue]);
 
+  React.useEffect(() => {
+    displayTrackRef.current = displayTrack;
+  }, [displayTrack]);
+
+  React.useEffect(() => {
+    activePlaybackRef.current = activePlayback;
+  }, [activePlayback]);
+
+  React.useEffect(() => {
+    if (!preparingJobId || !displayTrack) {
+      return;
+    }
+
+    const currentJob = preparingJobQuery.data;
+    if (!currentJob || currentJob.id !== preparingJobId) {
+      return;
+    }
+
+    if (currentJob.status === "done") {
+      setPreparingJobId(null);
+      resolvePlayback.mutate({
+        trackId: displayTrack.id,
+        profile: "mp3_192",
+      });
+      return;
+    }
+
+    if (currentJob.status === "failed" || currentJob.status === "cancelled") {
+      setPendingTrackId(null);
+      setPreparingJobId(null);
+      const message = getJobErrorMessage(currentJob.errorJson);
+      setPlaybackError(message);
+      toast.error(message);
+    }
+  }, [displayTrack, preparingJobId, preparingJobQuery.data, resolvePlayback]);
+
+  React.useEffect(() => {
+    if (!preparingJobId || !preparingJobQuery.error) {
+      return;
+    }
+
+    setPendingTrackId(null);
+    setPreparingJobId(null);
+    const message = preparingJobQuery.error.message ?? "转码任务状态查询失败";
+    setPlaybackError(message);
+    toast.error(message);
+  }, [preparingJobId, preparingJobQuery.error]);
+
   const playTrack = React.useCallback(
     (track: PlaybackQueueTrack) => {
       setPlaybackError(null);
       resolvePlayback.mutate({
         trackId: track.id,
-        profile: "original",
+        profile: "mp3_192",
       });
     },
     [resolvePlayback],
@@ -141,8 +279,12 @@ export function GlobalPlaybackProvider({ children }: { children: React.ReactNode
       const isCurrentTrack = activeTrackId === track.id;
       const audio = audioRef.current;
 
-      if (!isCurrentTrack || !audio) {
+      if (!isCurrentTrack) {
         playTrack(track);
+        return;
+      }
+
+      if (pendingTrackId === track.id || !audio || !activePlaybackRef.current) {
         return;
       }
 
@@ -157,7 +299,7 @@ export function GlobalPlaybackProvider({ children }: { children: React.ReactNode
 
       audio.pause();
     },
-    [activeTrackId, playTrack],
+    [activeTrackId, pendingTrackId, playTrack],
   );
 
   const playPrevious = React.useCallback(() => {
@@ -175,8 +317,10 @@ export function GlobalPlaybackProvider({ children }: { children: React.ReactNode
   const value = React.useMemo<GlobalPlaybackContextValue>(
     () => ({
       activePlayback,
+      currentTrack: displayTrack ?? (activePlayback ? activePlayback : null),
       activeTrackId,
       pendingTrackId,
+      isPreparing: Boolean(preparingJobId),
       isAudioPlaying,
       playbackError,
       queue,
@@ -191,8 +335,10 @@ export function GlobalPlaybackProvider({ children }: { children: React.ReactNode
     }),
     [
       activePlayback,
+      displayTrack,
       activeTrackId,
       pendingTrackId,
+      preparingJobId,
       isAudioPlaying,
       playbackError,
       queue,

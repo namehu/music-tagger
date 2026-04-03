@@ -162,6 +162,7 @@ docker compose --env-file .env.prod -f docker-compose.prod.yml logs -f
 3. 登录后进入 `/admin/jobs`
 4. 触发一次 `scan_full`
 5. 到 `/admin/library` 确认扫描结果，并测试原始音频播放
+6. 再点播一首未缓存的曲目，确认 `mp3_192` 转码任务能进入 `done`，随后播放恢复正常
 
 ## 关于原始音频播放
 
@@ -171,6 +172,132 @@ docker compose --env-file .env.prod -f docker-compose.prod.yml logs -f
 - `web` 用它直出原始音频流（`/api/stream/[trackId]`）
 
 因此生产环境里，`web` 和 `worker` 必须指向同一份 `NAS_MUSIC_DIR`。
+
+## 关于转码缓存持久化
+
+结论先说：
+
+- 可以持久化
+- 当前生产 compose 已经支持持久化
+- 只要 `CACHE_DIR` 指向 named volume 或 NAS 宿主机目录，容器重建和镜像升级都不会清掉转码缓存
+
+当前生产 compose 中，两个服务都挂载了同一份 `/cache`：
+
+```yaml
+web:
+  volumes:
+    - ${CACHE_DIR:-transcode_cache}:/cache
+
+worker:
+  volumes:
+    - ${CACHE_DIR:-transcode_cache}:/cache
+```
+
+这意味着：
+
+- `worker` 负责向 `/cache` 写入转码文件
+- `web` 负责从同一份 `/cache` 读取缓存并输出流
+- 缓存数据不保存在容器镜像层里，而是保存在 Docker volume 或宿主机目录里
+
+### 两种持久化方案
+
+#### 方案 A：Docker named volume
+
+```dotenv
+CACHE_DIR="transcode_cache"
+```
+
+特点：
+
+- 配置简单
+- 容器删除后缓存仍保留
+- 镜像升级后缓存仍保留
+- 但备份和直接查看文件不如宿主机目录直观
+
+适合：
+
+- 先快速上线
+- 单机 NAS、运维要求较轻
+
+#### 方案 B：NAS 宿主机目录
+
+```dotenv
+CACHE_DIR="/volume1/docker/music-tagger/cache"
+```
+
+特点：
+
+- 最直观
+- 最容易做备份
+- 最容易观察实际缓存文件占用
+- 更适合生产长期运行
+
+适合：
+
+- 你明确重视缓存持久化
+- 需要把缓存纳入日常运维和备份策略
+
+### 推荐生产配置
+
+生产环境更推荐：
+
+```dotenv
+DB_DATA_DIR="/volume1/docker/music-tagger/data"
+CACHE_DIR="/volume1/docker/music-tagger/cache"
+```
+
+这样：
+
+- 数据库与缓存都不依赖 Docker 项目名
+- NAS 迁移、备份、排查更方便
+- 即使完全重建容器，只要路径不变，数据和缓存就都还在
+
+### 什么情况下缓存会丢
+
+下面这些情况，缓存通常不会丢：
+
+- `docker compose pull`
+- `docker compose up -d`
+- 更新镜像 tag
+- 重建容器
+- 重启 NAS
+
+下面这些情况，缓存可能会丢：
+
+- 你手工删除了 `transcode_cache` named volume
+- 你把 `CACHE_DIR` 改到了另一个新路径
+- 宿主机目录被清空
+- 整个 Docker 数据目录被清理
+
+### 当前缓存命中规则
+
+当前缓存是按下面的键定位的：
+
+- `trackId`
+- `profile`
+- `sourceMtimeMs`
+
+对应的缓存文件路径形如：
+
+```text
+/cache/tracks/<trackId>/<sourceMtimeMs>/mp3_192.mp3
+```
+
+这意味着：
+
+- 源文件没有变化时，可以重复命中已有缓存
+- 源文件一旦更新时间变化，就会生成新版本缓存
+- 旧缓存不会被误播到新文件版本上
+
+### 生产验证方法
+
+部署完成后，可以这样确认缓存确实在持久化：
+
+1. 播放一首此前没播过的曲目，等待首次转码完成。
+2. 确认 `/admin/jobs` 里出现并完成一条 `transcode_prepare`。
+3. 在 NAS 上检查 `CACHE_DIR` 下是否生成了 `mp3_192.mp3` 文件。
+4. 执行一次镜像升级或 `docker compose up -d`。
+5. 再次播放同一首歌，应该直接命中缓存，而不是重新转码。
 
 ## 后续更新流程
 
@@ -192,10 +319,11 @@ docker compose --env-file .env.prod -f docker-compose.prod.yml up -d
 - SQLite 数据库存放在 `/data/app.db`
 - 默认情况下，compose 会使用 `data` named volume 持久化数据库
 - 如果你希望在 NAS 文件系统里直接看到数据库文件，可以把 `DB_DATA_DIR` 改成宿主机绝对路径，例如 `/volume1/docker/music-tagger/data`
-- `CACHE_DIR` 也支持同样的写法
-- `transcode_cache` 目录已预留，后续做播放/转码时可继续沿用
+- `CACHE_DIR` 也支持同样的写法，而且当前已经真实用于 `mp3_192` 转码缓存
+- 如果你重视持久化与备份，建议把 `CACHE_DIR` 也改成宿主机绝对路径
 
 如果你需要备份，优先备份：
 
 - `DB_DATA_DIR` 指向的数据目录，或者 `data` named volume
+- `CACHE_DIR` 指向的缓存目录，或者 `transcode_cache` named volume
 - `.env.prod`

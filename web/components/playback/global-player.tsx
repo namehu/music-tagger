@@ -5,6 +5,7 @@ import {
   AlertCircleIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
+  LoaderCircleIcon,
   Music4Icon,
   PauseCircleIcon,
   PlayCircleIcon,
@@ -20,6 +21,8 @@ import { getGlobalPlaybackErrorMessage, useGlobalPlayback } from "./global-playb
 export function GlobalPlayer() {
   const {
     activePlayback,
+    currentTrack,
+    isPreparing,
     isAudioPlaying,
     playbackError,
     audioRef,
@@ -30,11 +33,11 @@ export function GlobalPlayer() {
     queue,
   } = useGlobalPlayback();
 
-  if (!activePlayback) {
+  if (!currentTrack) {
     return null;
   }
 
-  const activeTrackIndex = queue.findIndex((track) => track.id === activePlayback.id);
+  const activeTrackIndex = queue.findIndex((track) => track.id === currentTrack.id);
   const previousDisabled = activeTrackIndex <= 0;
   const nextDisabled = activeTrackIndex < 0 || activeTrackIndex >= queue.length - 1;
 
@@ -44,18 +47,19 @@ export function GlobalPlayer() {
         <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
           <div className="min-w-0 space-y-1">
             <div className="flex flex-wrap items-center gap-2">
-              <Badge variant={isAudioPlaying ? "default" : "outline"}>
-                {isAudioPlaying ? "全局播放中" : "全局已暂停"}
+              <Badge variant={isPreparing ? "secondary" : isAudioPlaying ? "default" : "outline"}>
+                {isPreparing ? "全局准备中" : isAudioPlaying ? "全局播放中" : "全局已暂停"}
               </Badge>
               <Badge variant="secondary">跨页面保持</Badge>
+              {isPreparing ? <Badge variant="outline">转码缓存</Badge> : null}
             </div>
             <div className="flex items-start gap-3">
               <div className="rounded-xl border bg-muted/50 p-2 text-muted-foreground">
                 <Music4Icon />
               </div>
               <div className="min-w-0">
-                <div className="truncate text-sm font-medium md:text-base">{activePlayback.title}</div>
-                <div className="truncate text-sm text-muted-foreground">{activePlayback.artist}</div>
+                <div className="truncate text-sm font-medium md:text-base">{currentTrack.title}</div>
+                <div className="truncate text-sm text-muted-foreground">{currentTrack.artist}</div>
               </div>
             </div>
           </div>
@@ -75,6 +79,7 @@ export function GlobalPlayer() {
               type="button"
               variant="outline"
               size="sm"
+              disabled={isPreparing || !activePlayback}
               onClick={() => {
                 const audio = audioRef.current;
                 if (!audio) {
@@ -109,28 +114,35 @@ export function GlobalPlayer() {
           </div>
         </div>
 
-        <audio
-          key={activePlayback.url}
-          ref={audioRef}
-          src={activePlayback.url}
-          controls
-          autoPlay
-          preload="metadata"
-          className={cn("w-full", playbackError && "border-destructive/30")}
-          onPlay={() => setIsAudioPlaying(true)}
-          onPause={() => setIsAudioPlaying(false)}
-          onEnded={() => {
-            setIsAudioPlaying(false);
-            playNext();
-          }}
-          onError={(event) => {
-            const audio = event.currentTarget;
-            const message = getGlobalPlaybackErrorMessage(audio);
-            setIsAudioPlaying(false);
-            setPlaybackError(message);
-            toast.error(message);
-          }}
-        />
+        {activePlayback ? (
+          <audio
+            key={activePlayback.url}
+            ref={audioRef}
+            src={activePlayback.url}
+            controls
+            autoPlay
+            preload="metadata"
+            className={cn("w-full", playbackError && "border-destructive/30")}
+            onPlay={() => setIsAudioPlaying(true)}
+            onPause={() => setIsAudioPlaying(false)}
+            onEnded={() => {
+              setIsAudioPlaying(false);
+              playNext();
+            }}
+            onError={(event) => {
+              const audio = event.currentTarget;
+              const message = getGlobalPlaybackErrorMessage(audio);
+              setIsAudioPlaying(false);
+              setPlaybackError(message);
+              toast.error(message);
+            }}
+          />
+        ) : (
+          <div className="flex min-h-14 items-center gap-3 rounded-xl border border-dashed bg-muted/20 px-4 text-sm text-muted-foreground">
+            <LoaderCircleIcon className={cn("size-4", isPreparing && "animate-spin")} />
+            <span>{isPreparing ? "正在准备转码播放，完成后会自动开始。" : "当前没有可用的音频流。"}</span>
+          </div>
+        )}
 
         {playbackError ? (
           <div className="flex items-start gap-2 rounded-xl border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
