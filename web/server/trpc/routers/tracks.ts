@@ -9,6 +9,7 @@ const listTracksInputSchema = z.object({
   limit: z.number().int().min(1).max(200).default(50),
   order: z.enum(["recent", "title", "artist"]).default("recent"),
   q: z.string().trim().max(200).optional(),
+  edited: z.enum(["all", "edited", "unedited"]).default("all"),
 });
 
 const updateTrackMetadataInputSchema = z.object({
@@ -43,6 +44,14 @@ const batchUpdateTrackMetadataInputSchema = z
       message: "至少提供一个要批量修改的字段",
     },
   );
+
+const resetTrackMetadataInputSchema = z.object({
+  trackId: z.string().min(1),
+});
+
+const batchResetTrackMetadataInputSchema = z.object({
+  trackIds: z.array(z.string().min(1)).min(1).max(100),
+});
 
 type TrackListItem = {
   id: string;
@@ -157,6 +166,12 @@ function getOverrideValue<T extends string | number | null>(
 export const tracksRouter = router({
   list: protectedProcedure.input(listTracksInputSchema).query(async ({ ctx, input }) => {
     const q = input.q?.trim();
+    const editedFilter =
+      input.edited === "edited"
+        ? Prisma.sql`AND t."metadataEditedAt" IS NOT NULL`
+        : input.edited === "unedited"
+          ? Prisma.sql`AND t."metadataEditedAt" IS NULL`
+          : Prisma.empty;
 
     if (q) {
       const ftsQuery = buildFtsQuery(q);
@@ -182,6 +197,7 @@ export const tracksRouter = router({
             JOIN "tracks" AS t
               ON t."id" = "tracks_fts"."trackId"
             WHERE "tracks_fts" MATCH ${ftsQuery}
+              ${editedFilter}
             ORDER BY
               bm25("tracks_fts", 5.0, 3.0, 2.0, 1.0, 0.5) ASC,
               ${getFtsSecondaryOrder(input.order)}
@@ -201,6 +217,24 @@ export const tracksRouter = router({
     }
 
     const searchLike = q ? `%${q}%` : null;
+    const whereClause = searchLike
+      ? Prisma.sql`
+          WHERE
+            (
+              LOWER(COALESCE(t."titleOverride", t."title", '')) LIKE LOWER(${searchLike})
+              OR LOWER(COALESCE(t."artistOverride", t."artist", '')) LIKE LOWER(${searchLike})
+              OR LOWER(COALESCE(t."albumOverride", t."album", '')) LIKE LOWER(${searchLike})
+              OR LOWER(COALESCE(t."albumArtistOverride", t."albumArtist", '')) LIKE LOWER(${searchLike})
+              OR LOWER(COALESCE(t."genreOverride", t."genre", '')) LIKE LOWER(${searchLike})
+              OR LOWER(COALESCE(t."filename", '')) LIKE LOWER(${searchLike})
+              OR LOWER(COALESCE(t."path", '')) LIKE LOWER(${searchLike})
+            )
+            ${editedFilter}
+        `
+      : Prisma.sql`
+          WHERE 1 = 1
+          ${editedFilter}
+        `;
     const items = await ctx.prisma.$queryRaw<TrackListItem[]>(Prisma.sql`
       SELECT
         t."id",
@@ -217,16 +251,7 @@ export const tracksRouter = router({
         t."metadataEditedAt",
         t."updatedAt"
       FROM "tracks" AS t
-      ${searchLike ? Prisma.sql`
-        WHERE
-          LOWER(COALESCE(t."titleOverride", t."title", '')) LIKE LOWER(${searchLike})
-          OR LOWER(COALESCE(t."artistOverride", t."artist", '')) LIKE LOWER(${searchLike})
-          OR LOWER(COALESCE(t."albumOverride", t."album", '')) LIKE LOWER(${searchLike})
-          OR LOWER(COALESCE(t."albumArtistOverride", t."albumArtist", '')) LIKE LOWER(${searchLike})
-          OR LOWER(COALESCE(t."genreOverride", t."genre", '')) LIKE LOWER(${searchLike})
-          OR LOWER(COALESCE(t."filename", '')) LIKE LOWER(${searchLike})
-          OR LOWER(COALESCE(t."path", '')) LIKE LOWER(${searchLike})
-      ` : Prisma.empty}
+      ${whereClause}
       ORDER BY ${getTrackOrder(input.order)}
       LIMIT ${input.limit}
     `);
@@ -421,6 +446,65 @@ export const tracksRouter = router({
 
       return {
         updatedCount: tracks.length,
+      };
+    }),
+
+  resetMetadata: adminProcedure.input(resetTrackMetadataInputSchema).mutation(async ({ ctx, input }) => {
+    const track = await ctx.prisma.track.findUnique({
+      where: { id: input.trackId },
+      select: { id: true },
+    });
+
+    if (!track) {
+      throw new TRPCError({ code: "NOT_FOUND", message: "曲目不存在" });
+    }
+
+    await ctx.prisma.track.update({
+      where: { id: input.trackId },
+      data: {
+        titleOverride: null,
+        artistOverride: null,
+        albumOverride: null,
+        albumArtistOverride: null,
+        trackNoOverride: null,
+        discNoOverride: null,
+        yearOverride: null,
+        genreOverride: null,
+        metadataEditedAt: null,
+      },
+      select: { id: true },
+    });
+
+    return {
+      trackId: input.trackId,
+      reset: true as const,
+    };
+  }),
+
+  batchResetMetadata: adminProcedure
+    .input(batchResetTrackMetadataInputSchema)
+    .mutation(async ({ ctx, input }) => {
+      const result = await ctx.prisma.track.updateMany({
+        where: {
+          id: {
+            in: input.trackIds,
+          },
+        },
+        data: {
+          titleOverride: null,
+          artistOverride: null,
+          albumOverride: null,
+          albumArtistOverride: null,
+          trackNoOverride: null,
+          discNoOverride: null,
+          yearOverride: null,
+          genreOverride: null,
+          metadataEditedAt: null,
+        },
+      });
+
+      return {
+        resetCount: result.count,
       };
     }),
 });

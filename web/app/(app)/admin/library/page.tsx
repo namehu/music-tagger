@@ -41,11 +41,18 @@ import {
 import { cn } from "@/lib/utils";
 
 type TrackOrder = "recent" | "title" | "artist";
+type EditedFilter = "all" | "edited" | "unedited";
 
 const ORDER_OPTIONS: Array<{ value: TrackOrder; label: string }> = [
   { value: "recent", label: "最近更新" },
   { value: "title", label: "标题" },
   { value: "artist", label: "艺人" },
+];
+
+const EDITED_FILTER_OPTIONS: Array<{ value: EditedFilter; label: string }> = [
+  { value: "all", label: "全部" },
+  { value: "edited", label: "仅看已编辑" },
+  { value: "unedited", label: "仅看未编辑" },
 ];
 
 function formatDateTime(value: string | Date | null | undefined) {
@@ -66,6 +73,7 @@ function formatNumberField(value: number | null | undefined) {
 export default function AdminLibraryPage() {
   const [search, setSearch] = React.useState("");
   const [order, setOrder] = React.useState<TrackOrder>("recent");
+  const [editedFilter, setEditedFilter] = React.useState<EditedFilter>("all");
   const [editingTrackId, setEditingTrackId] = React.useState<string | null>(null);
   const [batchEditOpen, setBatchEditOpen] = React.useState(false);
   const [selectedTrackIds, setSelectedTrackIds] = React.useState<string[]>([]);
@@ -94,6 +102,7 @@ export default function AdminLibraryPage() {
   const tracksQuery = trpc.tracks.list.useQuery({
     limit: 50,
     order,
+    edited: editedFilter,
     q: query.length > 0 ? query : undefined,
   });
   const currentTracks = React.useMemo(() => tracksQuery.data?.items ?? [], [tracksQuery.data?.items]);
@@ -133,6 +142,27 @@ export default function AdminLibraryPage() {
     },
     onError: (error) => {
       toast.error(error.message ?? "批量编辑失败");
+    },
+  });
+  const resetMetadata = trpc.tracks.resetMetadata.useMutation({
+    onSuccess: async () => {
+      toast.success("已恢复为扫描值");
+      setEditingTrackId(null);
+      await Promise.all([tracksQuery.refetch(), statsQuery.refetch()]);
+    },
+    onError: (error) => {
+      toast.error(error.message ?? "恢复失败");
+    },
+  });
+  const batchResetMetadata = trpc.tracks.batchResetMetadata.useMutation({
+    onSuccess: async (result) => {
+      toast.success(`已恢复 ${result.resetCount} 首曲目到扫描值`);
+      setBatchEditOpen(false);
+      setSelectedTrackIds([]);
+      await Promise.all([tracksQuery.refetch(), statsQuery.refetch()]);
+    },
+    onError: (error) => {
+      toast.error(error.message ?? "批量恢复失败");
     },
   });
 
@@ -313,6 +343,14 @@ export default function AdminLibraryPage() {
                       type="button"
                       variant="outline"
                       size="sm"
+                      onClick={() => batchResetMetadata.mutate({ trackIds: selectedTrackIds })}
+                    >
+                      批量恢复
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
                       onClick={() => setSelectedTrackIds([])}
                     >
                       清空选择
@@ -345,7 +383,28 @@ export default function AdminLibraryPage() {
             {query.length > 0 ? <Badge variant="secondary">FTS 全文检索</Badge> : null}
             {query.length > 0 ? <span>相关性优先，当前排序作为次级顺序。</span> : null}
             <Badge variant="outline">全局播放器</Badge>
+            <Badge variant="outline">
+              {EDITED_FILTER_OPTIONS.find((option) => option.value === editedFilter)?.label}
+            </Badge>
             {deferredSearch !== search ? <span>搜索中…</span> : null}
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            {EDITED_FILTER_OPTIONS.map((option) => (
+              <Button
+                key={option.value}
+                type="button"
+                size="sm"
+                variant={editedFilter === option.value ? "secondary" : "outline"}
+                onClick={() => {
+                  React.startTransition(() => {
+                    setEditedFilter(option.value);
+                  });
+                }}
+              >
+                {option.label}
+              </Button>
+            ))}
           </div>
 
           {selectedCount > 0 ? (
@@ -526,7 +585,11 @@ export default function AdminLibraryPage() {
                   <div className="mt-3">
                     <Badge variant="outline">上次人工修改: {formatDateTime(editingTrack.metadataEditedAt)}</Badge>
                   </div>
-                ) : null}
+                ) : (
+                  <div className="mt-3">
+                    <Badge variant="outline">当前仍使用扫描值</Badge>
+                  </div>
+                )}
               </div>
 
               <div className="grid gap-4">
@@ -613,27 +676,18 @@ export default function AdminLibraryPage() {
                 <Button
                   type="button"
                   variant="outline"
-                  disabled={updateMetadata.isPending}
+                  disabled={updateMetadata.isPending || resetMetadata.isPending}
                   onClick={() =>
-                    setFormValues({
-                      title: "",
-                      artist: "",
-                      album: "",
-                      albumArtist: "",
-                      trackNo: "",
-                      discNo: "",
-                      year: "",
-                      genre: "",
-                    })
+                    editingTrack && resetMetadata.mutate({ trackId: editingTrack.id })
                   }
                 >
-                  恢复扫描值
+                  {resetMetadata.isPending ? "恢复中..." : "恢复整首到扫描值"}
                 </Button>
                 <div className="flex gap-2">
                   <Button
                     type="button"
                     variant="outline"
-                    disabled={updateMetadata.isPending}
+                    disabled={updateMetadata.isPending || resetMetadata.isPending}
                     onClick={() => setEditingTrackId(null)}
                   >
                     取消
@@ -782,7 +836,15 @@ export default function AdminLibraryPage() {
                 <Button
                   type="button"
                   variant="outline"
-                  disabled={batchUpdateMetadata.isPending}
+                  disabled={batchUpdateMetadata.isPending || batchResetMetadata.isPending || selectedCount === 0}
+                  onClick={() => batchResetMetadata.mutate({ trackIds: selectedTrackIds })}
+                >
+                  {batchResetMetadata.isPending ? "恢复中..." : "恢复所选曲目"}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={batchUpdateMetadata.isPending || batchResetMetadata.isPending}
                   onClick={() => setBatchEditOpen(false)}
                 >
                   取消
@@ -790,7 +852,11 @@ export default function AdminLibraryPage() {
                 <Button
                   type="button"
                   disabled={
-                    batchUpdateMetadata.isPending || selectedCount === 0 || !batchHasChanges || !batchYearValid
+                    batchUpdateMetadata.isPending ||
+                    batchResetMetadata.isPending ||
+                    selectedCount === 0 ||
+                    !batchHasChanges ||
+                    !batchYearValid
                   }
                   onClick={() => batchUpdateMetadata.mutate(buildBatchPayload())}
                 >
