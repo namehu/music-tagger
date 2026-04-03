@@ -23,3 +23,5 @@ Thumbs.db
 output
 
 .pnpm-store
+web/dev.db
+web/dev.db-*
