@@ -53,6 +53,7 @@ RUN apt-get update \
 
 COPY --from=builder --chown=nextjs:nodejs /app/web/public ./web/public
 COPY --from=builder --chown=nextjs:nodejs /app/web/prisma ./web/prisma
+COPY --from=builder --chown=nextjs:nodejs /app/web/prisma.config.ts ./web/prisma.config.ts
 COPY --from=builder --chown=nextjs:nodejs /app/web/.next/static ./web/.next/static
 COPY --from=builder --chown=nextjs:nodejs /app/web/.next/standalone ./
 
@@ -60,4 +61,4 @@ USER nextjs
 
 EXPOSE 3000
 
-CMD ["sh", "-c", "prisma migrate deploy --schema=/app/web/prisma/schema.prisma && node /app/web/server.js"]
+CMD ["sh", "-c", "cd /app/web && prisma migrate deploy --schema=prisma/schema.prisma && node /app/web/server.js"]
