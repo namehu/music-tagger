@@ -48,28 +48,54 @@ export function getAdminInitState(dataJson: string | null | undefined): AdminIni
   return state === "locking" || state === "done" ? state : "none";
 }
 
-export async function getAdminInitializationStatus() {
-  let settings: { dataJson: string } | null = null;
+async function hasAdminUser() {
   try {
-    settings = await prisma.adminSettings.findUnique({
-      where: { id: "singleton" },
-      select: { dataJson: true },
+    const admin = await prisma.user.findFirst({
+      where: { role: "admin" },
+      select: { id: true },
     });
+    return Boolean(admin);
   } catch (error) {
     if (!isMissingTableError(error)) {
       throw error;
     }
-  }
 
-  const state = getAdminInitState(settings?.dataJson);
+    return false;
+  }
+}
+
+export async function getAdminInitializationStatus() {
+  const [settingsState, adminExists] = await Promise.all([
+    (async () => {
+      let settings: { dataJson: string } | null = null;
+      try {
+        settings = await prisma.adminSettings.findUnique({
+          where: { id: "singleton" },
+          select: { dataJson: true },
+        });
+      } catch (error) {
+        if (!isMissingTableError(error)) {
+          throw error;
+        }
+      }
+
+      return getAdminInitState(settings?.dataJson);
+    })(),
+    hasAdminUser(),
+  ]);
 
   return {
-    initialized: state === "done",
-    state,
+    initialized: adminExists,
+    state: adminExists ? ("done" as const) : settingsState,
   };
 }
 
 export async function initializeAdmin(input: CreateAdminInput) {
+  const status = await getAdminInitializationStatus();
+  if (status.initialized) {
+    throw new AdminInitializationError("ALREADY_INITIALIZED", "系统已完成初始化");
+  }
+
   try {
     await prisma.adminSettings.create({
       data: {
@@ -82,8 +108,8 @@ export async function initializeAdmin(input: CreateAdminInput) {
       },
     });
   } catch (cause) {
-    const status = await getAdminInitializationStatus();
-    if (status.state === "done") {
+    const latestStatus = await getAdminInitializationStatus();
+    if (latestStatus.initialized) {
       throw new AdminInitializationError("ALREADY_INITIALIZED", "系统已完成初始化", {
         cause,
       });
