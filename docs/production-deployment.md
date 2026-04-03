@@ -10,8 +10,8 @@
 
 ## 总体流程
 
-1. 在 GitHub 上打一个 `v*` tag
-2. GitHub Actions 自动构建并推送镜像到 GHCR
+1. 在 GitHub 上打一个 `v*.*.*` tag
+2. GitHub Actions 自动构建并推送镜像到 GHCR 和 Docker Hub
 3. 在 NAS 上填写生产环境变量
 4. 让 NAS 只执行 `pull` 和 `up`
 
@@ -27,7 +27,7 @@
 
 - [`.github/workflows/release-images.yml`](./.github/workflows/release-images.yml)
 
-这个 workflow 会在你推送 `v*` tag 时自动：
+这个 workflow 会在你推送 `v*.*.*` tag 时自动：
 
 - 构建 `web` 镜像
 - 构建 `worker` 镜像
@@ -81,6 +81,8 @@ BETTER_AUTH_SECRET="replace-me-with-a-long-random-secret"
 BETTER_AUTH_URL="http://nas-or-domain:3000"
 BETTER_AUTH_TRUSTED_ORIGINS="http://nas-ip:3000,https://music.example.com"
 NAS_MUSIC_DIR="/volume1/music"
+DB_DATA_DIR="data"
+CACHE_DIR="transcode_cache"
 WORKER_ID="worker-1"
 WEB_PORT="3000"
 ```
@@ -93,7 +95,31 @@ WEB_PORT="3000"
 - `BETTER_AUTH_URL`：用户实际访问 Web 的地址
 - `BETTER_AUTH_TRUSTED_ORIGINS`：反向代理、域名或额外访问入口
 - `NAS_MUSIC_DIR`：NAS 宿主机上的音乐目录绝对路径
+- `DB_DATA_DIR`：数据库持久化位置。填 `data` 表示用 Docker named volume；填 `/volume1/docker/music-tagger/data` 表示直接挂到 NAS 目录
+- `CACHE_DIR`：缓存持久化位置。填 `transcode_cache` 表示用 Docker named volume；填 `/volume1/docker/music-tagger/cache` 表示直接挂到 NAS 目录
 - `WEB_PORT`：宿主机对外暴露端口
+
+## 数据库初始化原则
+
+生产环境不需要提供 `example.db` 或预置 SQLite 文件。
+
+正确做法是：
+
+- 提交 Prisma schema 和 migrations
+- 容器启动时执行 `pnpm prisma migrate deploy`
+- 首次启动时自动创建 `/data/app.db`
+
+因此仓库里应该保留：
+
+- [`web/prisma/schema.prisma`](./web/prisma/schema.prisma)
+- [`web/prisma/migrations`](./web/prisma/migrations)
+
+而不应该提交：
+
+- `web/dev.db`
+- `app.db`
+- `*.db-wal`
+- `*.db-shm`
 
 ## 第三步：在 NAS 登录 GHCR
 
@@ -141,7 +167,7 @@ docker compose --env-file .env.prod -f docker-compose.prod.yml logs -f
 
 你的更新流程应该始终保持下面这条线：
 
-1. 在本地创建并推送新的 `v*` tag
+1. 在本地创建并推送新的 `v*.*.*` tag
 2. 在 NAS 修改 `.env.prod` 中的镜像 tag
 3. 在 NAS 执行：
 
@@ -154,10 +180,13 @@ docker compose --env-file .env.prod -f docker-compose.prod.yml up -d
 
 ## 持久化与备份
 
-- SQLite 数据库存放在 compose 的 `data` volume 中，对应容器内路径 `/data/app.db`
-- `transcode_cache` volume 已预留，后续做播放/转码时可继续沿用
+- SQLite 数据库存放在 `/data/app.db`
+- 默认情况下，compose 会使用 `data` named volume 持久化数据库
+- 如果你希望在 NAS 文件系统里直接看到数据库文件，可以把 `DB_DATA_DIR` 改成宿主机绝对路径，例如 `/volume1/docker/music-tagger/data`
+- `CACHE_DIR` 也支持同样的写法
+- `transcode_cache` 目录已预留，后续做播放/转码时可继续沿用
 
 如果你需要备份，优先备份：
 
-- `data` volume
+- `DB_DATA_DIR` 指向的数据目录，或者 `data` named volume
 - `.env.prod`

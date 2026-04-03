@@ -10,8 +10,10 @@ services:
       BETTER_AUTH_URL: ${BETTER_AUTH_URL:?BETTER_AUTH_URL is required}
       BETTER_AUTH_TRUSTED_ORIGINS: ${BETTER_AUTH_TRUSTED_ORIGINS:-}
     volumes:
-      - data:/data
-      - transcode_cache:/cache
+      # Default to a named volume. Set DB_DATA_DIR=/absolute/path to use a NAS host directory instead.
+      - ${DB_DATA_DIR:-data}:/data
+      # Default to a named volume. Set CACHE_DIR=/absolute/path to use a NAS host directory instead.
+      - ${CACHE_DIR:-transcode_cache}:/cache
     ports:
       - "${WEB_PORT:-3000}:3000"
     restart: unless-stopped
@@ -25,8 +27,8 @@ services:
       MUSIC_ROOT: /music
       WORKER_ID: ${WORKER_ID:-worker-1}
     volumes:
-      - data:/data
-      - transcode_cache:/cache
+      - ${DB_DATA_DIR:-data}:/data
+      - ${CACHE_DIR:-transcode_cache}:/cache
       - ${NAS_MUSIC_DIR:?NAS_MUSIC_DIR is required}:/music:ro
     depends_on:
       - web

@@ -4,7 +4,7 @@
 
 - Web 跑在宿主机，直接用浏览器访问 `http://localhost:3000`
 - worker 跑在 Docker 里，容器内自带 `ffmpeg/ffprobe`
-- Web 和 worker 共用同一个 SQLite 文件：[`web/dev.db`](./web/dev.db)
+- Web 和 worker 共用同一个 SQLite 文件：`web/dev.db`
 
 对应启动文件是 [`docker-compose.dev.yml`](./docker-compose.dev.yml)。
 
@@ -59,6 +59,8 @@ WORKER_ID="worker-dev"
 pnpm prisma:migrate
 ```
 
+这里不需要额外准备 `example.db`。首次迁移会自动创建本地开发数据库，`web/dev.db` 属于本机运行产物，不应该提交到仓库。
+
 7. 启动本地 Web：
 
 ```bash
@@ -108,4 +110,4 @@ docker compose --env-file .env.dev -f docker-compose.dev.yml down
 - 不需要在宿主机安装 `ffmpeg` 或 `ffprobe`
 - Web 改代码后直接走 Next.js 本地开发体验
 - worker 改代码后重启容器即可生效
-- 数据仍然落在本地 [`web/dev.db`](./web/dev.db)，排查方便
+- 数据仍然落在本地 `web/dev.db`，排查方便

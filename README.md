@@ -35,6 +35,7 @@
 - Web 和 worker 都跑 Docker
 - NAS 只拉取镜像并启动，不在 NAS 上构建
 - 使用 [`docker-compose.prod.yml`](./docker-compose.prod.yml)
+- 数据库通过 migrations 自动初始化，不需要提交 `example.db`
 
 完整教程见 [`docs/production-deployment.md`](./docs/production-deployment.md)。
 
