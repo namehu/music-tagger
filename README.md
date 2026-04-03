@@ -40,7 +40,7 @@
 
 ### 3. 自动镜像发布
 
-- 打 `v*` tag 后，GitHub Actions 会自动构建并推送 `web` / `worker` 镜像到 GHCR
+- 打 `v*.*.*` tag 后，GitHub Actions 会自动构建并推送 `web` / `worker` 镜像到 GHCR 和 Docker Hub
 - workflow 文件在 [`.github/workflows/release-images.yml`](/Users/namehu/github/music-tagger/.github/workflows/release-images.yml)
 
 ## 环境文件模板

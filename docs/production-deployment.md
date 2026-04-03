@@ -19,7 +19,7 @@
 
 1. 确认 NAS 已安装 Docker / Container Manager。
 2. 确认 NAS 宿主机已经能访问音乐目录，例如 `/volume1/music`。
-3. 使用本仓库自带的 GitHub Actions，把镜像发布到 GHCR。
+3. 使用本仓库自带的 GitHub Actions，把镜像发布到 GHCR 和 Docker Hub。
 
 ## 第一步：启用 GitHub Actions 自动发布
 
@@ -38,6 +38,8 @@
 
 - `ghcr.io/<github-owner>/music-tagger-web:<tag>`
 - `ghcr.io/<github-owner>/music-tagger-worker:<tag>`
+- `docker.io/<dockerhub-username>/music-tagger-web:<tag>`
+- `docker.io/<dockerhub-username>/music-tagger-worker:<tag>`
 
 例如这个仓库会发布成：
 
@@ -59,7 +61,8 @@ git push origin v0.1.0
 
 1. 仓库的 GitHub Actions 已启用。
 2. 仓库允许 `GITHUB_TOKEN` 写入 packages。
-3. 如果 GHCR 包默认是私有的，NAS 拉取时要先 `docker login ghcr.io`。
+3. 在仓库 Secrets 中配置 `DOCKERHUB_USERNAME` 和 `DOCKERHUB_TOKEN`。
+4. 如果 GHCR 包默认是私有的，NAS 拉取时要先 `docker login ghcr.io`。
 
 ## 第二步：在 NAS 准备环境文件
 
