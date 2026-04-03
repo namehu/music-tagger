@@ -13,6 +13,8 @@ export type PlaybackQueueTrack = {
 
 type ActivePlayback = PlaybackQueueTrack & {
   url: string;
+  profile: "original" | "mp3_192";
+  sourceKind: "original" | "transcode_cache";
 };
 
 type GlobalPlaybackContextValue = {
@@ -20,6 +22,9 @@ type GlobalPlaybackContextValue = {
   currentTrack: PlaybackQueueTrack | null;
   activeTrackId: string | null;
   pendingTrackId: string | null;
+  currentProfile: "original" | "mp3_192" | null;
+  currentSourceKind: "original" | "transcode_cache" | null;
+  preparingJobId: string | null;
   isPreparing: boolean;
   isAudioPlaying: boolean;
   playbackError: string | null;
@@ -91,6 +96,8 @@ export function GlobalPlaybackProvider({ children }: { children: React.ReactNode
   const [activePlayback, setActivePlayback] = React.useState<ActivePlayback | null>(null);
   const [pendingTrackId, setPendingTrackId] = React.useState<string | null>(null);
   const [preparingJobId, setPreparingJobId] = React.useState<string | null>(null);
+  const [currentProfile, setCurrentProfile] = React.useState<"original" | "mp3_192" | null>(null);
+  const [currentSourceKind, setCurrentSourceKind] = React.useState<"original" | "transcode_cache" | null>(null);
   const [isAudioPlaying, setIsAudioPlaying] = React.useState(false);
   const [playbackError, setPlaybackError] = React.useState<string | null>(null);
   const audioRef = React.useRef<HTMLAudioElement | null>(null);
@@ -101,6 +108,7 @@ export function GlobalPlaybackProvider({ children }: { children: React.ReactNode
 
   const resolvePlayback = trpc.playback.resolve.useMutation({
     onMutate: (variables) => {
+      const playbackProfile = variables.profile ?? "original";
       const requestId = requestIdRef.current + 1;
       requestIdRef.current = requestId;
 
@@ -126,6 +134,8 @@ export function GlobalPlaybackProvider({ children }: { children: React.ReactNode
       setDisplayTrack(track);
       setPendingTrackId(variables.trackId);
       setPreparingJobId(null);
+      setCurrentProfile(playbackProfile);
+      setCurrentSourceKind(playbackProfile === "original" ? "original" : "transcode_cache");
       setActivePlayback(null);
       setIsAudioPlaying(false);
       setPlaybackError(null);
@@ -135,6 +145,7 @@ export function GlobalPlaybackProvider({ children }: { children: React.ReactNode
       };
     },
     onSuccess: (result, variables, context) => {
+      const playbackProfile = variables.profile ?? "original";
       if (context && context.requestId !== requestIdRef.current) {
         return;
       }
@@ -147,6 +158,8 @@ export function GlobalPlaybackProvider({ children }: { children: React.ReactNode
       if (!track) {
         setPendingTrackId(null);
         setPreparingJobId(null);
+        setCurrentProfile(null);
+        setCurrentSourceKind(null);
         return;
       }
 
@@ -161,6 +174,8 @@ export function GlobalPlaybackProvider({ children }: { children: React.ReactNode
         title: track.title,
         artist: track.artist,
         url: result.url,
+        profile: playbackProfile,
+        sourceKind: playbackProfile === "original" ? "original" : "transcode_cache",
       });
       setPreparingJobId(null);
       setPendingTrackId(null);
@@ -172,6 +187,8 @@ export function GlobalPlaybackProvider({ children }: { children: React.ReactNode
 
       setPendingTrackId(null);
       setPreparingJobId(null);
+      setCurrentProfile(null);
+      setCurrentSourceKind(null);
       const message = error.message ?? "播放地址解析失败";
       setPlaybackError(message);
       toast.error(message);
@@ -245,6 +262,8 @@ export function GlobalPlaybackProvider({ children }: { children: React.ReactNode
     if (currentJob.status === "failed" || currentJob.status === "cancelled") {
       setPendingTrackId(null);
       setPreparingJobId(null);
+      setCurrentProfile(null);
+      setCurrentSourceKind(null);
       const message = getJobErrorMessage(currentJob.errorJson);
       setPlaybackError(message);
       toast.error(message);
@@ -258,6 +277,8 @@ export function GlobalPlaybackProvider({ children }: { children: React.ReactNode
 
     setPendingTrackId(null);
     setPreparingJobId(null);
+    setCurrentProfile(null);
+    setCurrentSourceKind(null);
     const message = preparingJobQuery.error.message ?? "转码任务状态查询失败";
     setPlaybackError(message);
     toast.error(message);
@@ -320,6 +341,9 @@ export function GlobalPlaybackProvider({ children }: { children: React.ReactNode
       currentTrack: displayTrack ?? (activePlayback ? activePlayback : null),
       activeTrackId,
       pendingTrackId,
+      currentProfile,
+      currentSourceKind,
+      preparingJobId,
       isPreparing: Boolean(preparingJobId),
       isAudioPlaying,
       playbackError,
@@ -338,6 +362,8 @@ export function GlobalPlaybackProvider({ children }: { children: React.ReactNode
       displayTrack,
       activeTrackId,
       pendingTrackId,
+      currentProfile,
+      currentSourceKind,
       preparingJobId,
       isAudioPlaying,
       playbackError,

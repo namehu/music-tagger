@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 
 import { trpc } from "@/app/_trpc/provider";
+import { CurrentPlaybackSummary } from "@/components/playback/current-playback-summary";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
@@ -31,6 +32,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { getJobDisplayName, getJobErrorSummary } from "@/lib/jobs";
 import { cn } from "@/lib/utils";
 
 function formatDateTime(value: string | Date | null | undefined) {
@@ -44,6 +46,18 @@ function formatProgress(progress: number | null | undefined) {
   const value = typeof progress === "number" ? progress : 0;
   if (!Number.isFinite(value)) return "-";
   return `${Math.round(value * 100)}%`;
+}
+
+function formatBytes(bytes: number | null | undefined) {
+  const value = typeof bytes === "number" ? bytes : 0;
+  if (!Number.isFinite(value) || value <= 0) {
+    return "0 B";
+  }
+
+  if (value < 1024) return `${value} B`;
+  if (value < 1024 ** 2) return `${(value / 1024).toFixed(1)} KB`;
+  if (value < 1024 ** 3) return `${(value / 1024 ** 2).toFixed(1)} MB`;
+  return `${(value / 1024 ** 3).toFixed(1)} GB`;
 }
 
 function renderText(value: string | null | undefined, fallback = "-") {
@@ -101,6 +115,7 @@ function OverviewStatCard({
 export default function AdminOverviewPage() {
   const utils = trpc.useUtils();
   const statsQuery = trpc.library.stats.useQuery();
+  const cacheOverviewQuery = trpc.library.cacheOverview.useQuery();
   const jobsQuery = trpc.jobs.list.useQuery();
   const tracksQuery = trpc.tracks.list.useQuery({
     limit: 6,
@@ -113,6 +128,7 @@ export default function AdminOverviewPage() {
       await Promise.all([
         utils.jobs.list.invalidate(),
         utils.library.stats.invalidate(),
+        utils.library.cacheOverview.invalidate(),
         utils.tracks.list.invalidate(),
       ]);
     },
@@ -126,6 +142,7 @@ export default function AdminOverviewPage() {
   );
   const jobsRefetch = jobsQuery.refetch;
   const statsRefetch = statsQuery.refetch;
+  const cacheOverviewRefetch = cacheOverviewQuery.refetch;
   const tracksRefetch = tracksQuery.refetch;
 
   React.useEffect(() => {
@@ -137,18 +154,25 @@ export default function AdminOverviewPage() {
       void Promise.all([
         jobsRefetch(),
         statsRefetch(),
+        cacheOverviewRefetch(),
         tracksRefetch(),
       ]);
     }, 3000);
 
     return () => window.clearInterval(timer);
-  }, [hasActiveJobs, jobsRefetch, statsRefetch, tracksRefetch]);
+  }, [cacheOverviewRefetch, hasActiveJobs, jobsRefetch, statsRefetch, tracksRefetch]);
 
   React.useEffect(() => {
     if (statsQuery.error) {
       toast.error(statsQuery.error.message ?? "统计信息加载失败");
     }
   }, [statsQuery.error]);
+
+  React.useEffect(() => {
+    if (cacheOverviewQuery.error) {
+      toast.error(cacheOverviewQuery.error.message ?? "缓存概览加载失败");
+    }
+  }, [cacheOverviewQuery.error]);
 
   React.useEffect(() => {
     if (jobsQuery.error) {
@@ -169,6 +193,10 @@ export default function AdminOverviewPage() {
   const pendingJobs = jobs.filter((job) => job.status === "pending").length;
   const runningJobs = jobs.filter((job) => job.status === "running").length;
   const failedJobs = jobs.filter((job) => job.status === "failed").length;
+  const failedTranscodes = jobs.filter(
+    (job) => job.type === "transcode_prepare" && job.status === "failed",
+  ).length;
+  const cacheOverview = cacheOverviewQuery.data;
 
   const overviewCards = [
     {
@@ -314,6 +342,50 @@ export default function AdminOverviewPage() {
         </Card>
       </div>
 
+      <div className="grid gap-6 xl:grid-cols-[1fr_1fr]">
+        <CurrentPlaybackSummary />
+
+        <Card>
+          <CardHeader className="border-b">
+            <CardTitle>缓存概览</CardTitle>
+            <CardDescription>帮助你判断转码缓存是否在正常累积与命中。</CardDescription>
+          </CardHeader>
+
+          <CardContent className="grid gap-4 pt-4 md:grid-cols-2">
+            <div className="rounded-xl border bg-muted/20 p-4">
+              <div className="text-sm text-muted-foreground">缓存目录</div>
+              <div className="mt-2 font-mono text-sm">
+                {cacheOverview?.hostCacheOverride ?? cacheOverview?.cacheRoot ?? "/cache"}
+              </div>
+              <div className="mt-1 text-xs text-muted-foreground">
+                Web 容器内路径固定为 `/cache`，开发环境可映射到宿主机目录。
+              </div>
+            </div>
+
+            <div className="rounded-xl border bg-muted/20 p-4">
+              <div className="text-sm text-muted-foreground">已就绪缓存</div>
+              <div className="mt-2 text-sm font-medium">
+                {cacheOverview?.readyEntries ?? 0} 个文件 / {formatBytes(cacheOverview?.totalBytes)}
+              </div>
+            </div>
+
+            <div className="rounded-xl border bg-muted/20 p-4">
+              <div className="text-sm text-muted-foreground">缓存健康</div>
+              <div className="mt-2 text-sm font-medium">
+                {cacheOverview?.pendingEntries ?? 0} pending / {cacheOverview?.failedEntries ?? 0} failed
+              </div>
+            </div>
+
+            <div className="rounded-xl border bg-muted/20 p-4">
+              <div className="text-sm text-muted-foreground">失效规则</div>
+              <div className="mt-2 text-sm font-medium">
+                按 `trackId + profile + sourceMtimeMs` 命中，源文件更新时间变化后会自然失效并重建。
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
       <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
         <Card>
           <CardHeader className="border-b">
@@ -366,11 +438,16 @@ export default function AdminOverviewPage() {
                 <div key={job.id} className="rounded-xl border bg-muted/20 p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0 space-y-1">
-                      <div className="font-medium">{job.type}</div>
+                      <div className="font-medium">{getJobDisplayName(job.type, job.payloadJson)}</div>
                       <div className="truncate font-mono text-xs text-muted-foreground">{job.id}</div>
                     </div>
                     <Badge variant={badge.variant}>{badge.text}</Badge>
                   </div>
+                  {job.errorJson ? (
+                    <div className="mt-3 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">
+                      {getJobErrorSummary(job.errorJson)}
+                    </div>
+                  ) : null}
                   <div className="mt-3 flex items-center justify-between gap-3 text-sm text-muted-foreground">
                     <span>进度 {formatProgress(job.progress)}</span>
                     <span>{formatDateTime(job.updatedAt)}</span>
@@ -382,6 +459,12 @@ export default function AdminOverviewPage() {
             {!jobsQuery.isLoading && jobs.length === 0 ? (
               <div className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">
                 暂无任务记录。
+              </div>
+            ) : null}
+
+            {failedTranscodes > 0 ? (
+              <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
+                当前有 {failedTranscodes} 条转码任务失败，建议前往 Jobs 页查看错误详情并执行重试。
               </div>
             ) : null}
           </CardContent>
