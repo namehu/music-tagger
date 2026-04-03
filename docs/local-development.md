@@ -36,7 +36,10 @@ DATABASE_URL="file:./dev.db"
 BETTER_AUTH_SECRET="replace-me"
 BETTER_AUTH_URL="http://localhost:3000"
 BETTER_AUTH_TRUSTED_ORIGINS=""
+MUSIC_ROOT_HOST_PATH="/absolute/path/to/your/music"
 ```
+
+`MUSIC_ROOT_HOST_PATH` 用于播放原始音频时把数据库里的容器路径 `/music/...` 映射回宿主机真实路径；建议与 `.env.dev` 里的 `LOCAL_MUSIC_DIR` 保持一致。
 
 4. 准备 Docker worker 的环境文件：
 

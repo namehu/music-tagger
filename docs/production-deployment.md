@@ -94,7 +94,7 @@ WEB_PORT="3000"
 - `BETTER_AUTH_SECRET`：必须替换成真实随机密钥
 - `BETTER_AUTH_URL`：用户实际访问 Web 的地址
 - `BETTER_AUTH_TRUSTED_ORIGINS`：反向代理、域名或额外访问入口
-- `NAS_MUSIC_DIR`：NAS 宿主机上的音乐目录绝对路径
+- `NAS_MUSIC_DIR`：NAS 宿主机上的音乐目录绝对路径；现在会同时挂载给 `web` 和 `worker`
 - `DB_DATA_DIR`：数据库持久化位置。填 `data` 表示用 Docker named volume；填 `/volume1/docker/music-tagger/data` 表示直接挂到 NAS 目录
 - `CACHE_DIR`：缓存持久化位置。填 `transcode_cache` 表示用 Docker named volume；填 `/volume1/docker/music-tagger/cache` 表示直接挂到 NAS 目录
 - `WEB_PORT`：宿主机对外暴露端口
@@ -161,7 +161,16 @@ docker compose --env-file .env.prod -f docker-compose.prod.yml logs -f
 2. 创建首个管理员
 3. 登录后进入 `/admin/jobs`
 4. 触发一次 `scan_full`
-5. 到 `/admin/library` 确认扫描结果
+5. 到 `/admin/library` 确认扫描结果，并测试原始音频播放
+
+## 关于原始音频播放
+
+现在 `web` 服务也会把 `NAS_MUSIC_DIR` 挂载到容器内的 `/music`：
+
+- `worker` 用它扫描音乐目录并写入索引
+- `web` 用它直出原始音频流（`/api/stream/[trackId]`）
+
+因此生产环境里，`web` 和 `worker` 必须指向同一份 `NAS_MUSIC_DIR`。
 
 ## 后续更新流程
 
