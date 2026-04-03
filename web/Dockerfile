@@ -11,50 +11,53 @@ WORKDIR /app
 FROM base AS deps
 
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends python3 make g++ \
+  && apt-get install -y --no-install-recommends python3 make g++ ca-certificates openssl \
   && rm -rf /var/lib/apt/lists/*
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY web/package.json web/package.json
 
-RUN pnpm install --frozen-lockfile
+RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
+  pnpm fetch --frozen-lockfile
+
+RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
+  pnpm install --frozen-lockfile --offline
 
 FROM base AS builder
-
-ENV BETTER_AUTH_SECRET="M8g3xQm1B6vLp2R7sTf9Yw4N0cK5hJ8u"
-ENV BETTER_AUTH_URL="http://localhost:3000"
-ENV DATABASE_URL="file:/tmp/music-tagger-build.db"
 
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/web/node_modules ./web/node_modules
 COPY . .
 
-RUN pnpm -C web build
+RUN --mount=type=cache,target=/app/web/.next/cache \
+  BETTER_AUTH_SECRET="build-placeholder-secret-32-chars-ok" \
+  BETTER_AUTH_URL="http://localhost:3000" \
+  DATABASE_URL="file:/tmp/music-tagger-build.db" \
+  pnpm -C web build
 
-FROM base AS prod-deps
-
-RUN apt-get update \
-  && apt-get install -y --no-install-recommends python3 make g++ \
-  && rm -rf /var/lib/apt/lists/*
-
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
-COPY web/package.json web/package.json
-
-RUN pnpm install --frozen-lockfile --prod
-
-FROM base AS runner
+FROM node:20-bookworm-slim AS runner
 
 ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV HOSTNAME="0.0.0.0"
+ENV PORT=3000
 
-COPY --from=prod-deps /app/node_modules ./node_modules
-COPY --from=prod-deps /app/web/node_modules ./web/node_modules
-COPY --from=builder /app/package.json ./package.json
-COPY --from=builder /app/pnpm-lock.yaml ./pnpm-lock.yaml
-COPY --from=builder /app/pnpm-workspace.yaml ./pnpm-workspace.yaml
-COPY --from=builder /app/web ./web
+WORKDIR /app
 
-WORKDIR /app/web
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends ca-certificates openssl \
+  && npm install -g prisma@7.6.0 \
+  && rm -rf /var/lib/apt/lists/* \
+  && groupadd --system --gid 1001 nodejs \
+  && useradd --system --uid 1001 --gid 1001 nextjs
+
+COPY --from=builder --chown=nextjs:nodejs /app/web/public ./web/public
+COPY --from=builder --chown=nextjs:nodejs /app/web/prisma ./web/prisma
+COPY --from=builder --chown=nextjs:nodejs /app/web/.next/static ./web/.next/static
+COPY --from=builder --chown=nextjs:nodejs /app/web/.next/standalone ./
+
+USER nextjs
 
 EXPOSE 3000
 
-CMD ["sh", "-c", "pnpm prisma migrate deploy && pnpm start"]
+CMD ["sh", "-c", "prisma migrate deploy --schema=/app/web/prisma/schema.prisma && node /app/web/server.js"]
