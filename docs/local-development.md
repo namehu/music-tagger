@@ -4,9 +4,9 @@
 
 - Web 跑在宿主机，直接用浏览器访问 `http://localhost:3000`
 - worker 跑在 Docker 里，容器内自带 `ffmpeg/ffprobe`
-- Web 和 worker 共用同一个 SQLite 文件：[`web/dev.db`](/Users/namehu/github/music-tagger/web/dev.db)
+- Web 和 worker 共用同一个 SQLite 文件：[`web/dev.db`](./web/dev.db)
 
-对应启动文件是 [`docker-compose.dev.yml`](/Users/namehu/github/music-tagger/docker-compose.dev.yml)。
+对应启动文件是 [`docker-compose.dev.yml`](./docker-compose.dev.yml)。
 
 ## 前置条件
 
@@ -44,7 +44,7 @@ BETTER_AUTH_TRUSTED_ORIGINS=""
 cp .env.dev.example .env.dev
 ```
 
-5. 参考 [`.env.dev.example`](/Users/namehu/github/music-tagger/.env.dev.example) 修改 `.env.dev`：
+5. 参考 [`.env.dev.example`](./.env.dev.example) 修改 `.env.dev`：
 
 ```dotenv
 LOCAL_MUSIC_DIR="/absolute/path/to/your/music"
@@ -108,4 +108,4 @@ docker compose --env-file .env.dev -f docker-compose.dev.yml down
 - 不需要在宿主机安装 `ffmpeg` 或 `ffprobe`
 - Web 改代码后直接走 Next.js 本地开发体验
 - worker 改代码后重启容器即可生效
-- 数据仍然落在本地 [`web/dev.db`](/Users/namehu/github/music-tagger/web/dev.db)，排查方便
+- 数据仍然落在本地 [`web/dev.db`](./web/dev.db)，排查方便

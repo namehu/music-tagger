@@ -6,7 +6,7 @@
 - NAS 只负责拉取镜像和启动容器
 - NAS 不执行构建
 
-对应启动文件是 [`docker-compose.prod.yml`](/Users/namehu/github/music-tagger/docker-compose.prod.yml)。
+对应启动文件是 [`docker-compose.prod.yml`](./docker-compose.prod.yml)。
 
 ## 总体流程
 
@@ -25,7 +25,7 @@
 
 仓库已经包含自动发布 workflow：
 
-- [`.github/workflows/release-images.yml`](/Users/namehu/github/music-tagger/.github/workflows/release-images.yml)
+- [`.github/workflows/release-images.yml`](./.github/workflows/release-images.yml)
 
 这个 workflow 会在你推送 `v*` tag 时自动：
 
@@ -72,7 +72,7 @@ git push origin v0.1.0
 cp .env.prod.example .env.prod
 ```
 
-然后参考 [`.env.prod.example`](/Users/namehu/github/music-tagger/.env.prod.example) 修改 `.env.prod`：
+然后参考 [`.env.prod.example`](./.env.prod.example) 修改 `.env.prod`：
 
 ```dotenv
 WEB_IMAGE="ghcr.io/namehu/music-tagger-web:v0.1.0"

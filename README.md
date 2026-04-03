@@ -16,38 +16,38 @@
 
 ## 项目结构
 
-- [`web/`](/Users/namehu/github/music-tagger/web): Next.js 16 控制台，包含认证、tRPC、Prisma 与管理页面
-- [`worker/`](/Users/namehu/github/music-tagger/worker): Python worker，负责领取 jobs 并执行扫描
-- [`docs/`](/Users/namehu/github/music-tagger/docs): 设计稿与使用文档
+- [`web/`](./web): Next.js 16 控制台，包含认证、tRPC、Prisma 与管理页面
+- [`worker/`](./worker): Python worker，负责领取 jobs 并执行扫描
+- [`docs/`](./docs): 设计稿与使用文档
 
 ## 两套启动方案
 
 ### 1. 本地快速开发
 
 - Web 跑在宿主机：`pnpm dev:web`
-- worker 跑在 Docker：[`docker-compose.dev.yml`](/Users/namehu/github/music-tagger/docker-compose.dev.yml)
+- worker 跑在 Docker：[`docker-compose.dev.yml`](./docker-compose.dev.yml)
 - 适合日常开发与调试页面
 
-完整教程见 [`docs/local-development.md`](/Users/namehu/github/music-tagger/docs/local-development.md)。
+完整教程见 [`docs/local-development.md`](./docs/local-development.md)。
 
 ### 2. NAS 生产部署
 
 - Web 和 worker 都跑 Docker
 - NAS 只拉取镜像并启动，不在 NAS 上构建
-- 使用 [`docker-compose.prod.yml`](/Users/namehu/github/music-tagger/docker-compose.prod.yml)
+- 使用 [`docker-compose.prod.yml`](./docker-compose.prod.yml)
 
-完整教程见 [`docs/production-deployment.md`](/Users/namehu/github/music-tagger/docs/production-deployment.md)。
+完整教程见 [`docs/production-deployment.md`](./docs/production-deployment.md)。
 
 ### 3. 自动镜像发布
 
 - 打 `v*.*.*` tag 后，GitHub Actions 会自动构建并推送 `web` / `worker` 镜像到 GHCR 和 Docker Hub
-- workflow 文件在 [`.github/workflows/release-images.yml`](/Users/namehu/github/music-tagger/.github/workflows/release-images.yml)
+- workflow 文件在 [`.github/workflows/release-images.yml`](./.github/workflows/release-images.yml)
 
 ## 环境文件模板
 
-- 本地开发 worker 环境：[`.env.dev.example`](/Users/namehu/github/music-tagger/.env.dev.example)
-- 生产部署环境：[`.env.prod.example`](/Users/namehu/github/music-tagger/.env.prod.example)
-- Web 本地开发环境：[`web/.env.example`](/Users/namehu/github/music-tagger/web/.env.example)
+- 本地开发 worker 环境：[`.env.dev.example`](./.env.dev.example)
+- 生产部署环境：[`.env.prod.example`](./.env.prod.example)
+- Web 本地开发环境：[`web/.env.example`](./web/.env.example)
 
 ## 常用命令
 
@@ -66,4 +66,4 @@ pnpm prisma:studio
 2. 进入 `/admin/jobs` 触发 `scan_full`。
 3. 进入 `/admin/library` 验证扫描结果。
 
-更多细节见 [`web/README.md`](/Users/namehu/github/music-tagger/web/README.md) 和 [`worker/README.md`](/Users/namehu/github/music-tagger/worker/README.md)。
+更多细节见 [`web/README.md`](./web/README.md) 和 [`worker/README.md`](./worker/README.md)。
