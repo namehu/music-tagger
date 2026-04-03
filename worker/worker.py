@@ -85,6 +85,14 @@ def _reconnect(
     return _open_connection(db_path)
 
 
+def _refresh_polling_connection(
+    conn: sqlite3.Connection,
+    db_path: str,
+) -> tuple[sqlite3.Connection, tuple[int, int, int, int] | None]:
+    _close_connection(conn)
+    return _open_connection(db_path)
+
+
 def _ensure_fresh_connection(
     conn: sqlite3.Connection,
     db_path: str,
@@ -148,7 +156,9 @@ def main() -> None:
     try:
         while True:
             try:
-                conn, fingerprint = _ensure_fresh_connection(conn, db_path, fingerprint)
+                # 开发环境里宿主机 / Docker / Prisma / sqlite3 可能分别持有不同文件句柄，
+                # 空闲轮询阶段主动刷新连接，确保下一次 claim 读取的是最新数据库视图。
+                conn, fingerprint = _refresh_polling_connection(conn, db_path)
                 job = claim_next_job(conn, worker_id)
             except sqlite3.Error as error:
                 conn, fingerprint = _reconnect(
