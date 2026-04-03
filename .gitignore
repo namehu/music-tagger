@@ -25,3 +25,9 @@ output
 .pnpm-store
 web/dev.db
 web/dev.db-*
+.env.dev
+.env.prod
+*.pyc
+__pycache__/
+*.tsbuildinfo
+.superpowers/
