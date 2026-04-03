@@ -44,6 +44,20 @@ INSERT INTO "jobs" (
 
 worker 领取后会调用 `scan_full`，遍历 `MUSIC_ROOT` 下支持的音频文件，并把基础元数据与技术信息写入（或更新）`tracks` 表。
 
+## SQLite 自动重连
+
+worker 现在会在两类情况下自动重连 SQLite：
+
+- 数据库文件被 migration / 重建后，检测到文件指纹变化
+- 轮询或写回过程中遇到 `sqlite3.Error`
+
+这意味着在本地开发时，执行 `pnpm prisma:migrate` 之后通常不再需要手工重启 worker，它会在下一轮轮询时自动切换到新的数据库连接。
+
+注意：
+
+- 如果你在 worker 正在执行长任务时直接替换数据库文件，当前任务仍可能受影响
+- 更稳妥的开发习惯仍然是：避免在任务运行中做破坏性 schema 变更
+
 ## Docker
 
 如果通过 Docker 部署，推荐直接使用 [`worker/Dockerfile`](/Users/namehu/github/music-tagger/worker/Dockerfile)，镜像内已经安装 `ffmpeg`，因此同时具备 `ffprobe` 能力，无需在 NAS 宿主机额外手工安装。

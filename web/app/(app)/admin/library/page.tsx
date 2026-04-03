@@ -78,7 +78,7 @@ export default function AdminLibraryPage() {
       <div className="space-y-1">
         <h1 className="text-2xl font-semibold tracking-tight">音乐库</h1>
         <p className="text-sm text-muted-foreground">
-          展示最新扫描结果，支持最小搜索与排序，方便确认索引是否已成功写入。
+          展示最新扫描结果，支持全文搜索与基础排序，方便确认索引是否已成功写入。
         </p>
       </div>
 
@@ -112,7 +112,7 @@ export default function AdminLibraryPage() {
               <Input
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
-                placeholder="按标题、艺人、专辑或路径搜索"
+                placeholder="按标题、艺人、专辑、文件名或路径全文搜索"
                 className="w-full sm:w-80"
               />
 
@@ -140,6 +140,8 @@ export default function AdminLibraryPage() {
         <CardContent className="space-y-4 pt-4">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Badge variant="outline">{query.length > 0 ? `搜索: ${query}` : "全部曲目"}</Badge>
+            {query.length > 0 ? <Badge variant="secondary">FTS 全文检索</Badge> : null}
+            {query.length > 0 ? <span>相关性优先，当前排序作为次级顺序。</span> : null}
             {deferredSearch !== search ? <span>搜索中…</span> : null}
           </div>
 

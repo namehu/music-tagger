@@ -5,11 +5,15 @@ import sqlite3
 import string
 import time
 from pathlib import Path
+from typing import Optional
 
 # 以 `python worker/worker.py` 方式运行时，sys.path[0] 为 worker/ 目录，
 # 因此使用同目录导入（避免要求 worker/ 作为带 __init__.py 的包）。
 from jobs import claim_next_job, heartbeat, mark_done, mark_failed, update_progress
 from scanner import scan_full
+
+
+POLL_INTERVAL_S = 2
 
 
 def _default_db_path() -> str:
@@ -38,11 +42,63 @@ def _default_worker_id() -> str:
 
 
 def _connect(db_path: str) -> sqlite3.Connection:
-    conn = sqlite3.connect(db_path)
+    conn = sqlite3.connect(db_path, timeout=30)
     conn.row_factory = sqlite3.Row
     # 让外键生效（Prisma migration 中有外键）
     conn.execute("PRAGMA foreign_keys = ON;")
+    conn.execute("PRAGMA busy_timeout = 30000;")
     return conn
+
+
+def _close_connection(conn: Optional[sqlite3.Connection]) -> None:
+    if conn is None:
+        return
+
+    try:
+        conn.close()
+    except Exception:
+        pass
+
+
+def _db_fingerprint(db_path: str) -> tuple[int, int, int, int] | None:
+    try:
+        stat = Path(db_path).stat()
+    except FileNotFoundError:
+        return None
+
+    return (stat.st_dev, stat.st_ino, stat.st_size, stat.st_mtime_ns)
+
+
+def _open_connection(db_path: str) -> tuple[sqlite3.Connection, tuple[int, int, int, int] | None]:
+    conn = _connect(db_path)
+    return conn, _db_fingerprint(db_path)
+
+
+def _reconnect(
+    conn: Optional[sqlite3.Connection],
+    db_path: str,
+    *,
+    reason: str,
+) -> tuple[sqlite3.Connection, tuple[int, int, int, int] | None]:
+    print(f"[worker] reconnecting SQLite connection: {reason}")
+    _close_connection(conn)
+    return _open_connection(db_path)
+
+
+def _ensure_fresh_connection(
+    conn: sqlite3.Connection,
+    db_path: str,
+    fingerprint: tuple[int, int, int, int] | None,
+) -> tuple[sqlite3.Connection, tuple[int, int, int, int] | None]:
+    latest_fingerprint = _db_fingerprint(db_path)
+    if latest_fingerprint == fingerprint:
+        return conn, fingerprint
+
+    return _reconnect(
+        conn,
+        db_path,
+        reason=f"database file changed from {fingerprint} to {latest_fingerprint}",
+    )
 
 
 def _handle_job(conn: sqlite3.Connection, worker_id: str, job: dict, music_root: str) -> None:
@@ -71,7 +127,11 @@ def _handle_job(conn: sqlite3.Connection, worker_id: str, job: dict, music_root:
 
         raise RuntimeError(f"Unsupported job type: {job_type}")
     except Exception as e:
-        mark_failed(conn, job_id, worker_id, e)
+        try:
+            mark_failed(conn, job_id, worker_id, e)
+        except sqlite3.Error as db_error:
+            print(f"[worker] failed to persist job failure for {job_id}: {db_error}")
+            raise
 
 
 def main() -> None:
@@ -83,16 +143,42 @@ def main() -> None:
     print(f"[worker] DATABASE_PATH={db_path}")
     print(f"[worker] MUSIC_ROOT={music_root}")
 
-    conn = _connect(db_path)
+    conn, fingerprint = _open_connection(db_path)
 
-    while True:
-        job = claim_next_job(conn, worker_id)
-        if job is None:
-            time.sleep(2)
-            continue
+    try:
+        while True:
+            try:
+                conn, fingerprint = _ensure_fresh_connection(conn, db_path, fingerprint)
+                job = claim_next_job(conn, worker_id)
+            except sqlite3.Error as error:
+                conn, fingerprint = _reconnect(
+                    conn,
+                    db_path,
+                    reason=f"polling failed with sqlite error: {error}",
+                )
+                time.sleep(POLL_INTERVAL_S)
+                continue
 
-        print(f"[worker] claimed job id={job['id']} type={job['type']} attempts={job['attempts']}/{job['maxAttempts']}")
-        _handle_job(conn, worker_id, job, music_root)
+            if job is None:
+                time.sleep(POLL_INTERVAL_S)
+                continue
+
+            print(
+                f"[worker] claimed job id={job['id']} type={job['type']} "
+                f"attempts={job['attempts']}/{job['maxAttempts']}"
+            )
+
+            try:
+                _handle_job(conn, worker_id, job, music_root)
+            except sqlite3.Error as error:
+                conn, fingerprint = _reconnect(
+                    conn,
+                    db_path,
+                    reason=f"job {job['id']} failed with sqlite error: {error}",
+                )
+                time.sleep(POLL_INTERVAL_S)
+    finally:
+        _close_connection(conn)
 
 
 if __name__ == "__main__":
