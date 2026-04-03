@@ -167,6 +167,12 @@ function mapMountedPathToHostPath(mountedPath: string, mountedPrefix: string, en
   return path.join(absoluteHostRoot, relativePath);
 }
 
+function getMountedPathCandidates(mountedPath: string, mountedPrefix: string, envVarName: string) {
+  return [mountedPath, mapMountedPathToHostPath(mountedPath, mountedPrefix, envVarName)].filter(
+    (candidate): candidate is string => Boolean(candidate),
+  );
+}
+
 async function resolveReadablePath(mountedPath: string, hostPathCandidate: string | null) {
   const candidates = [mountedPath, hostPathCandidate].filter(
     (candidate): candidate is string => Boolean(candidate),
@@ -191,9 +197,10 @@ export async function resolveTrackSourcePath(trackPath: string) {
   );
 }
 
+export function getPlaybackCachePathCandidates(cachePath: string) {
+  return getMountedPathCandidates(cachePath, CACHE_PATH_PREFIX, "CACHE_ROOT_HOST_PATH");
+}
+
 export async function resolvePlaybackCachePath(cachePath: string) {
-  return resolveReadablePath(
-    cachePath,
-    mapMountedPathToHostPath(cachePath, CACHE_PATH_PREFIX, "CACHE_ROOT_HOST_PATH"),
-  );
+  return resolveReadablePath(cachePath, mapMountedPathToHostPath(cachePath, CACHE_PATH_PREFIX, "CACHE_ROOT_HOST_PATH"));
 }

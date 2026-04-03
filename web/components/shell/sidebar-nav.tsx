@@ -14,7 +14,13 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
-import { BriefcaseIcon, FolderIcon, LayoutDashboardIcon, MenuIcon } from "lucide-react";
+import {
+  BriefcaseIcon,
+  FolderIcon,
+  HardDriveDownloadIcon,
+  LayoutDashboardIcon,
+  MenuIcon,
+} from "lucide-react";
 
 type NavItem = {
   title: string;
@@ -26,6 +32,7 @@ const NAV_ITEMS: NavItem[] = [
   { title: "概览", href: "/admin", icon: LayoutDashboardIcon },
   { title: "Jobs", href: "/admin/jobs", icon: BriefcaseIcon },
   { title: "音乐库", href: "/admin/library", icon: FolderIcon },
+  { title: "缓存", href: "/admin/cache", icon: HardDriveDownloadIcon },
 ];
 
 function isActivePath(pathname: string, href: string) {

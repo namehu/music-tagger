@@ -1,3 +1,9 @@
+import {
+  classifyTranscodeFailure,
+  getTranscodeFailureCategoryLabel,
+  type TranscodeFailureCategory,
+} from "@/lib/transcode-failure";
+
 export type ParsedJobPayload = {
   jobKey?: string;
   musicRoot?: string | null;
@@ -70,4 +76,19 @@ export function getJobErrorSummary(errorJson: string | null | undefined) {
   } catch {
     return errorJson;
   }
+}
+
+export function getTranscodeFailureMeta(errorJson: string | null | undefined): {
+  category: TranscodeFailureCategory;
+  label: string;
+} | null {
+  if (!errorJson) {
+    return null;
+  }
+
+  const category = classifyTranscodeFailure(errorJson);
+  return {
+    category,
+    label: getTranscodeFailureCategoryLabel(category),
+  };
 }

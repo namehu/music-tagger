@@ -121,6 +121,19 @@ export default function AdminOverviewPage() {
     limit: 6,
     order: "recent",
   });
+  const maintainCache = trpc.library.maintainCache.useMutation({
+    onSuccess: async (result) => {
+      const actionLabel = result.mode === "failed" ? "失败缓存记录" : "失效缓存";
+      toast.success(`已清理 ${result.removedEntries} 条${actionLabel}，删除 ${result.removedFiles} 个文件`);
+      await Promise.all([
+        utils.library.cacheOverview.invalidate(),
+        utils.jobs.list.invalidate(),
+      ]);
+    },
+    onError: (err) => {
+      toast.error(err.message ?? "缓存维护失败");
+    },
+  });
 
   const enqueueScanFull = trpc.jobs.enqueueScanFull.useMutation({
     onSuccess: async (result) => {
@@ -197,6 +210,7 @@ export default function AdminOverviewPage() {
     (job) => job.type === "transcode_prepare" && job.status === "failed",
   ).length;
   const cacheOverview = cacheOverviewQuery.data;
+  const cacheActionsDisabled = maintainCache.isPending;
 
   const overviewCards = [
     {
@@ -335,6 +349,9 @@ export default function AdminOverviewPage() {
             <Link href="/admin/jobs" className={buttonVariants({ variant: "outline" })}>
               查看任务队列
             </Link>
+            <Link href="/admin/cache" className={buttonVariants({ variant: "outline" })}>
+              查看缓存明细
+            </Link>
             <div className="rounded-xl border bg-muted/20 p-4 text-sm text-muted-foreground">
               建议使用顺序：先触发扫描，再去音乐库确认结果；如果有卡住或失败，再进入 Jobs 看详细状态。
             </div>
@@ -351,7 +368,29 @@ export default function AdminOverviewPage() {
             <CardDescription>帮助你判断转码缓存是否在正常累积与命中。</CardDescription>
           </CardHeader>
 
-          <CardContent className="grid gap-4 pt-4 md:grid-cols-2">
+          <CardContent className="space-y-4 pt-4">
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={cacheActionsDisabled}
+                onClick={() => maintainCache.mutate({ mode: "stale" })}
+              >
+                清理失效缓存
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={cacheActionsDisabled}
+                onClick={() => maintainCache.mutate({ mode: "failed" })}
+              >
+                清理失败记录
+              </Button>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2">
             <div className="rounded-xl border bg-muted/20 p-4">
               <div className="text-sm text-muted-foreground">缓存目录</div>
               <div className="mt-2 font-mono text-sm">
@@ -374,6 +413,9 @@ export default function AdminOverviewPage() {
               <div className="mt-2 text-sm font-medium">
                 {cacheOverview?.pendingEntries ?? 0} pending / {cacheOverview?.failedEntries ?? 0} failed
               </div>
+              <div className="mt-1 text-xs text-muted-foreground">
+                {cacheOverview?.staleEntries ?? 0} stale / {cacheOverview?.orphanEntries ?? 0} orphan
+              </div>
             </div>
 
             <div className="rounded-xl border bg-muted/20 p-4">
@@ -382,6 +424,25 @@ export default function AdminOverviewPage() {
                 按 `trackId + profile + sourceMtimeMs` 命中，源文件更新时间变化后会自然失效并重建。
               </div>
             </div>
+            </div>
+
+            {cacheOverview?.failedByCategory?.length ? (
+              <div className="rounded-xl border bg-muted/20 p-4">
+                <div className="text-sm text-muted-foreground">失败分类</div>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {cacheOverview.failedByCategory.map((item) => (
+                    <Badge key={item.category} variant="outline">
+                      {item.label} · {item.count}
+                    </Badge>
+                  ))}
+                </div>
+                <div className="mt-3">
+                  <Link href="/admin/cache" className={buttonVariants({ variant: "outline", size: "sm" })}>
+                    打开缓存明细
+                  </Link>
+                </div>
+              </div>
+            ) : null}
           </CardContent>
         </Card>
       </div>

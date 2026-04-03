@@ -3,8 +3,52 @@ import { randomUUID } from "crypto";
 import { z } from "zod";
 
 import { parseJobPayload } from "@/lib/jobs";
+import {
+  classifyTranscodeFailure,
+  TRANSCODE_FAILURE_CATEGORIES,
+  type TranscodeFailureCategory,
+} from "@/lib/transcode-failure";
 
 import { adminProcedure, router } from "../trpc";
+
+async function resetJobForRetry(
+  ctx: Parameters<Parameters<typeof adminProcedure.mutation>[0]>[0]["ctx"],
+  job: {
+    id: string;
+    type: string;
+    payloadJson: string;
+  },
+) {
+  const payload = parseJobPayload(job.payloadJson);
+  if (job.type === "transcode_prepare" && payload?.trackId && payload.profile && payload.sourceMtimeMs) {
+    await ctx.prisma.transcodeCache.updateMany({
+      where: {
+        trackId: payload.trackId,
+        profile: payload.profile,
+        sourceMtimeMs: BigInt(payload.sourceMtimeMs),
+      },
+      data: {
+        status: "pending",
+        errorJson: null,
+        fileSize: 0,
+      },
+    });
+  }
+
+  await ctx.prisma.job.update({
+    where: { id: job.id },
+    data: {
+      status: "pending",
+      progress: 0,
+      attempts: 0,
+      lockedBy: null,
+      lockedAt: null,
+      heartbeatAt: null,
+      errorJson: null,
+    },
+    select: { id: true },
+  });
+}
 
 export const jobsRouter = router({
   enqueueScanFull: adminProcedure.mutation(async ({ ctx }) => {
@@ -102,39 +146,59 @@ export const jobsRouter = router({
         throw new TRPCError({ code: "CONFLICT", message: "任务已经在进行中，无需重试" });
       }
 
-      const payload = parseJobPayload(job.payloadJson);
-      if (job.type === "transcode_prepare" && payload?.trackId && payload.profile && payload.sourceMtimeMs) {
-        await ctx.prisma.transcodeCache.updateMany({
-          where: {
-            trackId: payload.trackId,
-            profile: payload.profile,
-            sourceMtimeMs: BigInt(payload.sourceMtimeMs),
-          },
-          data: {
-            status: "pending",
-            errorJson: null,
-            fileSize: 0,
-          },
-        });
-      }
-
-      await ctx.prisma.job.update({
-        where: { id: job.id },
-        data: {
-          status: "pending",
-          progress: 0,
-          attempts: 0,
-          lockedBy: null,
-          lockedAt: null,
-          heartbeatAt: null,
-          errorJson: null,
-        },
-        select: { id: true },
+      await resetJobForRetry(ctx, {
+        id: job.id,
+        type: job.type,
+        payloadJson: job.payloadJson,
       });
 
       return {
         jobId: job.id,
         status: "pending" as const,
+      };
+    }),
+
+  retryFailedTranscodes: adminProcedure
+    .input(
+      z.object({
+        categories: z.array(z.enum(TRANSCODE_FAILURE_CATEGORIES)).default([]),
+        limit: z.number().int().min(1).max(200).default(50),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const failedJobs = await ctx.prisma.job.findMany({
+        where: {
+          type: "transcode_prepare",
+          status: "failed",
+        },
+        orderBy: {
+          createdAt: "desc",
+        },
+        take: input.limit,
+        select: {
+          id: true,
+          type: true,
+          payloadJson: true,
+          errorJson: true,
+        },
+      });
+
+      const requestedCategories = new Set<TranscodeFailureCategory>(input.categories);
+      const matchedJobs =
+        requestedCategories.size === 0
+          ? failedJobs
+          : failedJobs.filter((job) => requestedCategories.has(classifyTranscodeFailure(job.errorJson)));
+
+      for (const job of matchedJobs) {
+        await resetJobForRetry(ctx, {
+          id: job.id,
+          type: job.type,
+          payloadJson: job.payloadJson,
+        });
+      }
+
+      return {
+        retried: matchedJobs.length,
       };
     }),
 

@@ -24,7 +24,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { getJobDisplayName, getJobErrorSummary, getJobScopeText } from "@/lib/jobs";
+import {
+  getJobDisplayName,
+  getJobErrorSummary,
+  getJobScopeText,
+  getTranscodeFailureMeta,
+} from "@/lib/jobs";
+import { getTranscodeFailureCategoryLabel, TRANSCODE_FAILURE_CATEGORIES } from "@/lib/transcode-failure";
 import { cn } from "@/lib/utils";
 
 function formatDateTime(value: string | Date | null | undefined) {
@@ -58,10 +64,25 @@ export default function AdminJobsPage() {
   const retryJob = trpc.jobs.retry.useMutation({
     onSuccess: async () => {
       toast.success("任务已重新入队");
-      await utils.jobs.list.invalidate();
+      await Promise.all([
+        utils.jobs.list.invalidate(),
+        utils.library.cacheOverview.invalidate(),
+      ]);
     },
     onError: (err) => {
       toast.error(err.message ?? "重试失败");
+    },
+  });
+  const retryFailedTranscodes = trpc.jobs.retryFailedTranscodes.useMutation({
+    onSuccess: async (result) => {
+      toast.success(result.retried > 0 ? `已批量重试 ${result.retried} 条转码任务` : "没有匹配的失败转码任务");
+      await Promise.all([
+        utils.jobs.list.invalidate(),
+        utils.library.cacheOverview.invalidate(),
+      ]);
+    },
+    onError: (err) => {
+      toast.error(err.message ?? "批量重试失败");
     },
   });
   const enqueueScanFull = trpc.jobs.enqueueScanFull.useMutation({
@@ -108,6 +129,21 @@ export default function AdminJobsPage() {
   const failedJobs = jobs.filter((job) => job.status === "failed").length;
   const transcodeJobs = jobs.filter((job) => job.type === "transcode_prepare");
   const failedTranscodeJobs = transcodeJobs.filter((job) => job.status === "failed").length;
+  const failedTranscodeByCategory = TRANSCODE_FAILURE_CATEGORIES.map((category) => {
+    const count = transcodeJobs.filter((job) => {
+      if (job.status !== "failed") {
+        return false;
+      }
+
+      return getTranscodeFailureMeta(job.errorJson)?.category === category;
+    }).length;
+
+    return {
+      category,
+      label: getTranscodeFailureCategoryLabel(category),
+      count,
+    };
+  }).filter((item) => item.count > 0);
   const jobsSnapshotAt = jobsQuery.dataUpdatedAt;
   const longPendingJobs = jobs.filter((job) => {
     if (job.status !== "pending") {
@@ -200,6 +236,43 @@ export default function AdminJobsPage() {
                   : "当前没有明显卡住的 pending 任务"}
               </div>
             </div>
+            {failedTranscodeByCategory.length > 0 ? (
+              <div className="rounded-xl border bg-muted/20 p-4 md:col-span-2">
+                <div className="text-sm text-muted-foreground">失败分类</div>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {failedTranscodeByCategory.map((item) => (
+                    <Badge key={item.category} variant="outline">
+                      {item.label} · {item.count}
+                    </Badge>
+                  ))}
+                </div>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {failedTranscodeByCategory.map((item) => (
+                    <Button
+                      key={`${item.category}-retry`}
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={retryFailedTranscodes.isPending}
+                      onClick={() =>
+                        retryFailedTranscodes.mutate({ categories: [item.category], limit: 100 })
+                      }
+                    >
+                      重试{item.label}
+                    </Button>
+                  ))}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={retryFailedTranscodes.isPending}
+                    onClick={() => retryFailedTranscodes.mutate({ categories: [], limit: 100 })}
+                  >
+                    批量重试全部失败转码
+                  </Button>
+                </div>
+              </div>
+            ) : null}
           </CardContent>
         </Card>
       </div>
@@ -228,6 +301,10 @@ export default function AdminJobsPage() {
               {jobs.map((job) => {
                 const badge = statusBadge(job.status);
                 const canRetry = job.status === "failed" || job.status === "cancelled";
+                const failureMeta =
+                  job.type === "transcode_prepare" && job.status === "failed"
+                    ? getTranscodeFailureMeta(job.errorJson)
+                    : null;
                 return (
                   <React.Fragment key={job.id}>
                     <TableRow>
@@ -235,6 +312,7 @@ export default function AdminJobsPage() {
                         <div className="space-y-1">
                           <div className="font-medium">{getJobDisplayName(job.type, job.payloadJson)}</div>
                           <div className="truncate font-mono text-xs text-muted-foreground">{job.id}</div>
+                          {failureMeta ? <Badge variant="outline">{failureMeta.label}</Badge> : null}
                         </div>
                       </TableCell>
                       <TableCell className="max-w-80">
