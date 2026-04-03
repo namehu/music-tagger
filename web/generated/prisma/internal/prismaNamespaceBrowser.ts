@@ -58,7 +58,8 @@ export const ModelName = {
   AdminSettings: 'AdminSettings',
   Job: 'Job',
   Track: 'Track',
-  TranscodeCache: 'TranscodeCache'
+  TranscodeCache: 'TranscodeCache',
+  PlaybackResolveEvent: 'PlaybackResolveEvent'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -206,11 +207,23 @@ export const TranscodeCacheScalarFieldEnum = {
   fileSize: 'fileSize',
   status: 'status',
   errorJson: 'errorJson',
+  lastAccessedAt: 'lastAccessedAt',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 } as const
 
 export type TranscodeCacheScalarFieldEnum = (typeof TranscodeCacheScalarFieldEnum)[keyof typeof TranscodeCacheScalarFieldEnum]
+
+
+export const PlaybackResolveEventScalarFieldEnum = {
+  id: 'id',
+  trackId: 'trackId',
+  profile: 'profile',
+  outcome: 'outcome',
+  createdAt: 'createdAt'
+} as const
+
+export type PlaybackResolveEventScalarFieldEnum = (typeof PlaybackResolveEventScalarFieldEnum)[keyof typeof PlaybackResolveEventScalarFieldEnum]
 
 
 export const SortOrder = {

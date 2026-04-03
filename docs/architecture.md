@@ -23,10 +23,10 @@
 - SQLite 曲库索引与 FTS 搜索
 - 全局原始音频播放
 - `mp3_192` 转码缓存播放
+- 转码观测、缓存容量治理与后台策略配置
 
 当前尚未完成：
 
-- 设置页
 - Plan/预览/执行工作流
 - Dashboard / Jobs 当前播放摘要
 - 播放模式：顺序 / 随机 / 单曲循环
@@ -92,6 +92,7 @@ flowchart LR
 - `app/`：Next.js App Router 页面与 Route Handler
 - `server/trpc/`：tRPC 路由与鉴权中间件
 - `components/playback/`：全局播放器与播放状态管理
+- `components/shell/`：后台导航、顶栏与管理壳
 - `lib/`：认证、Prisma、播放 token/路径解析等基础能力
 - `prisma/`：Schema 与 migrations
 
@@ -148,6 +149,7 @@ flowchart LR
 - `fileSize`
 - `status`
 - `errorJson`
+- `lastAccessedAt`
 
 唯一键：
 
@@ -157,6 +159,19 @@ flowchart LR
 
 - 同一首歌、同一档位、同一源文件版本，只会有一条有效缓存记录
 - 源文件 `mtimeMs` 变化后，旧缓存自然失效，新版本重新生成
+- `lastAccessedAt` 用于区分冷缓存与近期命中缓存，支撑容量治理
+
+### 4.4 `admin_settings`
+
+当前除了初始化锁状态，也承载轻量后台策略配置。
+
+当前已落地的配置项：
+
+- `transcodePolicy.coldCacheDays`
+- `transcodePolicy.budgetBytes`
+- `transcodePolicy.pruneLimit`
+
+这些值由 `/admin/settings` 修改，并被 `/admin/cache` 的默认清理动作直接消费。
 
 ## 5. 鉴权与权限边界
 
@@ -248,6 +263,27 @@ sequenceDiagram
 - `scan_full` 在 Web 侧做了去重
 - Worker 侧通过 `BEGIN IMMEDIATE` + 条件更新避免双领
 - Worker 当前会在轮询阶段主动刷新 SQLite 连接，降低开发环境连接陈旧问题
+
+## 6.2.1 管理后台运维链路
+
+当前后台页面已经形成一条完整的人工运维闭环：
+
+- `/admin`
+  - 看曲库规模、最近扫描、缓存健康、转码命中率
+- `/admin/library`
+  - 看搜索结果、播放链路与曲目列表
+- `/admin/cache`
+  - 看 `failed / stale / orphan` 明细
+  - 执行失效清理、失败清理、冷缓存清理、预算裁剪、按曲目清理
+- `/admin/settings`
+  - 修改冷缓存阈值、容量预算、单次清理上限
+
+这意味着当前版本的缓存治理已经具备：
+
+- 观测
+- 排障
+- 策略配置
+- 人工清理
 
 ## 6.3 曲库浏览与搜索链路
 
@@ -348,6 +384,36 @@ sequenceDiagram
 - preparing 状态由全局播放器统一持有，因此切换后台页面不会丢状态
 - 若转码失败，前端会展示明确错误，不自动回退到 `original`
 
+## 6.6 缓存治理链路
+
+```mermaid
+sequenceDiagram
+  autonumber
+  actor A as Admin
+  participant UI as /admin/cache or /admin/settings
+  participant W as Web
+  participant DB as SQLite
+  participant FS as /cache
+
+  A->>UI: 修改冷缓存阈值 / 预算 / 批量上限
+  UI->>W: settings.updateTranscodePolicy
+  W->>DB: upsert admin_settings.dataJson
+  W-->>UI: 返回最新策略
+
+  A->>UI: 点击冷缓存清理 / 预算裁剪 / 按曲目清理
+  UI->>W: library.pruneCache
+  W->>DB: 查询 transcode_cache + lastAccessedAt
+  W->>FS: 删除目标缓存文件
+  W->>DB: 删除 transcode_cache 记录
+  W-->>UI: 返回 removedEntries / removedFiles / reclaimedBytes
+```
+
+说明：
+
+- 当前缓存治理是“管理员显式触发”，还没有自动定时任务
+- `lastAccessedAt ?? updatedAt` 共同决定缓存冷热顺序
+- 容量预算裁剪会优先删除最久未访问的 ready 缓存
+
 ## 7. 当前播放实现
 
 ### 7.1 为什么播放器要做成全局
@@ -440,15 +506,32 @@ flowchart TD
 - 数据库是必须备份
 - 转码缓存不是唯一数据源，但能显著减少重新转码成本
 
-### 9.3 缓存失效策略
+### 9.3 日常后台使用建议
 
-当前缓存失效策略很简单：
+建议管理员按下面顺序日常检查：
+
+1. 在 `/admin` 看最近扫描、缓存健康和转码命中率。
+2. 在 `/admin/jobs` 看是否有 `scan_full` 或 `transcode_prepare` 失败。
+3. 在 `/admin/cache` 处理 `failed / stale / orphan`，再按需清理冷缓存。
+4. 当空间压力变化时，在 `/admin/settings` 调整冷缓存天数、预算和批量上限。
+
+### 9.4 缓存失效与治理策略
+
+当前缓存策略分两部分：
+
+1. 失效判断
 
 - 只要 `tracks.mtimeMs` 改变，就认为源文件版本变了
 - 新版本会重新生成缓存
 - 旧版本缓存不会自动删除，但也不会再被命中
 
-这意味着当前版本更偏“安全与正确”，还没有进入“缓存清理与配额管理”阶段。
+2. 人工治理
+
+- 管理员可以在 `/admin/cache` 清理 stale / failed / orphan
+- 也可以按冷缓存阈值和预算裁剪 ready 缓存
+- 默认阈值由 `/admin/settings` 管理
+
+这意味着当前版本仍然偏“人工运维驱动”，但已经进入了“可观测、可清理、可配置”的阶段。
 
 ## 10. 你后续读代码时建议重点看哪里
 

@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { SidebarNavSheet } from "./sidebar-nav";
 
 const TITLE_MAP: Array<[prefix: string, title: string]> = [
+  ["/admin/settings", "设置"],
   ["/admin/cache", "缓存"],
   ["/admin/library", "音乐库"],
   ["/admin/jobs", "Jobs"],

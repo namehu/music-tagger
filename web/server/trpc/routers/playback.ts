@@ -55,6 +55,23 @@ function buildCancelledErrorJson(message: string) {
   });
 }
 
+async function recordPlaybackResolveEvent(input: {
+  ctx: Parameters<Parameters<typeof protectedProcedure.mutation>[0]>[0]["ctx"];
+  trackId: string;
+  profile: string;
+  outcome: "cache_hit" | "cache_miss";
+}) {
+  await input.ctx.prisma.playbackResolveEvent.create({
+    data: {
+      id: `playback_evt_${randomUUID()}`,
+      trackId: input.trackId,
+      profile: input.profile,
+      outcome: input.outcome,
+    },
+    select: { id: true },
+  });
+}
+
 export const playbackRouter = router({
   resolve: protectedProcedure.input(resolvePlaybackInputSchema).mutation(async ({ ctx, input }) => {
     const userId = ctx.session?.user?.id;
@@ -125,6 +142,25 @@ export const playbackRouter = router({
     if (existingCache?.status === "ready") {
       const readableCachePath = await resolvePlaybackCachePath(existingCache.cachePath);
       if (readableCachePath) {
+        await ctx.prisma.transcodeCache.update({
+          where: {
+            trackId_profile_sourceMtimeMs: {
+              trackId: track.id,
+              profile: input.profile,
+              sourceMtimeMs,
+            },
+          },
+          data: {
+            lastAccessedAt: new Date(),
+          },
+          select: { id: true },
+        });
+        await recordPlaybackResolveEvent({
+          ctx,
+          trackId: track.id,
+          profile: input.profile,
+          outcome: "cache_hit",
+        });
         const token = createPlaybackToken({
           trackId: track.id,
           userId,
@@ -139,6 +175,13 @@ export const playbackRouter = router({
         };
       }
     }
+
+    await recordPlaybackResolveEvent({
+      ctx,
+      trackId: track.id,
+      profile: input.profile,
+      outcome: "cache_miss",
+    });
 
     const payload = buildTranscodePayload({
       trackId: track.id,

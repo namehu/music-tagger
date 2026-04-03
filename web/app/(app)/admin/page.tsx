@@ -60,6 +60,31 @@ function formatBytes(bytes: number | null | undefined) {
   return `${(value / 1024 ** 3).toFixed(1)} GB`;
 }
 
+function formatPercent(value: number | null | undefined) {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return "-";
+  }
+
+  return `${Math.round(value * 100)}%`;
+}
+
+function formatDuration(value: number | null | undefined) {
+  if (typeof value !== "number" || !Number.isFinite(value) || value < 0) {
+    return "-";
+  }
+
+  if (value < 1000) {
+    return `${value} ms`;
+  }
+
+  const seconds = value / 1000;
+  if (seconds < 60) {
+    return `${seconds.toFixed(1)} s`;
+  }
+
+  return `${(seconds / 60).toFixed(1)} min`;
+}
+
 function renderText(value: string | null | undefined, fallback = "-") {
   return value && value.trim().length > 0 ? value : fallback;
 }
@@ -116,6 +141,8 @@ export default function AdminOverviewPage() {
   const utils = trpc.useUtils();
   const statsQuery = trpc.library.stats.useQuery();
   const cacheOverviewQuery = trpc.library.cacheOverview.useQuery();
+  const settingsQuery = trpc.settings.get.useQuery();
+  const transcodeMetricsQuery = trpc.library.transcodeMetrics.useQuery();
   const jobsQuery = trpc.jobs.list.useQuery();
   const tracksQuery = trpc.tracks.list.useQuery({
     limit: 6,
@@ -156,6 +183,8 @@ export default function AdminOverviewPage() {
   const jobsRefetch = jobsQuery.refetch;
   const statsRefetch = statsQuery.refetch;
   const cacheOverviewRefetch = cacheOverviewQuery.refetch;
+  const settingsRefetch = settingsQuery.refetch;
+  const transcodeMetricsRefetch = transcodeMetricsQuery.refetch;
   const tracksRefetch = tracksQuery.refetch;
 
   React.useEffect(() => {
@@ -168,12 +197,14 @@ export default function AdminOverviewPage() {
         jobsRefetch(),
         statsRefetch(),
         cacheOverviewRefetch(),
+        settingsRefetch(),
+        transcodeMetricsRefetch(),
         tracksRefetch(),
       ]);
     }, 3000);
 
     return () => window.clearInterval(timer);
-  }, [cacheOverviewRefetch, hasActiveJobs, jobsRefetch, statsRefetch, tracksRefetch]);
+  }, [cacheOverviewRefetch, hasActiveJobs, jobsRefetch, settingsRefetch, statsRefetch, tracksRefetch, transcodeMetricsRefetch]);
 
   React.useEffect(() => {
     if (statsQuery.error) {
@@ -188,10 +219,22 @@ export default function AdminOverviewPage() {
   }, [cacheOverviewQuery.error]);
 
   React.useEffect(() => {
+    if (settingsQuery.error) {
+      toast.error(settingsQuery.error.message ?? "策略配置加载失败");
+    }
+  }, [settingsQuery.error]);
+
+  React.useEffect(() => {
     if (jobsQuery.error) {
       toast.error(jobsQuery.error.message ?? "任务信息加载失败");
     }
   }, [jobsQuery.error]);
+
+  React.useEffect(() => {
+    if (transcodeMetricsQuery.error) {
+      toast.error(transcodeMetricsQuery.error.message ?? "转码观测加载失败");
+    }
+  }, [transcodeMetricsQuery.error]);
 
   React.useEffect(() => {
     if (tracksQuery.error) {
@@ -210,6 +253,8 @@ export default function AdminOverviewPage() {
     (job) => job.type === "transcode_prepare" && job.status === "failed",
   ).length;
   const cacheOverview = cacheOverviewQuery.data;
+  const transcodePolicy = settingsQuery.data?.transcodePolicy;
+  const transcodeMetrics = transcodeMetricsQuery.data;
   const cacheActionsDisabled = maintainCache.isPending;
 
   const overviewCards = [
@@ -352,6 +397,9 @@ export default function AdminOverviewPage() {
             <Link href="/admin/cache" className={buttonVariants({ variant: "outline" })}>
               查看缓存明细
             </Link>
+            <Link href="/admin/settings" className={buttonVariants({ variant: "outline" })}>
+              调整缓存策略
+            </Link>
             <div className="rounded-xl border bg-muted/20 p-4 text-sm text-muted-foreground">
               建议使用顺序：先触发扫描，再去音乐库确认结果；如果有卡住或失败，再进入 Jobs 看详细状态。
             </div>
@@ -424,6 +472,18 @@ export default function AdminOverviewPage() {
                 按 `trackId + profile + sourceMtimeMs` 命中，源文件更新时间变化后会自然失效并重建。
               </div>
             </div>
+
+            <div className="rounded-xl border bg-muted/20 p-4">
+              <div className="text-sm text-muted-foreground">当前缓存策略</div>
+              <div className="mt-2 text-sm font-medium">
+                冷缓存 {transcodePolicy?.coldCacheDays ?? 30} 天 / 预算 {formatBytes(transcodePolicy?.budgetBytes)} / 单次上限 {transcodePolicy?.pruneLimit ?? 200} 条
+              </div>
+              <div className="mt-3">
+                <Link href="/admin/settings" className={buttonVariants({ variant: "outline", size: "sm" })}>
+                  调整策略
+                </Link>
+              </div>
+            </div>
             </div>
 
             {cacheOverview?.failedByCategory?.length ? (
@@ -446,6 +506,103 @@ export default function AdminOverviewPage() {
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader className="border-b">
+          <CardTitle>转码观测</CardTitle>
+          <CardDescription>
+            基于最近 {transcodeMetrics?.playbackWindowHours ?? 24} 小时播放解析与最近{" "}
+            {transcodeMetrics?.transcodeWindowDays ?? 7} 天转码任务，帮助判断缓存是否真正命中、是否经常被取消或失败。
+          </CardDescription>
+        </CardHeader>
+
+        <CardContent className="space-y-4 pt-4">
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <div className="rounded-xl border bg-muted/20 p-4">
+              <div className="text-sm text-muted-foreground">缓存命中率</div>
+              <div className="mt-2 text-2xl font-semibold">
+                {formatPercent(transcodeMetrics?.playback.hitRate)}
+              </div>
+              <div className="mt-1 text-xs text-muted-foreground">
+                {transcodeMetrics?.playback.cacheHits ?? 0} hit / {transcodeMetrics?.playback.cacheMisses ?? 0} miss
+              </div>
+            </div>
+
+            <div className="rounded-xl border bg-muted/20 p-4">
+              <div className="text-sm text-muted-foreground">平均转码耗时</div>
+              <div className="mt-2 text-2xl font-semibold">
+                {formatDuration(transcodeMetrics?.transcodes.averageDurationMs)}
+              </div>
+              <div className="mt-1 text-xs text-muted-foreground">
+                最近完成 {transcodeMetrics?.transcodes.completedCount ?? 0} 条
+              </div>
+            </div>
+
+            <div className="rounded-xl border bg-muted/20 p-4">
+              <div className="text-sm text-muted-foreground">P95 转码耗时</div>
+              <div className="mt-2 text-2xl font-semibold">
+                {formatDuration(transcodeMetrics?.transcodes.p95DurationMs)}
+              </div>
+              <div className="mt-1 text-xs text-muted-foreground">用于观察慢任务尾部</div>
+            </div>
+
+            <div className="rounded-xl border bg-muted/20 p-4">
+              <div className="text-sm text-muted-foreground">最近 7 天状态</div>
+              <div className="mt-2 text-sm font-medium">
+                {transcodeMetrics?.transcodes.completedCount ?? 0} done / {transcodeMetrics?.transcodes.failedCount ?? 0} failed / {transcodeMetrics?.transcodes.cancelledCount ?? 0} cancelled
+              </div>
+            </div>
+          </div>
+
+          <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
+            <div className="rounded-xl border bg-muted/20 p-4">
+              <div className="text-sm text-muted-foreground">最近 7 天状态趋势</div>
+              <div className="mt-3 grid gap-2">
+                {(transcodeMetrics?.trend ?? []).map((item) => (
+                  <div key={item.date} className="flex items-center justify-between gap-3 rounded-lg border bg-background px-3 py-2 text-sm">
+                    <span className="font-mono text-xs text-muted-foreground">{item.date}</span>
+                    <span>{item.done} done</span>
+                    <span>{item.failed} failed</span>
+                    <span>{item.cancelled} cancelled</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="grid gap-4">
+              <div className="rounded-xl border bg-muted/20 p-4">
+                <div className="text-sm text-muted-foreground">失败原因</div>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {(transcodeMetrics?.failedReasons ?? []).length > 0 ? (
+                    (transcodeMetrics?.failedReasons ?? []).map((item) => (
+                      <Badge key={`failed-${item.category}`} variant="outline">
+                        {item.label} · {item.count}
+                      </Badge>
+                    ))
+                  ) : (
+                    <span className="text-sm text-muted-foreground">最近 7 天没有失败转码</span>
+                  )}
+                </div>
+              </div>
+
+              <div className="rounded-xl border bg-muted/20 p-4">
+                <div className="text-sm text-muted-foreground">取消原因</div>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {(transcodeMetrics?.cancelledReasons ?? []).length > 0 ? (
+                    (transcodeMetrics?.cancelledReasons ?? []).map((item) => (
+                      <Badge key={`cancelled-${item.category}`} variant="outline">
+                        {item.label} · {item.count}
+                      </Badge>
+                    ))
+                  ) : (
+                    <span className="text-sm text-muted-foreground">最近 7 天没有取消转码</span>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
         <Card>

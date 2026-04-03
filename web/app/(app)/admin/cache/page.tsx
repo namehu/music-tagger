@@ -59,6 +59,31 @@ function formatBytes(bytes: number | null | undefined) {
   return `${(value / 1024 ** 3).toFixed(1)} GB`;
 }
 
+function formatPercent(value: number | null | undefined) {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return "-";
+  }
+
+  return `${Math.round(value * 100)}%`;
+}
+
+function formatDuration(value: number | null | undefined) {
+  if (typeof value !== "number" || !Number.isFinite(value) || value < 0) {
+    return "-";
+  }
+
+  if (value < 1000) {
+    return `${value} ms`;
+  }
+
+  const seconds = value / 1000;
+  if (seconds < 60) {
+    return `${seconds.toFixed(1)} s`;
+  }
+
+  return `${(seconds / 60).toFixed(1)} min`;
+}
+
 function renderText(value: string | null | undefined, fallback = "-") {
   return value && value.trim().length > 0 ? value : fallback;
 }
@@ -118,6 +143,9 @@ export default function AdminCachePage() {
   const query = deferredSearch.trim();
 
   const cacheOverviewQuery = trpc.library.cacheOverview.useQuery();
+  const cacheCapacityQuery = trpc.library.cacheCapacity.useQuery();
+  const settingsQuery = trpc.settings.get.useQuery();
+  const transcodeMetricsQuery = trpc.library.transcodeMetrics.useQuery();
   const cacheEntriesQuery = trpc.library.cacheEntries.useQuery({
     issue: filter,
     q: query.length > 0 ? query : undefined,
@@ -129,11 +157,35 @@ export default function AdminCachePage() {
       toast.success(`已清理 ${result.removedEntries} 条${actionLabel}，删除 ${result.removedFiles} 个文件`);
       await Promise.all([
         utils.library.cacheOverview.invalidate(),
+        utils.library.cacheCapacity.invalidate(),
+        utils.library.transcodeMetrics.invalidate(),
         utils.library.cacheEntries.invalidate(),
       ]);
     },
     onError: (err) => {
       toast.error(err.message ?? "缓存维护失败");
+    },
+  });
+  const pruneCache = trpc.library.pruneCache.useMutation({
+    onSuccess: async (result) => {
+      const actionLabel =
+        result.mode === "unused"
+          ? "冷缓存"
+          : result.mode === "budget"
+            ? "容量裁剪"
+            : "该曲目的缓存";
+      toast.success(
+        `已完成${actionLabel}清理，删除 ${result.removedEntries} 条记录 / ${result.removedFiles} 个文件，释放 ${formatBytes(result.reclaimedBytes)}`,
+      );
+      await Promise.all([
+        utils.library.cacheOverview.invalidate(),
+        utils.library.cacheCapacity.invalidate(),
+        utils.library.transcodeMetrics.invalidate(),
+        utils.library.cacheEntries.invalidate(),
+      ]);
+    },
+    onError: (err) => {
+      toast.error(err.message ?? "缓存清理失败");
     },
   });
 
@@ -144,10 +196,28 @@ export default function AdminCachePage() {
   }, [cacheOverviewQuery.error]);
 
   React.useEffect(() => {
+    if (cacheCapacityQuery.error) {
+      toast.error(cacheCapacityQuery.error.message ?? "容量概览加载失败");
+    }
+  }, [cacheCapacityQuery.error]);
+
+  React.useEffect(() => {
     if (cacheEntriesQuery.error) {
       toast.error(cacheEntriesQuery.error.message ?? "缓存明细加载失败");
     }
   }, [cacheEntriesQuery.error]);
+
+  React.useEffect(() => {
+    if (settingsQuery.error) {
+      toast.error(settingsQuery.error.message ?? "策略配置加载失败");
+    }
+  }, [settingsQuery.error]);
+
+  React.useEffect(() => {
+    if (transcodeMetricsQuery.error) {
+      toast.error(transcodeMetricsQuery.error.message ?? "转码观测加载失败");
+    }
+  }, [transcodeMetricsQuery.error]);
 
   const hasPendingEntries = (cacheEntriesQuery.data ?? []).some((entry) => entry.status === "pending");
 
@@ -160,15 +230,20 @@ export default function AdminCachePage() {
       void Promise.all([
         cacheEntriesQuery.refetch(),
         cacheOverviewQuery.refetch(),
+        cacheCapacityQuery.refetch(),
+        transcodeMetricsQuery.refetch(),
       ]);
     }, 3000);
 
     return () => window.clearInterval(timer);
-  }, [cacheEntriesQuery, cacheOverviewQuery, hasPendingEntries]);
+  }, [cacheCapacityQuery, cacheEntriesQuery, cacheOverviewQuery, hasPendingEntries, transcodeMetricsQuery]);
 
   const cacheOverview = cacheOverviewQuery.data;
+  const cacheCapacity = cacheCapacityQuery.data;
+  const transcodePolicy = settingsQuery.data?.transcodePolicy;
+  const transcodeMetrics = transcodeMetricsQuery.data;
   const cacheEntries = cacheEntriesQuery.data ?? [];
-  const cacheActionsDisabled = maintainCache.isPending;
+  const cacheActionsDisabled = maintainCache.isPending || pruneCache.isPending;
 
   const summaryCards = [
     {
@@ -199,24 +274,9 @@ export default function AdminCachePage() {
         </div>
 
         <div className="flex flex-wrap gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            disabled={cacheActionsDisabled}
-            onClick={() => maintainCache.mutate({ mode: "stale" })}
-          >
-            清理失效缓存
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            disabled={cacheActionsDisabled}
-            onClick={() => maintainCache.mutate({ mode: "failed" })}
-          >
-            清理失败记录
-          </Button>
+          <Link href="/admin/settings" className={buttonVariants({ variant: "outline", size: "sm" })}>
+            调整策略
+          </Link>
           <Link href="/admin/jobs" className={buttonVariants({ variant: "outline", size: "sm" })}>
             查看 Jobs
           </Link>
@@ -235,6 +295,196 @@ export default function AdminCachePage() {
             </CardContent>
           </Card>
         ))}
+      </div>
+
+      <div className="grid gap-4 xl:grid-cols-[1.25fr_1fr]">
+        <Card>
+          <CardHeader className="border-b">
+            <CardTitle>容量治理</CardTitle>
+            <CardDescription>
+              关注可回收空间、冷数据规模和最近访问情况，便于决定何时裁剪缓存。
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-4 pt-4 md:grid-cols-2">
+            <div className="rounded-xl border bg-muted/20 p-4">
+              <div className="text-sm text-muted-foreground">已就绪缓存总量</div>
+              <div className="mt-2 text-2xl font-semibold">
+                {formatBytes(cacheCapacity?.totalReadyBytes)}
+              </div>
+              <div className="mt-2 text-sm text-muted-foreground">
+                {cacheCapacity?.totalReadyEntries ?? 0} 条 ready 记录
+              </div>
+            </div>
+            <div className="rounded-xl border bg-muted/20 p-4">
+              <div className="text-sm text-muted-foreground">从未命中过的缓存</div>
+              <div className="mt-2 text-2xl font-semibold">
+                {formatBytes(cacheCapacity?.neverAccessedBytes)}
+              </div>
+              <div className="mt-2 text-sm text-muted-foreground">
+                {cacheCapacity?.neverAccessedEntries ?? 0} 条从未播放
+              </div>
+            </div>
+            <div className="rounded-xl border bg-muted/20 p-4">
+              <div className="text-sm text-muted-foreground">30 天未使用冷缓存</div>
+              <div className="mt-2 text-2xl font-semibold">
+                {formatBytes(cacheCapacity?.cold30dBytes)}
+              </div>
+              <div className="mt-2 text-sm text-muted-foreground">
+                {cacheCapacity?.cold30dEntries ?? 0} 条可优先清理
+              </div>
+            </div>
+            <div className="rounded-xl border bg-muted/20 p-4">
+              <div className="text-sm text-muted-foreground">最早访问时间</div>
+              <div className="mt-2 text-sm font-medium">
+                {formatDateTime(cacheCapacity?.oldestAccessAt)}
+              </div>
+              <div className="mt-2 text-sm text-muted-foreground">
+                以最近访问时间，没有命中过则回退到缓存生成时间
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="border-b">
+            <CardTitle>清理动作</CardTitle>
+            <CardDescription>
+              先清理冷缓存，再做预算裁剪；按曲目清理适合处理单首歌异常或主动回收缓存。
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-3 pt-4">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={cacheActionsDisabled}
+              onClick={() =>
+                pruneCache.mutate({
+                  mode: "unused",
+                  olderThanDays: transcodePolicy?.coldCacheDays ?? 30,
+                  limit: transcodePolicy?.pruneLimit ?? 200,
+                })
+              }
+            >
+              清理 {transcodePolicy?.coldCacheDays ?? 30} 天未使用缓存
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={cacheActionsDisabled}
+              onClick={() =>
+                pruneCache.mutate({
+                  mode: "budget",
+                  maxBytes: transcodePolicy?.budgetBytes ?? 5 * 1024 * 1024 * 1024,
+                })
+              }
+            >
+              裁剪到 {formatBytes(transcodePolicy?.budgetBytes ?? 5 * 1024 * 1024 * 1024)} 预算
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={cacheActionsDisabled}
+              onClick={() => maintainCache.mutate({ mode: "stale" })}
+            >
+              清理失效缓存
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={cacheActionsDisabled}
+              onClick={() => maintainCache.mutate({ mode: "failed" })}
+            >
+              清理失败记录
+            </Button>
+            <div className="rounded-xl border bg-muted/20 p-3 text-sm text-muted-foreground">
+              预算裁剪会优先删除最久未访问的 ready 缓存，直到缓存总量不高于
+              {" "}
+              {formatBytes(transcodePolicy?.budgetBytes ?? 5 * 1024 * 1024 * 1024)}。
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid gap-4 xl:grid-cols-[1fr_1fr]">
+        <Card>
+          <CardHeader className="border-b">
+            <CardTitle>播放命中观测</CardTitle>
+            <CardDescription>
+              最近 {transcodeMetrics?.playbackWindowHours ?? 24} 小时的转码缓存解析结果。
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-4 pt-4 md:grid-cols-3">
+            <div className="rounded-xl border bg-muted/20 p-4">
+              <div className="text-sm text-muted-foreground">缓存命中率</div>
+              <div className="mt-2 text-2xl font-semibold">
+                {formatPercent(transcodeMetrics?.playback.hitRate)}
+              </div>
+            </div>
+            <div className="rounded-xl border bg-muted/20 p-4">
+              <div className="text-sm text-muted-foreground">命中 / 未命中</div>
+              <div className="mt-2 text-sm font-medium">
+                {transcodeMetrics?.playback.cacheHits ?? 0} / {transcodeMetrics?.playback.cacheMisses ?? 0}
+              </div>
+            </div>
+            <div className="rounded-xl border bg-muted/20 p-4">
+              <div className="text-sm text-muted-foreground">总解析次数</div>
+              <div className="mt-2 text-sm font-medium">
+                {transcodeMetrics?.playback.totalResolves ?? 0}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="border-b">
+            <CardTitle>转码质量观测</CardTitle>
+            <CardDescription>
+              最近 {transcodeMetrics?.transcodeWindowDays ?? 7} 天的完成速度与异常分布。
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-4 pt-4 md:grid-cols-2">
+            <div className="rounded-xl border bg-muted/20 p-4">
+              <div className="text-sm text-muted-foreground">平均耗时</div>
+              <div className="mt-2 text-xl font-semibold">
+                {formatDuration(transcodeMetrics?.transcodes.averageDurationMs)}
+              </div>
+            </div>
+            <div className="rounded-xl border bg-muted/20 p-4">
+              <div className="text-sm text-muted-foreground">P95 耗时</div>
+              <div className="mt-2 text-xl font-semibold">
+                {formatDuration(transcodeMetrics?.transcodes.p95DurationMs)}
+              </div>
+            </div>
+            <div className="rounded-xl border bg-muted/20 p-4">
+              <div className="text-sm text-muted-foreground">失败原因</div>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {(transcodeMetrics?.failedReasons ?? []).length > 0 ? (
+                  (transcodeMetrics?.failedReasons ?? []).map((item) => (
+                    <Badge key={`cache-failed-${item.category}`} variant="outline">
+                      {item.label} · {item.count}
+                    </Badge>
+                  ))
+                ) : (
+                  <span className="text-sm text-muted-foreground">最近 7 天没有失败转码</span>
+                )}
+              </div>
+            </div>
+            <div className="rounded-xl border bg-muted/20 p-4">
+              <div className="text-sm text-muted-foreground">取消原因</div>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {(transcodeMetrics?.cancelledReasons ?? []).length > 0 ? (
+                  (transcodeMetrics?.cancelledReasons ?? []).map((item) => (
+                    <Badge key={`cache-cancelled-${item.category}`} variant="outline">
+                      {item.label} · {item.count}
+                    </Badge>
+                  ))
+                ) : (
+                  <span className="text-sm text-muted-foreground">最近 7 天没有取消转码</span>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       <Card>
@@ -280,6 +530,9 @@ export default function AdminCachePage() {
             <Badge variant="outline">
               {cacheOverview?.hostCacheOverride ?? cacheOverview?.cacheRoot ?? "/cache"}
             </Badge>
+            <Badge variant="outline">
+              冷缓存阈值: {transcodePolicy?.coldCacheDays ?? 30} 天 / 批量上限 {transcodePolicy?.pruneLimit ?? 200}
+            </Badge>
             {query.length > 0 ? <Badge variant="secondary">搜索: {query}</Badge> : null}
             {deferredSearch !== search ? <span>搜索中…</span> : null}
           </div>
@@ -292,6 +545,7 @@ export default function AdminCachePage() {
                 <TableHead>档位 / 状态</TableHead>
                 <TableHead>源文件</TableHead>
                 <TableHead>缓存文件</TableHead>
+                <TableHead>最近命中</TableHead>
                 <TableHead>更新时间</TableHead>
               </TableRow>
             </TableHeader>
@@ -339,17 +593,33 @@ export default function AdminCachePage() {
                       <TableCell className="max-w-72">
                         <div className="truncate font-mono text-xs">{entry.cachePath}</div>
                       </TableCell>
+                      <TableCell>{formatDateTime(entry.lastAccessedAt)}</TableCell>
                       <TableCell>{formatDateTime(entry.updatedAt)}</TableCell>
                     </TableRow>
 
                     <TableRow className="bg-muted/10">
-                      <TableCell colSpan={6} className="space-y-2 py-3">
+                      <TableCell colSpan={7} className="space-y-2 py-3">
                         <div className="grid gap-2 text-xs text-muted-foreground md:grid-cols-2">
                           <div>专辑: {renderText(entry.track?.album)}</div>
                           <div>创建时间: {formatDateTime(entry.createdAt)}</div>
+                          <div>最近命中: {formatDateTime(entry.lastAccessedAt)}</div>
                           <div>源文件 mtime: {String(entry.sourceMtimeMs)}</div>
                           <div>记录 ID: <span className="font-mono">{entry.id}</span></div>
+                          <div>缓存大小: {formatBytes(entry.fileSize)}</div>
                         </div>
+                        {!entry.isOrphan ? (
+                          <div className="flex flex-wrap gap-2">
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              disabled={cacheActionsDisabled}
+                              onClick={() => pruneCache.mutate({ mode: "track", trackId: entry.trackId })}
+                            >
+                              清理该曲目缓存
+                            </Button>
+                          </div>
+                        ) : null}
                         {entry.errorJson ? (
                           <details className="space-y-2">
                             <summary className="cursor-pointer text-sm font-medium text-foreground">
@@ -368,7 +638,7 @@ export default function AdminCachePage() {
 
               {!cacheEntriesQuery.isLoading && cacheEntries.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">
+                  <TableCell colSpan={7} className="py-8 text-center text-muted-foreground">
                     当前筛选下没有匹配的缓存记录。
                   </TableCell>
                 </TableRow>

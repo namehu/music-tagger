@@ -81,3 +81,8 @@ export type Track = Prisma.TrackModel
  * 
  */
 export type TranscodeCache = Prisma.TranscodeCacheModel
+/**
+ * Model PlaybackResolveEvent
+ * 
+ */
+export type PlaybackResolveEvent = Prisma.PlaybackResolveEventModel

@@ -163,6 +163,7 @@ docker compose --env-file .env.prod -f docker-compose.prod.yml logs -f
 4. 触发一次 `scan_full`
 5. 到 `/admin/library` 确认扫描结果，并测试原始音频播放
 6. 再点播一首未缓存的曲目，确认 `mp3_192` 转码任务能进入 `done`，随后播放恢复正常
+7. 打开 `/admin/cache`，确认缓存记录已出现；必要时进入 `/admin/settings` 调整冷缓存天数、容量预算和单次清理上限
 
 ## 关于原始音频播放
 
@@ -251,6 +252,37 @@ CACHE_DIR="/volume1/docker/music-tagger/cache"
 - 数据库与缓存都不依赖 Docker 项目名
 - NAS 迁移、备份、排查更方便
 - 即使完全重建容器，只要路径不变，数据和缓存就都还在
+
+### 当前后台可做的缓存运维
+
+当前版本不依赖额外 cron 或外部调度，缓存运维主要由后台页面人工触发：
+
+- `/admin`
+  - 看缓存健康、ready 总量、转码命中率
+- `/admin/cache`
+  - 清理 stale / failed / orphan
+  - 清理冷缓存
+  - 按预算裁剪缓存
+  - 按单曲清理缓存
+- `/admin/settings`
+  - 配置冷缓存天数
+  - 配置容量预算
+  - 配置单次批量清理上限
+
+这套方式的优点是：
+
+- 不引入额外调度系统
+- 运维动作可见、可控
+- 更适合当前单机 NAS 阶段
+
+### 推荐的日常运维节奏
+
+建议在生产里按这个频率使用后台：
+
+1. 每次大批量导入后，到 `/admin` 看最近扫描和缓存健康。
+2. 发现转码失败或 pending 异常时，到 `/admin/jobs` 看失败原因。
+3. 每周或空间告警时，到 `/admin/cache` 处理 stale / failed / orphan，并按冷缓存或预算裁剪。
+4. 当存储压力或使用习惯变化时，到 `/admin/settings` 调整阈值，而不是直接改代码或手工删目录。
 
 ### 什么情况下缓存会丢
 

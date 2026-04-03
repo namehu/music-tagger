@@ -391,7 +391,8 @@ export const ModelName = {
   AdminSettings: 'AdminSettings',
   Job: 'Job',
   Track: 'Track',
-  TranscodeCache: 'TranscodeCache'
+  TranscodeCache: 'TranscodeCache',
+  PlaybackResolveEvent: 'PlaybackResolveEvent'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -407,7 +408,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "user" | "session" | "account" | "verification" | "adminSettings" | "job" | "track" | "transcodeCache"
+    modelProps: "user" | "session" | "account" | "verification" | "adminSettings" | "job" | "track" | "transcodeCache" | "playbackResolveEvent"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -1003,6 +1004,80 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         }
       }
     }
+    PlaybackResolveEvent: {
+      payload: Prisma.$PlaybackResolveEventPayload<ExtArgs>
+      fields: Prisma.PlaybackResolveEventFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.PlaybackResolveEventFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PlaybackResolveEventPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.PlaybackResolveEventFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PlaybackResolveEventPayload>
+        }
+        findFirst: {
+          args: Prisma.PlaybackResolveEventFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PlaybackResolveEventPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.PlaybackResolveEventFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PlaybackResolveEventPayload>
+        }
+        findMany: {
+          args: Prisma.PlaybackResolveEventFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PlaybackResolveEventPayload>[]
+        }
+        create: {
+          args: Prisma.PlaybackResolveEventCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PlaybackResolveEventPayload>
+        }
+        createMany: {
+          args: Prisma.PlaybackResolveEventCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.PlaybackResolveEventCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PlaybackResolveEventPayload>[]
+        }
+        delete: {
+          args: Prisma.PlaybackResolveEventDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PlaybackResolveEventPayload>
+        }
+        update: {
+          args: Prisma.PlaybackResolveEventUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PlaybackResolveEventPayload>
+        }
+        deleteMany: {
+          args: Prisma.PlaybackResolveEventDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.PlaybackResolveEventUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.PlaybackResolveEventUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PlaybackResolveEventPayload>[]
+        }
+        upsert: {
+          args: Prisma.PlaybackResolveEventUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PlaybackResolveEventPayload>
+        }
+        aggregate: {
+          args: Prisma.PlaybackResolveEventAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregatePlaybackResolveEvent>
+        }
+        groupBy: {
+          args: Prisma.PlaybackResolveEventGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.PlaybackResolveEventGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.PlaybackResolveEventCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.PlaybackResolveEventCountAggregateOutputType> | number
+        }
+      }
+    }
   }
 } & {
   other: {
@@ -1171,11 +1246,23 @@ export const TranscodeCacheScalarFieldEnum = {
   fileSize: 'fileSize',
   status: 'status',
   errorJson: 'errorJson',
+  lastAccessedAt: 'lastAccessedAt',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 } as const
 
 export type TranscodeCacheScalarFieldEnum = (typeof TranscodeCacheScalarFieldEnum)[keyof typeof TranscodeCacheScalarFieldEnum]
+
+
+export const PlaybackResolveEventScalarFieldEnum = {
+  id: 'id',
+  trackId: 'trackId',
+  profile: 'profile',
+  outcome: 'outcome',
+  createdAt: 'createdAt'
+} as const
+
+export type PlaybackResolveEventScalarFieldEnum = (typeof PlaybackResolveEventScalarFieldEnum)[keyof typeof PlaybackResolveEventScalarFieldEnum]
 
 
 export const SortOrder = {
@@ -1351,6 +1438,7 @@ export type GlobalOmitConfig = {
   job?: Prisma.JobOmit
   track?: Prisma.TrackOmit
   transcodeCache?: Prisma.TranscodeCacheOmit
+  playbackResolveEvent?: Prisma.PlaybackResolveEventOmit
 }
 
 /* Types for Logging */

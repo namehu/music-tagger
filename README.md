@@ -7,10 +7,10 @@
 - 扫描本地音乐目录并写入 SQLite 索引
 - 在 Web 控制台浏览最小音乐库统计、曲目列表与全文搜索
 - 原始音频直出播放与 `mp3_192` 转码缓存播放
+- 转码缓存观测、容量治理与策略配置
 
 暂未支持：
 
-- 设置页
 - Plan 执行链路
 - Dashboard / Jobs 当前播放摘要
 - 播放模式：顺序 / 随机 / 单曲循环
@@ -71,7 +71,9 @@ pnpm prisma:studio
 ## 当前使用方式
 
 1. 打开 `/setup` 创建首个管理员。
-2. 进入 `/admin/jobs` 触发 `scan_full`。
-3. 进入 `/admin/library` 验证扫描结果。
+2. 进入 `/admin` 或 `/admin/jobs` 触发 `scan_full`。
+3. 进入 `/admin/library` 验证扫描结果与播放链路。
+4. 进入 `/admin/cache` 查看异常缓存、冷缓存与清理动作。
+5. 进入 `/admin/settings` 调整冷缓存天数、容量预算和单次清理上限。
 
 更多细节见 [`web/README.md`](./web/README.md) 和 [`worker/README.md`](./worker/README.md)。

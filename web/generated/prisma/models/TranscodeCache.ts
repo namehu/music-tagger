@@ -46,6 +46,7 @@ export type TranscodeCacheMinAggregateOutputType = {
   fileSize: number | null
   status: string | null
   errorJson: string | null
+  lastAccessedAt: Date | null
   createdAt: Date | null
   updatedAt: Date | null
 }
@@ -60,6 +61,7 @@ export type TranscodeCacheMaxAggregateOutputType = {
   fileSize: number | null
   status: string | null
   errorJson: string | null
+  lastAccessedAt: Date | null
   createdAt: Date | null
   updatedAt: Date | null
 }
@@ -74,6 +76,7 @@ export type TranscodeCacheCountAggregateOutputType = {
   fileSize: number
   status: number
   errorJson: number
+  lastAccessedAt: number
   createdAt: number
   updatedAt: number
   _all: number
@@ -100,6 +103,7 @@ export type TranscodeCacheMinAggregateInputType = {
   fileSize?: true
   status?: true
   errorJson?: true
+  lastAccessedAt?: true
   createdAt?: true
   updatedAt?: true
 }
@@ -114,6 +118,7 @@ export type TranscodeCacheMaxAggregateInputType = {
   fileSize?: true
   status?: true
   errorJson?: true
+  lastAccessedAt?: true
   createdAt?: true
   updatedAt?: true
 }
@@ -128,6 +133,7 @@ export type TranscodeCacheCountAggregateInputType = {
   fileSize?: true
   status?: true
   errorJson?: true
+  lastAccessedAt?: true
   createdAt?: true
   updatedAt?: true
   _all?: true
@@ -229,6 +235,7 @@ export type TranscodeCacheGroupByOutputType = {
   fileSize: number
   status: string
   errorJson: string | null
+  lastAccessedAt: Date | null
   createdAt: Date
   updatedAt: Date
   _count: TranscodeCacheCountAggregateOutputType | null
@@ -266,6 +273,7 @@ export type TranscodeCacheWhereInput = {
   fileSize?: Prisma.IntFilter<"TranscodeCache"> | number
   status?: Prisma.StringFilter<"TranscodeCache"> | string
   errorJson?: Prisma.StringNullableFilter<"TranscodeCache"> | string | null
+  lastAccessedAt?: Prisma.DateTimeNullableFilter<"TranscodeCache"> | Date | string | null
   createdAt?: Prisma.DateTimeFilter<"TranscodeCache"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"TranscodeCache"> | Date | string
   track?: Prisma.XOR<Prisma.TrackScalarRelationFilter, Prisma.TrackWhereInput>
@@ -281,6 +289,7 @@ export type TranscodeCacheOrderByWithRelationInput = {
   fileSize?: Prisma.SortOrder
   status?: Prisma.SortOrder
   errorJson?: Prisma.SortOrderInput | Prisma.SortOrder
+  lastAccessedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   track?: Prisma.TrackOrderByWithRelationInput
@@ -300,6 +309,7 @@ export type TranscodeCacheWhereUniqueInput = Prisma.AtLeast<{
   fileSize?: Prisma.IntFilter<"TranscodeCache"> | number
   status?: Prisma.StringFilter<"TranscodeCache"> | string
   errorJson?: Prisma.StringNullableFilter<"TranscodeCache"> | string | null
+  lastAccessedAt?: Prisma.DateTimeNullableFilter<"TranscodeCache"> | Date | string | null
   createdAt?: Prisma.DateTimeFilter<"TranscodeCache"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"TranscodeCache"> | Date | string
   track?: Prisma.XOR<Prisma.TrackScalarRelationFilter, Prisma.TrackWhereInput>
@@ -315,6 +325,7 @@ export type TranscodeCacheOrderByWithAggregationInput = {
   fileSize?: Prisma.SortOrder
   status?: Prisma.SortOrder
   errorJson?: Prisma.SortOrderInput | Prisma.SortOrder
+  lastAccessedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   _count?: Prisma.TranscodeCacheCountOrderByAggregateInput
@@ -337,6 +348,7 @@ export type TranscodeCacheScalarWhereWithAggregatesInput = {
   fileSize?: Prisma.IntWithAggregatesFilter<"TranscodeCache"> | number
   status?: Prisma.StringWithAggregatesFilter<"TranscodeCache"> | string
   errorJson?: Prisma.StringNullableWithAggregatesFilter<"TranscodeCache"> | string | null
+  lastAccessedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"TranscodeCache"> | Date | string | null
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"TranscodeCache"> | Date | string
   updatedAt?: Prisma.DateTimeWithAggregatesFilter<"TranscodeCache"> | Date | string
 }
@@ -350,6 +362,7 @@ export type TranscodeCacheCreateInput = {
   fileSize: number
   status: string
   errorJson?: string | null
+  lastAccessedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   track: Prisma.TrackCreateNestedOneWithoutTranscodesInput
@@ -365,6 +378,7 @@ export type TranscodeCacheUncheckedCreateInput = {
   fileSize: number
   status: string
   errorJson?: string | null
+  lastAccessedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -378,6 +392,7 @@ export type TranscodeCacheUpdateInput = {
   fileSize?: Prisma.IntFieldUpdateOperationsInput | number
   status?: Prisma.StringFieldUpdateOperationsInput | string
   errorJson?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastAccessedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   track?: Prisma.TrackUpdateOneRequiredWithoutTranscodesNestedInput
@@ -393,6 +408,7 @@ export type TranscodeCacheUncheckedUpdateInput = {
   fileSize?: Prisma.IntFieldUpdateOperationsInput | number
   status?: Prisma.StringFieldUpdateOperationsInput | string
   errorJson?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastAccessedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -407,6 +423,7 @@ export type TranscodeCacheCreateManyInput = {
   fileSize: number
   status: string
   errorJson?: string | null
+  lastAccessedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -420,6 +437,7 @@ export type TranscodeCacheUpdateManyMutationInput = {
   fileSize?: Prisma.IntFieldUpdateOperationsInput | number
   status?: Prisma.StringFieldUpdateOperationsInput | string
   errorJson?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastAccessedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -434,6 +452,7 @@ export type TranscodeCacheUncheckedUpdateManyInput = {
   fileSize?: Prisma.IntFieldUpdateOperationsInput | number
   status?: Prisma.StringFieldUpdateOperationsInput | string
   errorJson?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastAccessedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -464,6 +483,7 @@ export type TranscodeCacheCountOrderByAggregateInput = {
   fileSize?: Prisma.SortOrder
   status?: Prisma.SortOrder
   errorJson?: Prisma.SortOrder
+  lastAccessedAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
@@ -483,6 +503,7 @@ export type TranscodeCacheMaxOrderByAggregateInput = {
   fileSize?: Prisma.SortOrder
   status?: Prisma.SortOrder
   errorJson?: Prisma.SortOrder
+  lastAccessedAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
@@ -497,6 +518,7 @@ export type TranscodeCacheMinOrderByAggregateInput = {
   fileSize?: Prisma.SortOrder
   status?: Prisma.SortOrder
   errorJson?: Prisma.SortOrder
+  lastAccessedAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
@@ -557,6 +579,7 @@ export type TranscodeCacheCreateWithoutTrackInput = {
   fileSize: number
   status: string
   errorJson?: string | null
+  lastAccessedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -570,6 +593,7 @@ export type TranscodeCacheUncheckedCreateWithoutTrackInput = {
   fileSize: number
   status: string
   errorJson?: string | null
+  lastAccessedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -612,6 +636,7 @@ export type TranscodeCacheScalarWhereInput = {
   fileSize?: Prisma.IntFilter<"TranscodeCache"> | number
   status?: Prisma.StringFilter<"TranscodeCache"> | string
   errorJson?: Prisma.StringNullableFilter<"TranscodeCache"> | string | null
+  lastAccessedAt?: Prisma.DateTimeNullableFilter<"TranscodeCache"> | Date | string | null
   createdAt?: Prisma.DateTimeFilter<"TranscodeCache"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"TranscodeCache"> | Date | string
 }
@@ -625,6 +650,7 @@ export type TranscodeCacheCreateManyTrackInput = {
   fileSize: number
   status: string
   errorJson?: string | null
+  lastAccessedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -638,6 +664,7 @@ export type TranscodeCacheUpdateWithoutTrackInput = {
   fileSize?: Prisma.IntFieldUpdateOperationsInput | number
   status?: Prisma.StringFieldUpdateOperationsInput | string
   errorJson?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastAccessedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -651,6 +678,7 @@ export type TranscodeCacheUncheckedUpdateWithoutTrackInput = {
   fileSize?: Prisma.IntFieldUpdateOperationsInput | number
   status?: Prisma.StringFieldUpdateOperationsInput | string
   errorJson?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastAccessedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -664,6 +692,7 @@ export type TranscodeCacheUncheckedUpdateManyWithoutTrackInput = {
   fileSize?: Prisma.IntFieldUpdateOperationsInput | number
   status?: Prisma.StringFieldUpdateOperationsInput | string
   errorJson?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastAccessedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -680,6 +709,7 @@ export type TranscodeCacheSelect<ExtArgs extends runtime.Types.Extensions.Intern
   fileSize?: boolean
   status?: boolean
   errorJson?: boolean
+  lastAccessedAt?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   track?: boolean | Prisma.TrackDefaultArgs<ExtArgs>
@@ -695,6 +725,7 @@ export type TranscodeCacheSelectCreateManyAndReturn<ExtArgs extends runtime.Type
   fileSize?: boolean
   status?: boolean
   errorJson?: boolean
+  lastAccessedAt?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   track?: boolean | Prisma.TrackDefaultArgs<ExtArgs>
@@ -710,6 +741,7 @@ export type TranscodeCacheSelectUpdateManyAndReturn<ExtArgs extends runtime.Type
   fileSize?: boolean
   status?: boolean
   errorJson?: boolean
+  lastAccessedAt?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   track?: boolean | Prisma.TrackDefaultArgs<ExtArgs>
@@ -725,11 +757,12 @@ export type TranscodeCacheSelectScalar = {
   fileSize?: boolean
   status?: boolean
   errorJson?: boolean
+  lastAccessedAt?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }
 
-export type TranscodeCacheOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "trackId" | "profile" | "sourceMtimeMs" | "cachePath" | "contentType" | "fileSize" | "status" | "errorJson" | "createdAt" | "updatedAt", ExtArgs["result"]["transcodeCache"]>
+export type TranscodeCacheOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "trackId" | "profile" | "sourceMtimeMs" | "cachePath" | "contentType" | "fileSize" | "status" | "errorJson" | "lastAccessedAt" | "createdAt" | "updatedAt", ExtArgs["result"]["transcodeCache"]>
 export type TranscodeCacheInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   track?: boolean | Prisma.TrackDefaultArgs<ExtArgs>
 }
@@ -755,6 +788,7 @@ export type $TranscodeCachePayload<ExtArgs extends runtime.Types.Extensions.Inte
     fileSize: number
     status: string
     errorJson: string | null
+    lastAccessedAt: Date | null
     createdAt: Date
     updatedAt: Date
   }, ExtArgs["result"]["transcodeCache"]>
@@ -1190,6 +1224,7 @@ export interface TranscodeCacheFieldRefs {
   readonly fileSize: Prisma.FieldRef<"TranscodeCache", 'Int'>
   readonly status: Prisma.FieldRef<"TranscodeCache", 'String'>
   readonly errorJson: Prisma.FieldRef<"TranscodeCache", 'String'>
+  readonly lastAccessedAt: Prisma.FieldRef<"TranscodeCache", 'DateTime'>
   readonly createdAt: Prisma.FieldRef<"TranscodeCache", 'DateTime'>
   readonly updatedAt: Prisma.FieldRef<"TranscodeCache", 'DateTime'>
 }

@@ -158,11 +158,25 @@ model TranscodeCache {
   fileSize       Int
   status         String
   errorJson      String?
+  lastAccessedAt DateTime?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
   @@unique([trackId, profile, sourceMtimeMs], map: "transcode_cache_trackId_profile_sourceMtimeMs_key")
+  @@index([lastAccessedAt], map: "idx_transcode_cache_last_accessed_at")
   @@index([profile, status], map: "idx_transcode_cache_profile_status")
   @@index([updatedAt], map: "idx_transcode_cache_updated_at")
   @@map("transcode_cache")
+}
+
+model PlaybackResolveEvent {
+  id        String   @id
+  trackId   String?
+  profile   String
+  outcome   String
+  createdAt DateTime @default(now())
+
+  @@index([profile, createdAt], map: "idx_playback_resolve_events_profile_created_at")
+  @@index([createdAt], map: "idx_playback_resolve_events_created_at")
+  @@map("playback_resolve_events")
 }

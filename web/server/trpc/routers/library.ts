@@ -1,12 +1,44 @@
 import { z } from "zod";
 
 import {
+  classifyTranscodeCancellation,
   classifyTranscodeFailure,
+  getTranscodeCancellationCategoryLabel,
   getTranscodeFailureCategoryLabel,
 } from "@/lib/transcode-failure";
 import { doesCacheFileExist, removeCacheFile } from "@/lib/transcode-cache";
 
 import { adminProcedure, protectedProcedure, router } from "../trpc";
+
+function startOfDay(value: Date) {
+  const date = new Date(value);
+  date.setHours(0, 0, 0, 0);
+  return date;
+}
+
+function addDays(value: Date, days: number) {
+  const date = new Date(value);
+  date.setDate(date.getDate() + days);
+  return date;
+}
+
+function formatDayKey(value: Date) {
+  return value.toISOString().slice(0, 10);
+}
+
+function percentile(values: number[], p: number) {
+  if (values.length === 0) {
+    return null;
+  }
+
+  const sorted = [...values].sort((left, right) => left - right);
+  const index = Math.min(sorted.length - 1, Math.max(0, Math.ceil(sorted.length * p) - 1));
+  return sorted[index] ?? null;
+}
+
+function accessSortValue(lastAccessedAt: Date | null, updatedAt: Date) {
+  return (lastAccessedAt ?? updatedAt).getTime();
+}
 
 export const libraryRouter = router({
   stats: protectedProcedure.query(async ({ ctx }) => {
@@ -137,6 +169,7 @@ export const libraryRouter = router({
           fileSize: true,
           status: true,
           errorJson: true,
+          lastAccessedAt: true,
           createdAt: true,
           updatedAt: true,
           track: {
@@ -192,6 +225,7 @@ export const libraryRouter = router({
               fileSize: entry.fileSize,
               status: entry.status,
               errorJson: entry.errorJson,
+              lastAccessedAt: entry.lastAccessedAt,
               createdAt: entry.createdAt,
               updatedAt: entry.updatedAt,
               track: entry.track
@@ -232,6 +266,279 @@ export const libraryRouter = router({
       });
 
       return filteredEntries.slice(0, input.limit).map(({ entry }) => entry);
+    }),
+
+  transcodeMetrics: adminProcedure.query(async ({ ctx }) => {
+    const now = new Date();
+    const playbackSince = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    const transcodeSince = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const trendStart = startOfDay(addDays(now, -6));
+
+    const [resolveEvents, recentJobs] = await Promise.all([
+      ctx.prisma.playbackResolveEvent.findMany({
+        where: {
+          profile: "mp3_192",
+          createdAt: {
+            gte: playbackSince,
+          },
+        },
+        select: {
+          outcome: true,
+        },
+      }),
+      ctx.prisma.job.findMany({
+        where: {
+          type: "transcode_prepare",
+          updatedAt: {
+            gte: transcodeSince,
+          },
+        },
+        orderBy: {
+          updatedAt: "desc",
+        },
+        select: {
+          id: true,
+          status: true,
+          errorJson: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      }),
+    ]);
+
+    const cacheHits = resolveEvents.filter((event) => event.outcome === "cache_hit").length;
+    const cacheMisses = resolveEvents.filter((event) => event.outcome === "cache_miss").length;
+    const totalResolves = resolveEvents.length;
+    const hitRate = totalResolves > 0 ? cacheHits / totalResolves : null;
+
+    const completedJobs = recentJobs.filter((job) => job.status === "done");
+    const completedDurationsMs = completedJobs
+      .map((job) => job.updatedAt.getTime() - job.createdAt.getTime())
+      .filter((value) => Number.isFinite(value) && value >= 0);
+    const averageDurationMs =
+      completedDurationsMs.length > 0
+        ? Math.round(
+            completedDurationsMs.reduce((sum, value) => sum + value, 0) / completedDurationsMs.length,
+          )
+        : null;
+    const p95DurationMs = percentile(completedDurationsMs, 0.95);
+
+    const trendDays = Array.from({ length: 7 }, (_, index) => {
+      const date = addDays(trendStart, index);
+      return {
+        date: formatDayKey(date),
+        done: 0,
+        failed: 0,
+        cancelled: 0,
+      };
+    });
+    const trendMap = new Map(trendDays.map((item) => [item.date, item]));
+    const failedReasons = new Map<string, number>();
+    const cancelledReasons = new Map<string, number>();
+
+    for (const job of recentJobs) {
+      if (job.status === "done" || job.status === "failed" || job.status === "cancelled") {
+        const bucket = trendMap.get(formatDayKey(startOfDay(job.updatedAt)));
+        if (bucket) {
+          if (job.status === "done") {
+            bucket.done += 1;
+          } else if (job.status === "failed") {
+            bucket.failed += 1;
+          } else if (job.status === "cancelled") {
+            bucket.cancelled += 1;
+          }
+        }
+      }
+
+      if (job.status === "failed") {
+        const category = classifyTranscodeFailure(job.errorJson);
+        failedReasons.set(category, (failedReasons.get(category) ?? 0) + 1);
+      } else if (job.status === "cancelled") {
+        const category = classifyTranscodeCancellation(job.errorJson);
+        cancelledReasons.set(category, (cancelledReasons.get(category) ?? 0) + 1);
+      }
+    }
+
+    return {
+      playbackWindowHours: 24,
+      transcodeWindowDays: 7,
+      playback: {
+        totalResolves,
+        cacheHits,
+        cacheMisses,
+        hitRate,
+      },
+      transcodes: {
+        completedCount: completedJobs.length,
+        failedCount: recentJobs.filter((job) => job.status === "failed").length,
+        cancelledCount: recentJobs.filter((job) => job.status === "cancelled").length,
+        averageDurationMs,
+        p95DurationMs,
+      },
+      trend: trendDays,
+      failedReasons: Array.from(failedReasons.entries()).map(([category, count]) => ({
+        category,
+        label: getTranscodeFailureCategoryLabel(category as Parameters<typeof getTranscodeFailureCategoryLabel>[0]),
+        count,
+      })),
+      cancelledReasons: Array.from(cancelledReasons.entries()).map(([category, count]) => ({
+        category,
+        label: getTranscodeCancellationCategoryLabel(
+          category as Parameters<typeof getTranscodeCancellationCategoryLabel>[0],
+        ),
+        count,
+      })),
+    };
+  }),
+
+  cacheCapacity: adminProcedure.query(async ({ ctx }) => {
+    const entries = await ctx.prisma.transcodeCache.findMany({
+      where: {
+        status: "ready",
+      },
+      select: {
+        id: true,
+        trackId: true,
+        fileSize: true,
+        lastAccessedAt: true,
+        updatedAt: true,
+      },
+    });
+
+    const now = new Date();
+    const cold30Cutoff = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+    let totalBytes = 0;
+    let neverAccessedBytes = 0;
+    let cold30dBytes = 0;
+    let neverAccessedEntries = 0;
+    let cold30dEntries = 0;
+    let oldestAccessAt: Date | null = null;
+
+    for (const entry of entries) {
+      totalBytes += entry.fileSize;
+
+      if (!entry.lastAccessedAt) {
+        neverAccessedEntries += 1;
+        neverAccessedBytes += entry.fileSize;
+      }
+
+      const accessTime = entry.lastAccessedAt ?? entry.updatedAt;
+      if (accessTime < cold30Cutoff) {
+        cold30dEntries += 1;
+        cold30dBytes += entry.fileSize;
+      }
+
+      if (!oldestAccessAt || accessTime < oldestAccessAt) {
+        oldestAccessAt = accessTime;
+      }
+    }
+
+    return {
+      totalReadyEntries: entries.length,
+      totalReadyBytes: totalBytes,
+      neverAccessedEntries,
+      neverAccessedBytes,
+      cold30dEntries,
+      cold30dBytes,
+      oldestAccessAt,
+    };
+  }),
+
+  pruneCache: adminProcedure
+    .input(
+      z.discriminatedUnion("mode", [
+        z.object({
+          mode: z.literal("unused"),
+          olderThanDays: z.number().int().min(1).max(3650).default(30),
+          limit: z.number().int().min(1).max(500).default(200),
+        }),
+        z.object({
+          mode: z.literal("budget"),
+          maxBytes: z.number().int().min(0),
+        }),
+        z.object({
+          mode: z.literal("track"),
+          trackId: z.string().min(1),
+        }),
+      ]),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const allEntries = await ctx.prisma.transcodeCache.findMany({
+        select: {
+          id: true,
+          trackId: true,
+          fileSize: true,
+          cachePath: true,
+          status: true,
+          lastAccessedAt: true,
+          updatedAt: true,
+        },
+      });
+
+      let targetEntries = allEntries.filter((entry) => entry.status === "ready");
+      if (input.mode === "unused") {
+        const cutoff = new Date(Date.now() - input.olderThanDays * 24 * 60 * 60 * 1000);
+        targetEntries = targetEntries
+          .filter((entry) => (entry.lastAccessedAt ?? entry.updatedAt) < cutoff)
+          .sort(
+            (left, right) =>
+              accessSortValue(left.lastAccessedAt, left.updatedAt) -
+              accessSortValue(right.lastAccessedAt, right.updatedAt),
+          )
+          .slice(0, input.limit);
+      } else if (input.mode === "budget") {
+        const totalBytes = targetEntries.reduce((sum, entry) => sum + entry.fileSize, 0);
+        if (totalBytes <= input.maxBytes) {
+          return {
+            mode: input.mode,
+            removedEntries: 0,
+            removedFiles: 0,
+            reclaimedBytes: 0,
+          };
+        }
+
+        const removable = [...targetEntries].sort(
+          (left, right) =>
+            accessSortValue(left.lastAccessedAt, left.updatedAt) -
+            accessSortValue(right.lastAccessedAt, right.updatedAt),
+        );
+        let bytesToTrim = totalBytes - input.maxBytes;
+        targetEntries = [];
+        for (const entry of removable) {
+          if (bytesToTrim <= 0) {
+            break;
+          }
+          targetEntries.push(entry);
+          bytesToTrim -= entry.fileSize;
+        }
+      } else {
+        targetEntries = allEntries.filter((entry) => entry.trackId === input.trackId);
+      }
+
+      let removedFiles = 0;
+      let reclaimedBytes = 0;
+      for (const entry of targetEntries) {
+        removedFiles += await removeCacheFile(entry.cachePath);
+        reclaimedBytes += entry.fileSize;
+      }
+
+      if (targetEntries.length > 0) {
+        await ctx.prisma.transcodeCache.deleteMany({
+          where: {
+            id: {
+              in: targetEntries.map((entry) => entry.id),
+            },
+          },
+        });
+      }
+
+      return {
+        mode: input.mode,
+        removedEntries: targetEntries.length,
+        removedFiles,
+        reclaimedBytes,
+      };
     }),
 
   maintainCache: adminProcedure
