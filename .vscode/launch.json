@@ -1,0 +1,40 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "web: debug server-side",
+      "type": "node",
+      "request": "launch",
+      "program": "${workspaceFolder}/web/node_modules/next/dist/bin/next",
+      "args": ["dev", "-p", "3000"],
+      "cwd": "${workspaceFolder}/web",
+      "localRoot": "${workspaceFolder}/web",
+      "skipFiles": ["<node_internals>/**"],
+      "env": {
+        "NODE_OPTIONS": "--inspect"
+      },
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen"
+    },
+    {
+      "name": "web: debug full stack",
+      "type": "node",
+      "request": "launch",
+      "program": "${workspaceFolder}/web/node_modules/next/dist/bin/next",
+      "args": ["dev", "-p", "3000"],
+      "cwd": "${workspaceFolder}/web",
+      "localRoot": "${workspaceFolder}/web",
+      "skipFiles": ["<node_internals>/**"],
+      "env": {
+        "NODE_OPTIONS": "--inspect"
+      },
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen",
+      "serverReadyAction": {
+        "pattern": "- Local:.*https?://localhost:([0-9]+)",
+        "uriFormat": "http://localhost:%s",
+        "action": "debugWithChrome"
+      }
+    }
+  ]
+}
