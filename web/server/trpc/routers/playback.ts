@@ -12,6 +12,8 @@ import {
   resolveTrackSourcePath,
 } from "@/lib/playback";
 
+import { parseJobPayload } from "@/lib/jobs";
+
 import { protectedProcedure, router } from "../trpc";
 
 const TRANSCODE_JOB_TYPE = "transcode_prepare";
@@ -24,6 +26,33 @@ const resolvePlaybackInputSchema = z.object({
 
 function buildTranscodeJobKey(trackId: string, profile: string, sourceMtimeMs: bigint) {
   return `transcode:${trackId}:${profile}:${sourceMtimeMs}`;
+}
+
+function buildTranscodePayload(input: {
+  trackId: string;
+  profile: string;
+  sourcePath: string;
+  sourceMtimeMs: bigint;
+}) {
+  return {
+    jobKey: buildTranscodeJobKey(input.trackId, input.profile, input.sourceMtimeMs),
+    trackId: input.trackId,
+    profile: input.profile,
+    sourcePath: input.sourcePath,
+    sourceMtimeMs: Number(input.sourceMtimeMs),
+  };
+}
+
+function serializeTranscodePayload(payload: ReturnType<typeof buildTranscodePayload>) {
+  return JSON.stringify(payload);
+}
+
+function buildCancelledErrorJson(message: string) {
+  return JSON.stringify({
+    message,
+    type: "JobCancelled",
+    atMs: Date.now(),
+  });
 }
 
 export const playbackRouter = router({
@@ -111,16 +140,42 @@ export const playbackRouter = router({
       }
     }
 
-    const jobKey = buildTranscodeJobKey(track.id, input.profile, sourceMtimeMs);
+    const payload = buildTranscodePayload({
+      trackId: track.id,
+      profile: input.profile,
+      sourcePath: track.path,
+      sourceMtimeMs,
+    });
+    const payloadJson = serializeTranscodePayload(payload);
+    const exactJob = await ctx.prisma.job.findFirst({
+      where: {
+        type: TRANSCODE_JOB_TYPE,
+        payloadJson,
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+      select: {
+        id: true,
+        status: true,
+      },
+    });
 
-    const existingJob = await ctx.prisma.job.findFirst({
+    if (exactJob?.status === "pending" || exactJob?.status === "running") {
+      return {
+        status: "preparing" as const,
+        jobId: exactJob.id,
+        poll: {
+          jobId: exactJob.id,
+        },
+      };
+    }
+
+    const obsoleteJobs = await ctx.prisma.job.findMany({
       where: {
         type: TRANSCODE_JOB_TYPE,
         status: {
           in: [...TRANSCODE_PENDING_STATUSES],
-        },
-        payloadJson: {
-          contains: jobKey,
         },
       },
       orderBy: {
@@ -128,8 +183,57 @@ export const playbackRouter = router({
       },
       select: {
         id: true,
+        payloadJson: true,
       },
     });
+
+    const obsoletePayloads = obsoleteJobs
+      .map((job) => ({
+        id: job.id,
+        payload: parseJobPayload(job.payloadJson),
+      }))
+      .filter(
+        (job) =>
+          job.payload?.trackId === track.id &&
+          job.payload?.profile === input.profile &&
+          Number(job.payload?.sourceMtimeMs ?? 0) !== Number(sourceMtimeMs),
+      );
+
+    if (obsoletePayloads.length > 0) {
+      const obsoleteReason = "源文件版本已更新，旧的转码任务已取消";
+      const obsoleteErrorJson = buildCancelledErrorJson(obsoleteReason);
+      await ctx.prisma.job.updateMany({
+        where: {
+          id: {
+            in: obsoletePayloads.map((job) => job.id),
+          },
+        },
+        data: {
+          status: "cancelled",
+          progress: 0,
+          lockedBy: null,
+          lockedAt: null,
+          heartbeatAt: null,
+          errorJson: obsoleteErrorJson,
+        },
+      });
+      await ctx.prisma.transcodeCache.updateMany({
+        where: {
+          trackId: track.id,
+          profile: input.profile,
+          sourceMtimeMs: {
+            not: sourceMtimeMs,
+          },
+          status: {
+            in: ["pending", "running"],
+          },
+        },
+        data: {
+          status: "cancelled",
+          errorJson: obsoleteErrorJson,
+        },
+      });
+    }
 
     await ctx.prisma.transcodeCache.upsert({
       where: {
@@ -159,25 +263,41 @@ export const playbackRouter = router({
       },
     });
 
-    const jobId = existingJob?.id ?? `job_${randomUUID()}`;
-
-    if (!existingJob) {
-      await ctx.prisma.job.create({
+    if (exactJob?.status === "failed" || exactJob?.status === "cancelled") {
+      await ctx.prisma.job.update({
+        where: { id: exactJob.id },
         data: {
-          id: jobId,
-          type: TRANSCODE_JOB_TYPE,
           status: "pending",
-          payloadJson: JSON.stringify({
-            jobKey,
-            trackId: track.id,
-            profile: input.profile,
-            sourcePath: track.path,
-            sourceMtimeMs: Number(sourceMtimeMs),
-          }),
+          progress: 0,
+          attempts: 0,
+          lockedBy: null,
+          lockedAt: null,
+          heartbeatAt: null,
+          errorJson: null,
+          payloadJson,
         },
         select: { id: true },
       });
+
+      return {
+        status: "preparing" as const,
+        jobId: exactJob.id,
+        poll: {
+          jobId: exactJob.id,
+        },
+      };
     }
+
+    const jobId = `job_${randomUUID()}`;
+    await ctx.prisma.job.create({
+      data: {
+        id: jobId,
+        type: TRANSCODE_JOB_TYPE,
+        status: "pending",
+        payloadJson,
+      },
+      select: { id: true },
+    });
 
     return {
       status: "preparing" as const,

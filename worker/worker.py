@@ -10,8 +10,9 @@ from typing import Optional
 # 以 `python worker/worker.py` 方式运行时，sys.path[0] 为 worker/ 目录，
 # 因此使用同目录导入（避免要求 worker/ 作为带 __init__.py 的包）。
 from jobs import claim_next_job, heartbeat, mark_done, mark_failed, update_progress
+from jobs import cancel_duplicate_pending_jobs, mark_cancelled, should_continue
 from scanner import scan_full
-from transcoder import transcode_prepare
+from transcoder import JobCancelled, transcode_prepare
 
 
 POLL_INTERVAL_S = 2
@@ -141,16 +142,29 @@ def _handle_job(
             return
 
         if job_type == "transcode_prepare":
+            duplicate_count = cancel_duplicate_pending_jobs(
+                conn,
+                job_id=job_id,
+                job_type=job_type,
+                payload_json=job.get("payloadJson"),
+                reason="同一转码任务已被更早领取，重复排队项已取消",
+            )
+            if duplicate_count > 0:
+                print(f"[worker] cancelled {duplicate_count} duplicate pending transcode jobs for {job_id}")
+
             transcode_prepare(
                 conn,
                 payload,
                 cache_root=cache_root,
                 on_progress=lambda progress: update_progress(conn, job_id, worker_id, progress),
+                should_continue=lambda: should_continue(conn, job_id, worker_id),
             )
             mark_done(conn, job_id, worker_id)
             return
 
         raise RuntimeError(f"Unsupported job type: {job_type}")
+    except JobCancelled as e:
+        mark_cancelled(conn, job_id, worker_id, str(e))
     except Exception as e:
         try:
             mark_failed(conn, job_id, worker_id, e)

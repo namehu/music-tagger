@@ -11,6 +11,18 @@ import {
 
 import { adminProcedure, router } from "../trpc";
 
+function buildJobStateErrorJson(message: string, type: string) {
+  return JSON.stringify(
+    {
+      message,
+      type,
+      atMs: Date.now(),
+    },
+    null,
+    0,
+  );
+}
+
 async function resetJobForRetry(
   ctx: Parameters<Parameters<typeof adminProcedure.mutation>[0]>[0]["ctx"],
   job: {
@@ -45,6 +57,48 @@ async function resetJobForRetry(
       lockedAt: null,
       heartbeatAt: null,
       errorJson: null,
+    },
+    select: { id: true },
+  });
+}
+
+async function cancelJob(
+  ctx: Parameters<Parameters<typeof adminProcedure.mutation>[0]>[0]["ctx"],
+  job: {
+    id: string;
+    type: string;
+    payloadJson: string;
+  },
+  options: {
+    reason: string;
+  },
+) {
+  const payload = parseJobPayload(job.payloadJson);
+  const errorJson = buildJobStateErrorJson(options.reason, "JobCancelled");
+
+  if (job.type === "transcode_prepare" && payload?.trackId && payload.profile && payload.sourceMtimeMs) {
+    await ctx.prisma.transcodeCache.updateMany({
+      where: {
+        trackId: payload.trackId,
+        profile: payload.profile,
+        sourceMtimeMs: BigInt(payload.sourceMtimeMs),
+      },
+      data: {
+        status: "cancelled",
+        errorJson,
+      },
+    });
+  }
+
+  await ctx.prisma.job.update({
+    where: { id: job.id },
+    data: {
+      status: "cancelled",
+      progress: 0,
+      lockedBy: null,
+      lockedAt: null,
+      heartbeatAt: null,
+      errorJson,
     },
     select: { id: true },
   });
@@ -155,6 +209,58 @@ export const jobsRouter = router({
       return {
         jobId: job.id,
         status: "pending" as const,
+      };
+    }),
+
+  cancel: adminProcedure
+    .input(
+      z.object({
+        jobId: z.string().min(1),
+        reason: z.string().trim().min(1).max(300).optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const job = await ctx.prisma.job.findUnique({
+        where: { id: input.jobId },
+        select: {
+          id: true,
+          type: true,
+          status: true,
+          payloadJson: true,
+        },
+      });
+
+      if (!job) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Job 不存在" });
+      }
+
+      if (job.type !== "transcode_prepare" && job.status === "running") {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "当前仅支持取消转码类运行中任务",
+        });
+      }
+
+      if (job.status === "done" || job.status === "failed" || job.status === "cancelled") {
+        return {
+          jobId: job.id,
+          status: job.status,
+          cancelled: false as const,
+        };
+      }
+
+      await cancelJob(ctx, {
+        id: job.id,
+        type: job.type,
+        payloadJson: job.payloadJson,
+      }, {
+        reason: input.reason?.trim() || "任务已取消",
+      });
+
+      return {
+        jobId: job.id,
+        status: "cancelled" as const,
+        cancelled: true as const,
       };
     }),
 

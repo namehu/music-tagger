@@ -1,6 +1,8 @@
 import json
+import os
 import sqlite3
 import subprocess
+import time
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -20,6 +22,10 @@ def _parse_error_json(exc: Exception) -> str:
         },
         ensure_ascii=False,
     )
+
+
+class JobCancelled(RuntimeError):
+    pass
 
 
 def _get_cache_path(track_id: str, source_mtime_ms: int, profile: str) -> str:
@@ -80,12 +86,54 @@ def _upsert_transcode_cache(
     conn.commit()
 
 
+def _check_should_continue(
+    should_continue: Callable[[], bool] | None,
+    message: str,
+) -> None:
+    if should_continue and not should_continue():
+        raise JobCancelled(message)
+
+
+def _terminate_process(process: subprocess.Popen[str] | None) -> None:
+    if process is None or process.poll() is not None:
+        return
+
+    process.terminate()
+    try:
+        process.wait(timeout=3)
+    except subprocess.TimeoutExpired:
+        process.kill()
+        process.wait(timeout=3)
+
+
+def _wait_for_other_worker(
+    *,
+    final_path: Path,
+    lock_path: Path,
+    should_continue: Callable[[], bool] | None,
+    on_progress: Callable[[float], None] | None,
+) -> int:
+    deadline = time.monotonic() + 120
+    while time.monotonic() < deadline:
+        _check_should_continue(should_continue, "转码任务已取消")
+        if final_path.exists() and final_path.is_file():
+            if on_progress:
+                on_progress(0.95)
+            return int(final_path.stat().st_size)
+        if not lock_path.exists():
+            raise JobCancelled("转码任务已被更新的请求替代")
+        time.sleep(0.5)
+
+    raise RuntimeError("等待其他 worker 完成转码超时")
+
+
 def transcode_prepare(
     conn: sqlite3.Connection,
     payload: dict[str, Any],
     *,
     cache_root: str = "/cache",
     on_progress: Callable[[float], None] | None = None,
+    should_continue: Callable[[], bool] | None = None,
 ) -> dict[str, Any]:
     track_id = str(payload.get("trackId") or "").strip()
     profile = str(payload.get("profile") or "").strip()
@@ -98,11 +146,15 @@ def transcode_prepare(
     cache_path = ""
     content_type = ""
     final_path = Path(cache_root) / "tracks" / track_id / str(source_mtime_ms) / "mp3_192.mp3"
+    lock_path = final_path.with_name(f"{final_path.name}.lock")
+    lock_fd: int | None = None
+    process: subprocess.Popen[str] | None = None
 
     if on_progress:
         on_progress(0.05)
 
     try:
+        _check_should_continue(should_continue, "转码任务已取消")
         cache_path = _get_cache_path(track_id, source_mtime_ms, profile)
         content_type = _content_type_for_profile(profile)
         conn.row_factory = sqlite3.Row
@@ -127,7 +179,7 @@ def transcode_prepare(
 
         actual_mtime_ms = int(source_path.stat().st_mtime_ns // 1_000_000)
         if actual_mtime_ms != source_mtime_ms:
-            raise RuntimeError("源音频文件已更新，请重新解析播放地址")
+            raise JobCancelled("源音频文件已更新，请重新解析播放地址")
 
         if final_path.exists() and final_path.is_file():
             file_size = int(final_path.stat().st_size)
@@ -153,6 +205,35 @@ def transcode_prepare(
 
         final_path.parent.mkdir(parents=True, exist_ok=True)
         temp_path = final_path.with_name(f"{final_path.name}.{uuid.uuid4().hex}.tmp")
+        try:
+            lock_fd = os.open(lock_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+            os.write(lock_fd, f"{os.getpid()}\n".encode("utf-8"))
+        except FileExistsError:
+            file_size = _wait_for_other_worker(
+                final_path=final_path,
+                lock_path=lock_path,
+                should_continue=should_continue,
+                on_progress=on_progress,
+            )
+            _upsert_transcode_cache(
+                conn,
+                track_id=track_id,
+                profile=profile,
+                source_mtime_ms=source_mtime_ms,
+                cache_path=cache_path,
+                content_type=content_type,
+                file_size=file_size,
+                status="ready",
+                error_json=None,
+            )
+            if on_progress:
+                on_progress(1.0)
+            return {
+                "cachePath": cache_path,
+                "fileSize": file_size,
+                "contentType": content_type,
+                "skipped": True,
+            }
 
         _upsert_transcode_cache(
             conn,
@@ -169,7 +250,7 @@ def transcode_prepare(
         if on_progress:
             on_progress(0.15)
 
-        result = subprocess.run(
+        process = subprocess.Popen(
             [
                 "ffmpeg",
                 "-y",
@@ -188,15 +269,23 @@ def transcode_prepare(
                 "mp3",
                 str(temp_path),
             ],
-            capture_output=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
             text=True,
-            check=False,
         )
 
-        if result.returncode != 0:
-            message = result.stderr.strip() or f"ffmpeg exited with {result.returncode}"
+        while process.poll() is None:
+            _check_should_continue(should_continue, "转码任务已取消")
+            if on_progress:
+                on_progress(0.4)
+            time.sleep(0.5)
+
+        stdout_text, stderr_text = process.communicate()
+        if process.returncode != 0:
+            message = stderr_text.strip() or stdout_text.strip() or f"ffmpeg exited with {process.returncode}"
             raise RuntimeError(f"ffmpeg transcode failed: {message}")
 
+        _check_should_continue(should_continue, "转码任务已取消")
         temp_path.replace(final_path)
         file_size = int(final_path.stat().st_size)
 
@@ -222,6 +311,7 @@ def transcode_prepare(
             "skipped": False,
         }
     except Exception as exc:
+        _terminate_process(process)
         if cache_path and content_type:
             _upsert_transcode_cache(
                 conn,
@@ -231,7 +321,7 @@ def transcode_prepare(
                 cache_path=cache_path,
                 content_type=content_type,
                 file_size=0,
-                status="failed",
+                status="cancelled" if isinstance(exc, JobCancelled) else "failed",
                 error_json=_parse_error_json(exc),
             )
         raise
@@ -239,5 +329,15 @@ def transcode_prepare(
         try:
             if "temp_path" in locals() and temp_path.exists():
                 temp_path.unlink()
+        except Exception:
+            pass
+        try:
+            if lock_fd is not None:
+                os.close(lock_fd)
+        except Exception:
+            pass
+        try:
+            if lock_fd is not None and lock_path.exists():
+                lock_path.unlink()
         except Exception:
             pass

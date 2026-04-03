@@ -18,6 +18,17 @@ def _as_job_dict(row: sqlite3.Row) -> Dict[str, Any]:
     return dict(row)  # Row -> dict
 
 
+def _state_error_json(message: str, error_type: str) -> str:
+    return json.dumps(
+        {
+            "message": message,
+            "type": error_type,
+            "atMs": int(time.time() * 1000),
+        },
+        ensure_ascii=False,
+    )
+
+
 def claim_next_job(
     conn: sqlite3.Connection,
     worker_id: str,
@@ -131,6 +142,54 @@ def heartbeat(conn: sqlite3.Connection, job_id: str, worker_id: str) -> bool:
     return cur.rowcount == 1
 
 
+def should_continue(conn: sqlite3.Connection, job_id: str, worker_id: str) -> bool:
+    row = conn.execute(
+        """
+        SELECT "status","lockedBy"
+        FROM "jobs"
+        WHERE "id" = ?
+        """,
+        (job_id,),
+    ).fetchone()
+    if row is None:
+        return False
+
+    return row["status"] == "running" and row["lockedBy"] == worker_id
+
+
+def cancel_duplicate_pending_jobs(
+    conn: sqlite3.Connection,
+    *,
+    job_id: str,
+    job_type: str,
+    payload_json: str | None,
+    reason: str,
+) -> int:
+    if job_type != "transcode_prepare" or not payload_json:
+        return 0
+
+    now = _utc_now_sqlite()
+    error_json = _state_error_json(reason, "DuplicateTranscodeJob")
+    cur = conn.execute(
+        """
+        UPDATE "jobs"
+        SET
+          "status" = 'cancelled',
+          "progress" = 0,
+          "errorJson" = ?,
+          "updatedAt" = ?
+        WHERE
+          "id" != ?
+          AND "type" = 'transcode_prepare'
+          AND "status" = 'pending'
+          AND "payloadJson" = ?
+        """,
+        (error_json, now, job_id, payload_json),
+    )
+    conn.commit()
+    return cur.rowcount
+
+
 def update_progress(
     conn: sqlite3.Connection,
     job_id: str,
@@ -169,6 +228,32 @@ def mark_done(conn: sqlite3.Connection, job_id: str, worker_id: str) -> None:
         WHERE "id" = ? AND "lockedBy" = ?
         """,
         (now, job_id, worker_id),
+    )
+    conn.commit()
+
+
+def mark_cancelled(
+    conn: sqlite3.Connection,
+    job_id: str,
+    worker_id: str,
+    reason: str,
+) -> None:
+    now = _utc_now_sqlite()
+    error_json = _state_error_json(reason, "JobCancelled")
+    conn.execute(
+        """
+        UPDATE "jobs"
+        SET
+          "status" = 'cancelled',
+          "progress" = 0,
+          "errorJson" = ?,
+          "lockedBy" = NULL,
+          "lockedAt" = NULL,
+          "heartbeatAt" = NULL,
+          "updatedAt" = ?
+        WHERE "id" = ? AND "lockedBy" = ?
+        """,
+        (error_json, now, job_id, worker_id),
     )
     conn.commit()
 
