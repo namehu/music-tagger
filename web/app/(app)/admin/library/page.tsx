@@ -19,6 +19,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -66,6 +67,8 @@ export default function AdminLibraryPage() {
   const [search, setSearch] = React.useState("");
   const [order, setOrder] = React.useState<TrackOrder>("recent");
   const [editingTrackId, setEditingTrackId] = React.useState<string | null>(null);
+  const [batchEditOpen, setBatchEditOpen] = React.useState(false);
+  const [selectedTrackIds, setSelectedTrackIds] = React.useState<string[]>([]);
   const [formValues, setFormValues] = React.useState({
     title: "",
     artist: "",
@@ -76,6 +79,13 @@ export default function AdminLibraryPage() {
     year: "",
     genre: "",
   });
+  const [batchFormValues, setBatchFormValues] = React.useState({
+    album: "",
+    albumArtist: "",
+    year: "",
+    genre: "",
+  });
+  const [batchClearFields, setBatchClearFields] = React.useState<Array<"album" | "albumArtist" | "year" | "genre">>([]);
   const deferredSearch = React.useDeferredValue(search);
   const query = deferredSearch.trim();
   const { activeTrackId, pendingTrackId, isAudioPlaying, isPreparing, setQueue, toggleTrack } = useGlobalPlayback();
@@ -87,10 +97,16 @@ export default function AdminLibraryPage() {
     q: query.length > 0 ? query : undefined,
   });
   const currentTracks = React.useMemo(() => tracksQuery.data?.items ?? [], [tracksQuery.data?.items]);
+  const visibleTrackIds = React.useMemo(() => currentTracks.map((track) => track.id), [currentTracks]);
   const editingTrack = React.useMemo(
     () => currentTracks.find((track) => track.id === editingTrackId) ?? null,
     [currentTracks, editingTrackId],
   );
+  const selectedCount = selectedTrackIds.length;
+  const selectedVisibleCount = visibleTrackIds.filter((trackId) => selectedTrackIds.includes(trackId)).length;
+  const allVisibleSelected = visibleTrackIds.length > 0 && selectedVisibleCount === visibleTrackIds.length;
+  const selectionState =
+    allVisibleSelected ? true : selectedVisibleCount > 0 ? ("indeterminate" as const) : false;
   const updateMetadata = trpc.tracks.updateMetadata.useMutation({
     onSuccess: async (track) => {
       toast.success(`已保存 ${renderCell(track.title, track.fallbackTitle)} 的元数据`);
@@ -99,6 +115,24 @@ export default function AdminLibraryPage() {
     },
     onError: (error) => {
       toast.error(error.message ?? "元数据保存失败");
+    },
+  });
+  const batchUpdateMetadata = trpc.tracks.batchUpdateMetadata.useMutation({
+    onSuccess: async (result) => {
+      toast.success(`已批量更新 ${result.updatedCount} 首曲目`);
+      setBatchEditOpen(false);
+      setSelectedTrackIds([]);
+      setBatchFormValues({
+        album: "",
+        albumArtist: "",
+        year: "",
+        genre: "",
+      });
+      setBatchClearFields([]);
+      await Promise.all([tracksQuery.refetch(), statsQuery.refetch()]);
+    },
+    onError: (error) => {
+      toast.error(error.message ?? "批量编辑失败");
     },
   });
 
@@ -140,6 +174,11 @@ export default function AdminLibraryPage() {
     });
   }, [editingTrack]);
 
+  React.useEffect(() => {
+    const visibleTrackIds = new Set(currentTracks.map((track) => track.id));
+    setSelectedTrackIds((current) => current.filter((trackId) => visibleTrackIds.has(trackId)));
+  }, [currentTracks]);
+
   const statCards = [
     { title: "曲目", value: statsQuery.data?.tracks ?? 0 },
     { title: "专辑", value: statsQuery.data?.albums ?? 0 },
@@ -173,6 +212,53 @@ export default function AdminLibraryPage() {
       genre: formValues.genre.trim() || null,
     };
   }
+
+  function toggleTrackSelection(trackId: string) {
+    setSelectedTrackIds((current) =>
+      current.includes(trackId) ? current.filter((value) => value !== trackId) : [...current, trackId],
+    );
+  }
+
+  function toggleVisibleSelection() {
+    if (allVisibleSelected) {
+      setSelectedTrackIds((current) => current.filter((trackId) => !visibleTrackIds.includes(trackId)));
+      return;
+    }
+
+    setSelectedTrackIds((current) => Array.from(new Set([...current, ...visibleTrackIds])));
+  }
+
+  function toggleBatchClearField(field: "album" | "albumArtist" | "year" | "genre") {
+    setBatchClearFields((current) =>
+      current.includes(field) ? current.filter((value) => value !== field) : [...current, field],
+    );
+  }
+
+  function buildBatchPayload() {
+    const album = batchFormValues.album.trim();
+    const albumArtist = batchFormValues.albumArtist.trim();
+    const yearText = batchFormValues.year.trim();
+    const genre = batchFormValues.genre.trim();
+    const parsedYear = yearText.length > 0 ? parseNullableInt(yearText) : undefined;
+
+    return {
+      trackIds: selectedTrackIds,
+      ...(album.length > 0 ? { album } : {}),
+      ...(albumArtist.length > 0 ? { albumArtist } : {}),
+      ...(typeof parsedYear !== "undefined" ? { year: parsedYear } : {}),
+      ...(genre.length > 0 ? { genre } : {}),
+      clearFields: batchClearFields,
+    };
+  }
+
+  const batchHasChanges =
+    batchClearFields.length > 0 ||
+    batchFormValues.album.trim().length > 0 ||
+    batchFormValues.albumArtist.trim().length > 0 ||
+    batchFormValues.year.trim().length > 0 ||
+    batchFormValues.genre.trim().length > 0;
+  const batchYearValid =
+    batchFormValues.year.trim().length === 0 || parseNullableInt(batchFormValues.year) !== null;
 
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
@@ -218,6 +304,21 @@ export default function AdminLibraryPage() {
               />
 
               <div className="flex flex-wrap gap-2">
+                {selectedCount > 0 ? (
+                  <>
+                    <Button type="button" size="sm" onClick={() => setBatchEditOpen(true)}>
+                      批量编辑 {selectedCount} 首
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setSelectedTrackIds([])}
+                    >
+                      清空选择
+                    </Button>
+                  </>
+                ) : null}
                 {ORDER_OPTIONS.map((option) => (
                   <Button
                     key={option.value}
@@ -247,9 +348,37 @@ export default function AdminLibraryPage() {
             {deferredSearch !== search ? <span>搜索中…</span> : null}
           </div>
 
-          <Table>
-            <TableHeader>
+          {selectedCount > 0 ? (
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-primary/20 bg-primary/[0.04] px-4 py-3">
+              <div className="flex items-center gap-2 text-sm">
+                <span className="inline-flex size-2 rounded-full bg-primary" />
+                <span className="font-medium text-foreground">已选择 {selectedCount} 首曲目</span>
+                <span className="text-muted-foreground">
+                  当前页 {selectedVisibleCount} / {visibleTrackIds.length}
+                </span>
+              </div>
+              <div className="flex gap-2">
+                <Button type="button" size="sm" onClick={() => setBatchEditOpen(true)}>
+                  批量编辑
+                </Button>
+                <Button type="button" variant="outline" size="sm" onClick={() => setSelectedTrackIds([])}>
+                  清空选择
+                </Button>
+              </div>
+            </div>
+          ) : null}
+
+          <div className="overflow-hidden rounded-2xl border bg-card/60 shadow-sm">
+            <Table>
+              <TableHeader className="bg-muted/[0.45]">
               <TableRow>
+                <TableHead className="w-12">
+                  <Checkbox
+                    checked={selectionState}
+                    aria-label="选择当前结果中的全部曲目"
+                    onChange={() => toggleVisibleSelection()}
+                  />
+                </TableHead>
                 <TableHead>播放</TableHead>
                 <TableHead>编辑</TableHead>
                 <TableHead>标题</TableHead>
@@ -265,9 +394,24 @@ export default function AdminLibraryPage() {
                 const isActiveTrack = activeTrackId === track.id;
                 const isPendingTrack = pendingTrackId === track.id;
                 const canTogglePlayback = isActiveTrack && !isPendingTrack;
+                const isSelected = selectedTrackIds.includes(track.id);
 
                 return (
-                  <TableRow key={track.id} className={cn(isActiveTrack && "bg-muted/30")}>
+                  <TableRow
+                    key={track.id}
+                    data-state={isSelected ? "selected" : undefined}
+                    className={cn(
+                      "border-b border-border/70 odd:bg-muted/[0.04] hover:bg-accent/40",
+                      isActiveTrack && "bg-muted/30",
+                    )}
+                  >
+                    <TableCell className="w-12">
+                      <Checkbox
+                        checked={isSelected}
+                        aria-label={`选择 ${renderCell(track.title, track.filename)}`}
+                        onChange={() => toggleTrackSelection(track.id)}
+                      />
+                    </TableCell>
                     <TableCell className="w-16">
                       <Button
                         type="button"
@@ -304,6 +448,13 @@ export default function AdminLibraryPage() {
                     <TableCell>
                       <div className="flex items-center gap-2">
                         <span>{renderCell(track.title, track.filename)}</span>
+                        {track.metadataEditedAt ? (
+                          <span
+                            className="inline-flex size-2 rounded-full bg-amber-500 shadow-[0_0_0_4px_color-mix(in_oklab,var(--color-amber-500)_16%,transparent)]"
+                            aria-label="该曲目包含手工编辑元数据"
+                            title={`上次手工修改: ${formatDateTime(track.metadataEditedAt)}`}
+                          />
+                        ) : null}
                         {isPendingTrack ? (
                           <Badge variant="outline">准备中</Badge>
                         ) : isActiveTrack ? (
@@ -311,12 +462,30 @@ export default function AdminLibraryPage() {
                             {isAudioPlaying && !isPreparing ? "当前播放" : "当前已暂停"}
                           </Badge>
                         ) : track.metadataEditedAt ? (
-                          <Badge variant="outline">已手动修改</Badge>
+                          <Badge variant="outline" className="border-amber-200 bg-amber-50 text-amber-700">
+                            已编辑
+                          </Badge>
                         ) : null}
                       </div>
                     </TableCell>
-                    <TableCell>{renderCell(track.artist, "-")}</TableCell>
-                    <TableCell>{renderCell(track.album, "-")}</TableCell>
+                    <TableCell>
+                      <div className="space-y-0.5">
+                        <div>{renderCell(track.artist, "-")}</div>
+                        {track.genre ? (
+                          <div className="text-xs text-muted-foreground">{track.genre}</div>
+                        ) : null}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="space-y-0.5">
+                        <div>{renderCell(track.album, "-")}</div>
+                        {(track.year || track.albumArtist) ? (
+                          <div className="text-xs text-muted-foreground">
+                            {[track.albumArtist, track.year].filter(Boolean).join(" · ")}
+                          </div>
+                        ) : null}
+                      </div>
+                    </TableCell>
                     <TableCell className="max-w-[28rem] truncate font-mono text-xs">
                       {track.path}
                     </TableCell>
@@ -327,18 +496,19 @@ export default function AdminLibraryPage() {
 
               {!tracksQuery.isLoading && currentTracks.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="py-8 text-center text-muted-foreground">
+                  <TableCell colSpan={8} className="py-10 text-center text-muted-foreground">
                     暂无曲目，请先触发一次 scan_full。
                   </TableCell>
                 </TableRow>
               ) : null}
             </TableBody>
-          </Table>
+            </Table>
+          </div>
         </CardContent>
       </Card>
 
       <Sheet open={editingTrack !== null} onOpenChange={(open) => !open && setEditingTrackId(null)}>
-        <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-xl">
+        <SheetContent side="right" className="w-full overflow-y-auto px-0 sm:max-w-xl">
           <SheetHeader>
             <SheetTitle>编辑元数据</SheetTitle>
             <SheetDescription>
@@ -347,8 +517,8 @@ export default function AdminLibraryPage() {
           </SheetHeader>
 
           {editingTrack ? (
-            <div className="space-y-6 py-4">
-              <div className="rounded-xl border bg-muted/20 p-4 text-sm">
+            <div className="space-y-6 px-5 pb-6 pt-2">
+              <div className="rounded-2xl border bg-muted/20 p-4 text-sm">
                 <div className="font-medium">{renderCell(editingTrack.title, editingTrack.filename)}</div>
                 <div className="mt-1 text-muted-foreground">{renderCell(editingTrack.artist, "未知艺人")}</div>
                 <div className="mt-2 truncate font-mono text-xs text-muted-foreground">{editingTrack.path}</div>
@@ -485,6 +655,150 @@ export default function AdminLibraryPage() {
               </SheetFooter>
             </div>
           ) : null}
+        </SheetContent>
+      </Sheet>
+
+      <Sheet open={batchEditOpen} onOpenChange={setBatchEditOpen}>
+        <SheetContent side="right" className="w-full overflow-y-auto px-0 sm:max-w-xl">
+          <SheetHeader>
+            <SheetTitle>批量编辑元数据</SheetTitle>
+            <SheetDescription>
+              这一版先支持批量修改专辑、专辑艺人、年份和流派。留空表示跳过该字段；点“清空该字段”表示把这一列恢复为空。
+            </SheetDescription>
+          </SheetHeader>
+
+          <div className="space-y-6 px-5 pb-6 pt-2">
+            <div className="rounded-2xl border bg-muted/20 p-4 text-sm">
+              当前已选择 {selectedCount} 首曲目。批量编辑会保留未填写的字段不变。
+            </div>
+
+            <div className="grid gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="batch-album">专辑</Label>
+                <Input
+                  id="batch-album"
+                  value={batchFormValues.album}
+                  onChange={(event) =>
+                    setBatchFormValues((current) => ({ ...current, album: event.target.value }))
+                  }
+                />
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={batchClearFields.includes("album") ? "secondary" : "outline"}
+                    onClick={() => toggleBatchClearField("album")}
+                  >
+                    清空该字段
+                  </Button>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="batch-album-artist">专辑艺人</Label>
+                <Input
+                  id="batch-album-artist"
+                  value={batchFormValues.albumArtist}
+                  onChange={(event) =>
+                    setBatchFormValues((current) => ({ ...current, albumArtist: event.target.value }))
+                  }
+                />
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={batchClearFields.includes("albumArtist") ? "secondary" : "outline"}
+                    onClick={() => toggleBatchClearField("albumArtist")}
+                  >
+                    清空该字段
+                  </Button>
+                </div>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="batch-year">年份</Label>
+                  <Input
+                    id="batch-year"
+                    inputMode="numeric"
+                    value={batchFormValues.year}
+                    onChange={(event) =>
+                      setBatchFormValues((current) => ({ ...current, year: event.target.value }))
+                    }
+                  />
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={batchClearFields.includes("year") ? "secondary" : "outline"}
+                      onClick={() => toggleBatchClearField("year")}
+                    >
+                      清空该字段
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="batch-genre">流派</Label>
+                  <Input
+                    id="batch-genre"
+                    value={batchFormValues.genre}
+                    onChange={(event) =>
+                      setBatchFormValues((current) => ({ ...current, genre: event.target.value }))
+                    }
+                  />
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={batchClearFields.includes("genre") ? "secondary" : "outline"}
+                      onClick={() => toggleBatchClearField("genre")}
+                    >
+                      清空该字段
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <SheetFooter className="gap-2 sm:justify-between">
+              <Button
+                type="button"
+                variant="outline"
+                disabled={batchUpdateMetadata.isPending}
+                onClick={() => {
+                  setBatchFormValues({
+                    album: "",
+                    albumArtist: "",
+                    year: "",
+                    genre: "",
+                  });
+                  setBatchClearFields([]);
+                }}
+              >
+                重置表单
+              </Button>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={batchUpdateMetadata.isPending}
+                  onClick={() => setBatchEditOpen(false)}
+                >
+                  取消
+                </Button>
+                <Button
+                  type="button"
+                  disabled={
+                    batchUpdateMetadata.isPending || selectedCount === 0 || !batchHasChanges || !batchYearValid
+                  }
+                  onClick={() => batchUpdateMetadata.mutate(buildBatchPayload())}
+                >
+                  {batchUpdateMetadata.isPending ? "保存中..." : "应用到所选曲目"}
+                </Button>
+              </div>
+            </SheetFooter>
+          </div>
         </SheetContent>
       </Sheet>
     </div>

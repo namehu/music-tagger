@@ -23,6 +23,27 @@ const updateTrackMetadataInputSchema = z.object({
   genre: z.string().trim().max(200).nullable(),
 });
 
+const batchUpdateTrackMetadataInputSchema = z
+  .object({
+    trackIds: z.array(z.string().min(1)).min(1).max(100),
+    album: z.string().trim().max(300).optional(),
+    albumArtist: z.string().trim().max(300).optional(),
+    year: z.number().int().min(0).max(9999).nullable().optional(),
+    genre: z.string().trim().max(200).optional(),
+    clearFields: z.array(z.enum(["album", "albumArtist", "year", "genre"])).max(4).default([]),
+  })
+  .refine(
+    (input) =>
+      input.clearFields.length > 0 ||
+      typeof input.album !== "undefined" ||
+      typeof input.albumArtist !== "undefined" ||
+      typeof input.year !== "undefined" ||
+      typeof input.genre !== "undefined",
+    {
+      message: "至少提供一个要批量修改的字段",
+    },
+  );
+
 type TrackListItem = {
   id: string;
   title: string | null;
@@ -313,4 +334,93 @@ export const tracksRouter = router({
       fallbackTitle: updated.filename,
     };
   }),
+
+  batchUpdateMetadata: adminProcedure
+    .input(batchUpdateTrackMetadataInputSchema)
+    .mutation(async ({ ctx, input }) => {
+      const tracks = await ctx.prisma.track.findMany({
+        where: {
+          id: {
+            in: input.trackIds,
+          },
+        },
+        select: {
+          id: true,
+          titleOverride: true,
+          artistOverride: true,
+          album: true,
+          albumOverride: true,
+          albumArtist: true,
+          albumArtistOverride: true,
+          trackNoOverride: true,
+          discNoOverride: true,
+          year: true,
+          yearOverride: true,
+          genre: true,
+          genreOverride: true,
+        },
+      });
+
+      if (tracks.length === 0) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "没有找到可批量编辑的曲目" });
+      }
+
+      const clearFields = new Set(input.clearFields);
+      const nextAlbum = typeof input.album === "undefined" ? undefined : normalizeText(input.album);
+      const nextAlbumArtist =
+        typeof input.albumArtist === "undefined" ? undefined : normalizeText(input.albumArtist);
+      const nextGenre = typeof input.genre === "undefined" ? undefined : normalizeText(input.genre);
+
+      await ctx.prisma.$transaction(
+        tracks.map((track) => {
+          const albumOverride = clearFields.has("album")
+            ? null
+            : typeof nextAlbum === "undefined"
+              ? undefined
+              : getOverrideValue(nextAlbum, track.album);
+          const albumArtistOverride = clearFields.has("albumArtist")
+            ? null
+            : typeof nextAlbumArtist === "undefined"
+              ? undefined
+              : getOverrideValue(nextAlbumArtist, track.albumArtist);
+          const yearOverride = clearFields.has("year")
+            ? null
+            : typeof input.year === "undefined"
+              ? undefined
+              : getOverrideValue(input.year, track.year);
+          const genreOverride = clearFields.has("genre")
+            ? null
+            : typeof nextGenre === "undefined"
+              ? undefined
+              : getOverrideValue(nextGenre, track.genre);
+
+          const hasOverrides = [
+            track.titleOverride,
+            track.artistOverride,
+            albumOverride === undefined ? track.albumOverride : albumOverride,
+            albumArtistOverride === undefined ? track.albumArtistOverride : albumArtistOverride,
+            track.trackNoOverride,
+            track.discNoOverride,
+            yearOverride === undefined ? track.yearOverride : yearOverride,
+            genreOverride === undefined ? track.genreOverride : genreOverride,
+          ].some((value) => value !== null);
+
+          return ctx.prisma.track.update({
+            where: { id: track.id },
+            data: {
+              ...(albumOverride === undefined ? {} : { albumOverride }),
+              ...(albumArtistOverride === undefined ? {} : { albumArtistOverride }),
+              ...(yearOverride === undefined ? {} : { yearOverride }),
+              ...(genreOverride === undefined ? {} : { genreOverride }),
+              metadataEditedAt: hasOverrides ? new Date() : null,
+            },
+            select: { id: true },
+          });
+        }),
+      );
+
+      return {
+        updatedCount: tracks.length,
+      };
+    }),
 });
