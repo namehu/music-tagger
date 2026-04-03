@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { Prisma } from "@/generated/prisma/client";
 
 import {
   classifyTranscodeCancellation,
@@ -40,35 +41,47 @@ function accessSortValue(lastAccessedAt: Date | null, updatedAt: Date) {
   return (lastAccessedAt ?? updatedAt).getTime();
 }
 
+function toSafeNumber(value: number | bigint | null | undefined) {
+  if (typeof value === "bigint") {
+    return Number(value);
+  }
+
+  return typeof value === "number" && Number.isFinite(value) ? value : 0;
+}
+
 export const libraryRouter = router({
   stats: protectedProcedure.query(async ({ ctx }) => {
-    const [tracks, distinctAlbums, distinctArtists] = await Promise.all([
-      ctx.prisma.track.count(),
-      ctx.prisma.track.findMany({
-        where: {
-          NOT: [{ album: null }, { album: "" }],
-        },
-        distinct: ["album", "albumArtist"],
-        select: {
-          album: true,
-          albumArtist: true,
-        },
-      }),
-      ctx.prisma.track.findMany({
-        where: {
-          NOT: [{ artist: null }, { artist: "" }],
-        },
-        distinct: ["artist"],
-        select: {
-          artist: true,
-        },
-      }),
+    const [tracksRow, albumsRow, artistsRow] = await Promise.all([
+      ctx.prisma.$queryRaw<Array<{ count: number }>>(Prisma.sql`
+        SELECT COUNT(*) AS "count"
+        FROM "tracks"
+      `),
+      ctx.prisma.$queryRaw<Array<{ count: number }>>(Prisma.sql`
+        SELECT COUNT(*) AS "count"
+        FROM (
+          SELECT DISTINCT
+            COALESCE("albumOverride", "album") AS "album",
+            COALESCE("albumArtistOverride", "albumArtist") AS "albumArtist"
+          FROM "tracks"
+          WHERE COALESCE("albumOverride", "album") IS NOT NULL
+            AND COALESCE("albumOverride", "album") != ''
+        )
+      `),
+      ctx.prisma.$queryRaw<Array<{ count: number }>>(Prisma.sql`
+        SELECT COUNT(*) AS "count"
+        FROM (
+          SELECT DISTINCT COALESCE("artistOverride", "artist") AS "artist"
+          FROM "tracks"
+          WHERE COALESCE("artistOverride", "artist") IS NOT NULL
+            AND COALESCE("artistOverride", "artist") != ''
+        )
+      `),
     ]);
 
     return {
-      tracks,
-      albums: distinctAlbums.length,
-      artists: distinctArtists.length,
+      tracks: toSafeNumber(tracksRow[0]?.count),
+      albums: toSafeNumber(albumsRow[0]?.count),
+      artists: toSafeNumber(artistsRow[0]?.count),
     };
   }),
 

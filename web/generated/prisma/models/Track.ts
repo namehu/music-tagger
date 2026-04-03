@@ -35,8 +35,11 @@ export type TrackAvgAggregateOutputType = {
   bitDepth: number | null
   channels: number | null
   trackNo: number | null
+  trackNoOverride: number | null
   discNo: number | null
+  discNoOverride: number | null
   year: number | null
+  yearOverride: number | null
 }
 
 export type TrackSumAggregateOutputType = {
@@ -48,8 +51,11 @@ export type TrackSumAggregateOutputType = {
   bitDepth: number | null
   channels: number | null
   trackNo: number | null
+  trackNoOverride: number | null
   discNo: number | null
+  discNoOverride: number | null
   year: number | null
+  yearOverride: number | null
 }
 
 export type TrackMinAggregateOutputType = {
@@ -66,13 +72,22 @@ export type TrackMinAggregateOutputType = {
   bitDepth: number | null
   channels: number | null
   title: string | null
+  titleOverride: string | null
   artist: string | null
+  artistOverride: string | null
   album: string | null
+  albumOverride: string | null
   albumArtist: string | null
+  albumArtistOverride: string | null
   trackNo: number | null
+  trackNoOverride: number | null
   discNo: number | null
+  discNoOverride: number | null
   year: number | null
+  yearOverride: number | null
   genre: string | null
+  genreOverride: string | null
+  metadataEditedAt: Date | null
   tagsJson: string | null
   artworkKind: string | null
   artworkMime: string | null
@@ -97,13 +112,22 @@ export type TrackMaxAggregateOutputType = {
   bitDepth: number | null
   channels: number | null
   title: string | null
+  titleOverride: string | null
   artist: string | null
+  artistOverride: string | null
   album: string | null
+  albumOverride: string | null
   albumArtist: string | null
+  albumArtistOverride: string | null
   trackNo: number | null
+  trackNoOverride: number | null
   discNo: number | null
+  discNoOverride: number | null
   year: number | null
+  yearOverride: number | null
   genre: string | null
+  genreOverride: string | null
+  metadataEditedAt: Date | null
   tagsJson: string | null
   artworkKind: string | null
   artworkMime: string | null
@@ -128,13 +152,22 @@ export type TrackCountAggregateOutputType = {
   bitDepth: number
   channels: number
   title: number
+  titleOverride: number
   artist: number
+  artistOverride: number
   album: number
+  albumOverride: number
   albumArtist: number
+  albumArtistOverride: number
   trackNo: number
+  trackNoOverride: number
   discNo: number
+  discNoOverride: number
   year: number
+  yearOverride: number
   genre: number
+  genreOverride: number
+  metadataEditedAt: number
   tagsJson: number
   artworkKind: number
   artworkMime: number
@@ -156,8 +189,11 @@ export type TrackAvgAggregateInputType = {
   bitDepth?: true
   channels?: true
   trackNo?: true
+  trackNoOverride?: true
   discNo?: true
+  discNoOverride?: true
   year?: true
+  yearOverride?: true
 }
 
 export type TrackSumAggregateInputType = {
@@ -169,8 +205,11 @@ export type TrackSumAggregateInputType = {
   bitDepth?: true
   channels?: true
   trackNo?: true
+  trackNoOverride?: true
   discNo?: true
+  discNoOverride?: true
   year?: true
+  yearOverride?: true
 }
 
 export type TrackMinAggregateInputType = {
@@ -187,13 +226,22 @@ export type TrackMinAggregateInputType = {
   bitDepth?: true
   channels?: true
   title?: true
+  titleOverride?: true
   artist?: true
+  artistOverride?: true
   album?: true
+  albumOverride?: true
   albumArtist?: true
+  albumArtistOverride?: true
   trackNo?: true
+  trackNoOverride?: true
   discNo?: true
+  discNoOverride?: true
   year?: true
+  yearOverride?: true
   genre?: true
+  genreOverride?: true
+  metadataEditedAt?: true
   tagsJson?: true
   artworkKind?: true
   artworkMime?: true
@@ -218,13 +266,22 @@ export type TrackMaxAggregateInputType = {
   bitDepth?: true
   channels?: true
   title?: true
+  titleOverride?: true
   artist?: true
+  artistOverride?: true
   album?: true
+  albumOverride?: true
   albumArtist?: true
+  albumArtistOverride?: true
   trackNo?: true
+  trackNoOverride?: true
   discNo?: true
+  discNoOverride?: true
   year?: true
+  yearOverride?: true
   genre?: true
+  genreOverride?: true
+  metadataEditedAt?: true
   tagsJson?: true
   artworkKind?: true
   artworkMime?: true
@@ -249,13 +306,22 @@ export type TrackCountAggregateInputType = {
   bitDepth?: true
   channels?: true
   title?: true
+  titleOverride?: true
   artist?: true
+  artistOverride?: true
   album?: true
+  albumOverride?: true
   albumArtist?: true
+  albumArtistOverride?: true
   trackNo?: true
+  trackNoOverride?: true
   discNo?: true
+  discNoOverride?: true
   year?: true
+  yearOverride?: true
   genre?: true
+  genreOverride?: true
+  metadataEditedAt?: true
   tagsJson?: true
   artworkKind?: true
   artworkMime?: true
@@ -367,13 +433,22 @@ export type TrackGroupByOutputType = {
   bitDepth: number | null
   channels: number | null
   title: string | null
+  titleOverride: string | null
   artist: string | null
+  artistOverride: string | null
   album: string | null
+  albumOverride: string | null
   albumArtist: string | null
+  albumArtistOverride: string | null
   trackNo: number | null
+  trackNoOverride: number | null
   discNo: number | null
+  discNoOverride: number | null
   year: number | null
+  yearOverride: number | null
   genre: string | null
+  genreOverride: string | null
+  metadataEditedAt: Date | null
   tagsJson: string | null
   artworkKind: string | null
   artworkMime: string | null
@@ -421,13 +496,22 @@ export type TrackWhereInput = {
   bitDepth?: Prisma.IntNullableFilter<"Track"> | number | null
   channels?: Prisma.IntNullableFilter<"Track"> | number | null
   title?: Prisma.StringNullableFilter<"Track"> | string | null
+  titleOverride?: Prisma.StringNullableFilter<"Track"> | string | null
   artist?: Prisma.StringNullableFilter<"Track"> | string | null
+  artistOverride?: Prisma.StringNullableFilter<"Track"> | string | null
   album?: Prisma.StringNullableFilter<"Track"> | string | null
+  albumOverride?: Prisma.StringNullableFilter<"Track"> | string | null
   albumArtist?: Prisma.StringNullableFilter<"Track"> | string | null
+  albumArtistOverride?: Prisma.StringNullableFilter<"Track"> | string | null
   trackNo?: Prisma.IntNullableFilter<"Track"> | number | null
+  trackNoOverride?: Prisma.IntNullableFilter<"Track"> | number | null
   discNo?: Prisma.IntNullableFilter<"Track"> | number | null
+  discNoOverride?: Prisma.IntNullableFilter<"Track"> | number | null
   year?: Prisma.IntNullableFilter<"Track"> | number | null
+  yearOverride?: Prisma.IntNullableFilter<"Track"> | number | null
   genre?: Prisma.StringNullableFilter<"Track"> | string | null
+  genreOverride?: Prisma.StringNullableFilter<"Track"> | string | null
+  metadataEditedAt?: Prisma.DateTimeNullableFilter<"Track"> | Date | string | null
   tagsJson?: Prisma.StringNullableFilter<"Track"> | string | null
   artworkKind?: Prisma.StringNullableFilter<"Track"> | string | null
   artworkMime?: Prisma.StringNullableFilter<"Track"> | string | null
@@ -453,13 +537,22 @@ export type TrackOrderByWithRelationInput = {
   bitDepth?: Prisma.SortOrderInput | Prisma.SortOrder
   channels?: Prisma.SortOrderInput | Prisma.SortOrder
   title?: Prisma.SortOrderInput | Prisma.SortOrder
+  titleOverride?: Prisma.SortOrderInput | Prisma.SortOrder
   artist?: Prisma.SortOrderInput | Prisma.SortOrder
+  artistOverride?: Prisma.SortOrderInput | Prisma.SortOrder
   album?: Prisma.SortOrderInput | Prisma.SortOrder
+  albumOverride?: Prisma.SortOrderInput | Prisma.SortOrder
   albumArtist?: Prisma.SortOrderInput | Prisma.SortOrder
+  albumArtistOverride?: Prisma.SortOrderInput | Prisma.SortOrder
   trackNo?: Prisma.SortOrderInput | Prisma.SortOrder
+  trackNoOverride?: Prisma.SortOrderInput | Prisma.SortOrder
   discNo?: Prisma.SortOrderInput | Prisma.SortOrder
+  discNoOverride?: Prisma.SortOrderInput | Prisma.SortOrder
   year?: Prisma.SortOrderInput | Prisma.SortOrder
+  yearOverride?: Prisma.SortOrderInput | Prisma.SortOrder
   genre?: Prisma.SortOrderInput | Prisma.SortOrder
+  genreOverride?: Prisma.SortOrderInput | Prisma.SortOrder
+  metadataEditedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   tagsJson?: Prisma.SortOrderInput | Prisma.SortOrder
   artworkKind?: Prisma.SortOrderInput | Prisma.SortOrder
   artworkMime?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -488,13 +581,22 @@ export type TrackWhereUniqueInput = Prisma.AtLeast<{
   bitDepth?: Prisma.IntNullableFilter<"Track"> | number | null
   channels?: Prisma.IntNullableFilter<"Track"> | number | null
   title?: Prisma.StringNullableFilter<"Track"> | string | null
+  titleOverride?: Prisma.StringNullableFilter<"Track"> | string | null
   artist?: Prisma.StringNullableFilter<"Track"> | string | null
+  artistOverride?: Prisma.StringNullableFilter<"Track"> | string | null
   album?: Prisma.StringNullableFilter<"Track"> | string | null
+  albumOverride?: Prisma.StringNullableFilter<"Track"> | string | null
   albumArtist?: Prisma.StringNullableFilter<"Track"> | string | null
+  albumArtistOverride?: Prisma.StringNullableFilter<"Track"> | string | null
   trackNo?: Prisma.IntNullableFilter<"Track"> | number | null
+  trackNoOverride?: Prisma.IntNullableFilter<"Track"> | number | null
   discNo?: Prisma.IntNullableFilter<"Track"> | number | null
+  discNoOverride?: Prisma.IntNullableFilter<"Track"> | number | null
   year?: Prisma.IntNullableFilter<"Track"> | number | null
+  yearOverride?: Prisma.IntNullableFilter<"Track"> | number | null
   genre?: Prisma.StringNullableFilter<"Track"> | string | null
+  genreOverride?: Prisma.StringNullableFilter<"Track"> | string | null
+  metadataEditedAt?: Prisma.DateTimeNullableFilter<"Track"> | Date | string | null
   tagsJson?: Prisma.StringNullableFilter<"Track"> | string | null
   artworkKind?: Prisma.StringNullableFilter<"Track"> | string | null
   artworkMime?: Prisma.StringNullableFilter<"Track"> | string | null
@@ -520,13 +622,22 @@ export type TrackOrderByWithAggregationInput = {
   bitDepth?: Prisma.SortOrderInput | Prisma.SortOrder
   channels?: Prisma.SortOrderInput | Prisma.SortOrder
   title?: Prisma.SortOrderInput | Prisma.SortOrder
+  titleOverride?: Prisma.SortOrderInput | Prisma.SortOrder
   artist?: Prisma.SortOrderInput | Prisma.SortOrder
+  artistOverride?: Prisma.SortOrderInput | Prisma.SortOrder
   album?: Prisma.SortOrderInput | Prisma.SortOrder
+  albumOverride?: Prisma.SortOrderInput | Prisma.SortOrder
   albumArtist?: Prisma.SortOrderInput | Prisma.SortOrder
+  albumArtistOverride?: Prisma.SortOrderInput | Prisma.SortOrder
   trackNo?: Prisma.SortOrderInput | Prisma.SortOrder
+  trackNoOverride?: Prisma.SortOrderInput | Prisma.SortOrder
   discNo?: Prisma.SortOrderInput | Prisma.SortOrder
+  discNoOverride?: Prisma.SortOrderInput | Prisma.SortOrder
   year?: Prisma.SortOrderInput | Prisma.SortOrder
+  yearOverride?: Prisma.SortOrderInput | Prisma.SortOrder
   genre?: Prisma.SortOrderInput | Prisma.SortOrder
+  genreOverride?: Prisma.SortOrderInput | Prisma.SortOrder
+  metadataEditedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   tagsJson?: Prisma.SortOrderInput | Prisma.SortOrder
   artworkKind?: Prisma.SortOrderInput | Prisma.SortOrder
   artworkMime?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -559,13 +670,22 @@ export type TrackScalarWhereWithAggregatesInput = {
   bitDepth?: Prisma.IntNullableWithAggregatesFilter<"Track"> | number | null
   channels?: Prisma.IntNullableWithAggregatesFilter<"Track"> | number | null
   title?: Prisma.StringNullableWithAggregatesFilter<"Track"> | string | null
+  titleOverride?: Prisma.StringNullableWithAggregatesFilter<"Track"> | string | null
   artist?: Prisma.StringNullableWithAggregatesFilter<"Track"> | string | null
+  artistOverride?: Prisma.StringNullableWithAggregatesFilter<"Track"> | string | null
   album?: Prisma.StringNullableWithAggregatesFilter<"Track"> | string | null
+  albumOverride?: Prisma.StringNullableWithAggregatesFilter<"Track"> | string | null
   albumArtist?: Prisma.StringNullableWithAggregatesFilter<"Track"> | string | null
+  albumArtistOverride?: Prisma.StringNullableWithAggregatesFilter<"Track"> | string | null
   trackNo?: Prisma.IntNullableWithAggregatesFilter<"Track"> | number | null
+  trackNoOverride?: Prisma.IntNullableWithAggregatesFilter<"Track"> | number | null
   discNo?: Prisma.IntNullableWithAggregatesFilter<"Track"> | number | null
+  discNoOverride?: Prisma.IntNullableWithAggregatesFilter<"Track"> | number | null
   year?: Prisma.IntNullableWithAggregatesFilter<"Track"> | number | null
+  yearOverride?: Prisma.IntNullableWithAggregatesFilter<"Track"> | number | null
   genre?: Prisma.StringNullableWithAggregatesFilter<"Track"> | string | null
+  genreOverride?: Prisma.StringNullableWithAggregatesFilter<"Track"> | string | null
+  metadataEditedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"Track"> | Date | string | null
   tagsJson?: Prisma.StringNullableWithAggregatesFilter<"Track"> | string | null
   artworkKind?: Prisma.StringNullableWithAggregatesFilter<"Track"> | string | null
   artworkMime?: Prisma.StringNullableWithAggregatesFilter<"Track"> | string | null
@@ -590,13 +710,22 @@ export type TrackCreateInput = {
   bitDepth?: number | null
   channels?: number | null
   title?: string | null
+  titleOverride?: string | null
   artist?: string | null
+  artistOverride?: string | null
   album?: string | null
+  albumOverride?: string | null
   albumArtist?: string | null
+  albumArtistOverride?: string | null
   trackNo?: number | null
+  trackNoOverride?: number | null
   discNo?: number | null
+  discNoOverride?: number | null
   year?: number | null
+  yearOverride?: number | null
   genre?: string | null
+  genreOverride?: string | null
+  metadataEditedAt?: Date | string | null
   tagsJson?: string | null
   artworkKind?: string | null
   artworkMime?: string | null
@@ -622,13 +751,22 @@ export type TrackUncheckedCreateInput = {
   bitDepth?: number | null
   channels?: number | null
   title?: string | null
+  titleOverride?: string | null
   artist?: string | null
+  artistOverride?: string | null
   album?: string | null
+  albumOverride?: string | null
   albumArtist?: string | null
+  albumArtistOverride?: string | null
   trackNo?: number | null
+  trackNoOverride?: number | null
   discNo?: number | null
+  discNoOverride?: number | null
   year?: number | null
+  yearOverride?: number | null
   genre?: string | null
+  genreOverride?: string | null
+  metadataEditedAt?: Date | string | null
   tagsJson?: string | null
   artworkKind?: string | null
   artworkMime?: string | null
@@ -654,13 +792,22 @@ export type TrackUpdateInput = {
   bitDepth?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   channels?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   title?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  titleOverride?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   artist?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  artistOverride?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   album?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  albumOverride?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   albumArtist?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  albumArtistOverride?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   trackNo?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  trackNoOverride?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   discNo?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  discNoOverride?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   year?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  yearOverride?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   genre?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  genreOverride?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  metadataEditedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   tagsJson?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   artworkKind?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   artworkMime?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -686,13 +833,22 @@ export type TrackUncheckedUpdateInput = {
   bitDepth?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   channels?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   title?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  titleOverride?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   artist?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  artistOverride?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   album?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  albumOverride?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   albumArtist?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  albumArtistOverride?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   trackNo?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  trackNoOverride?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   discNo?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  discNoOverride?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   year?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  yearOverride?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   genre?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  genreOverride?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  metadataEditedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   tagsJson?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   artworkKind?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   artworkMime?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -718,13 +874,22 @@ export type TrackCreateManyInput = {
   bitDepth?: number | null
   channels?: number | null
   title?: string | null
+  titleOverride?: string | null
   artist?: string | null
+  artistOverride?: string | null
   album?: string | null
+  albumOverride?: string | null
   albumArtist?: string | null
+  albumArtistOverride?: string | null
   trackNo?: number | null
+  trackNoOverride?: number | null
   discNo?: number | null
+  discNoOverride?: number | null
   year?: number | null
+  yearOverride?: number | null
   genre?: string | null
+  genreOverride?: string | null
+  metadataEditedAt?: Date | string | null
   tagsJson?: string | null
   artworkKind?: string | null
   artworkMime?: string | null
@@ -749,13 +914,22 @@ export type TrackUpdateManyMutationInput = {
   bitDepth?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   channels?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   title?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  titleOverride?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   artist?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  artistOverride?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   album?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  albumOverride?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   albumArtist?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  albumArtistOverride?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   trackNo?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  trackNoOverride?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   discNo?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  discNoOverride?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   year?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  yearOverride?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   genre?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  genreOverride?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  metadataEditedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   tagsJson?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   artworkKind?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   artworkMime?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -780,13 +954,22 @@ export type TrackUncheckedUpdateManyInput = {
   bitDepth?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   channels?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   title?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  titleOverride?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   artist?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  artistOverride?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   album?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  albumOverride?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   albumArtist?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  albumArtistOverride?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   trackNo?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  trackNoOverride?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   discNo?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  discNoOverride?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   year?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  yearOverride?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   genre?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  genreOverride?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  metadataEditedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   tagsJson?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   artworkKind?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   artworkMime?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -811,13 +994,22 @@ export type TrackCountOrderByAggregateInput = {
   bitDepth?: Prisma.SortOrder
   channels?: Prisma.SortOrder
   title?: Prisma.SortOrder
+  titleOverride?: Prisma.SortOrder
   artist?: Prisma.SortOrder
+  artistOverride?: Prisma.SortOrder
   album?: Prisma.SortOrder
+  albumOverride?: Prisma.SortOrder
   albumArtist?: Prisma.SortOrder
+  albumArtistOverride?: Prisma.SortOrder
   trackNo?: Prisma.SortOrder
+  trackNoOverride?: Prisma.SortOrder
   discNo?: Prisma.SortOrder
+  discNoOverride?: Prisma.SortOrder
   year?: Prisma.SortOrder
+  yearOverride?: Prisma.SortOrder
   genre?: Prisma.SortOrder
+  genreOverride?: Prisma.SortOrder
+  metadataEditedAt?: Prisma.SortOrder
   tagsJson?: Prisma.SortOrder
   artworkKind?: Prisma.SortOrder
   artworkMime?: Prisma.SortOrder
@@ -837,8 +1029,11 @@ export type TrackAvgOrderByAggregateInput = {
   bitDepth?: Prisma.SortOrder
   channels?: Prisma.SortOrder
   trackNo?: Prisma.SortOrder
+  trackNoOverride?: Prisma.SortOrder
   discNo?: Prisma.SortOrder
+  discNoOverride?: Prisma.SortOrder
   year?: Prisma.SortOrder
+  yearOverride?: Prisma.SortOrder
 }
 
 export type TrackMaxOrderByAggregateInput = {
@@ -855,13 +1050,22 @@ export type TrackMaxOrderByAggregateInput = {
   bitDepth?: Prisma.SortOrder
   channels?: Prisma.SortOrder
   title?: Prisma.SortOrder
+  titleOverride?: Prisma.SortOrder
   artist?: Prisma.SortOrder
+  artistOverride?: Prisma.SortOrder
   album?: Prisma.SortOrder
+  albumOverride?: Prisma.SortOrder
   albumArtist?: Prisma.SortOrder
+  albumArtistOverride?: Prisma.SortOrder
   trackNo?: Prisma.SortOrder
+  trackNoOverride?: Prisma.SortOrder
   discNo?: Prisma.SortOrder
+  discNoOverride?: Prisma.SortOrder
   year?: Prisma.SortOrder
+  yearOverride?: Prisma.SortOrder
   genre?: Prisma.SortOrder
+  genreOverride?: Prisma.SortOrder
+  metadataEditedAt?: Prisma.SortOrder
   tagsJson?: Prisma.SortOrder
   artworkKind?: Prisma.SortOrder
   artworkMime?: Prisma.SortOrder
@@ -886,13 +1090,22 @@ export type TrackMinOrderByAggregateInput = {
   bitDepth?: Prisma.SortOrder
   channels?: Prisma.SortOrder
   title?: Prisma.SortOrder
+  titleOverride?: Prisma.SortOrder
   artist?: Prisma.SortOrder
+  artistOverride?: Prisma.SortOrder
   album?: Prisma.SortOrder
+  albumOverride?: Prisma.SortOrder
   albumArtist?: Prisma.SortOrder
+  albumArtistOverride?: Prisma.SortOrder
   trackNo?: Prisma.SortOrder
+  trackNoOverride?: Prisma.SortOrder
   discNo?: Prisma.SortOrder
+  discNoOverride?: Prisma.SortOrder
   year?: Prisma.SortOrder
+  yearOverride?: Prisma.SortOrder
   genre?: Prisma.SortOrder
+  genreOverride?: Prisma.SortOrder
+  metadataEditedAt?: Prisma.SortOrder
   tagsJson?: Prisma.SortOrder
   artworkKind?: Prisma.SortOrder
   artworkMime?: Prisma.SortOrder
@@ -912,8 +1125,11 @@ export type TrackSumOrderByAggregateInput = {
   bitDepth?: Prisma.SortOrder
   channels?: Prisma.SortOrder
   trackNo?: Prisma.SortOrder
+  trackNoOverride?: Prisma.SortOrder
   discNo?: Prisma.SortOrder
+  discNoOverride?: Prisma.SortOrder
   year?: Prisma.SortOrder
+  yearOverride?: Prisma.SortOrder
 }
 
 export type TrackScalarRelationFilter = {
@@ -965,13 +1181,22 @@ export type TrackCreateWithoutTranscodesInput = {
   bitDepth?: number | null
   channels?: number | null
   title?: string | null
+  titleOverride?: string | null
   artist?: string | null
+  artistOverride?: string | null
   album?: string | null
+  albumOverride?: string | null
   albumArtist?: string | null
+  albumArtistOverride?: string | null
   trackNo?: number | null
+  trackNoOverride?: number | null
   discNo?: number | null
+  discNoOverride?: number | null
   year?: number | null
+  yearOverride?: number | null
   genre?: string | null
+  genreOverride?: string | null
+  metadataEditedAt?: Date | string | null
   tagsJson?: string | null
   artworkKind?: string | null
   artworkMime?: string | null
@@ -996,13 +1221,22 @@ export type TrackUncheckedCreateWithoutTranscodesInput = {
   bitDepth?: number | null
   channels?: number | null
   title?: string | null
+  titleOverride?: string | null
   artist?: string | null
+  artistOverride?: string | null
   album?: string | null
+  albumOverride?: string | null
   albumArtist?: string | null
+  albumArtistOverride?: string | null
   trackNo?: number | null
+  trackNoOverride?: number | null
   discNo?: number | null
+  discNoOverride?: number | null
   year?: number | null
+  yearOverride?: number | null
   genre?: string | null
+  genreOverride?: string | null
+  metadataEditedAt?: Date | string | null
   tagsJson?: string | null
   artworkKind?: string | null
   artworkMime?: string | null
@@ -1043,13 +1277,22 @@ export type TrackUpdateWithoutTranscodesInput = {
   bitDepth?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   channels?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   title?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  titleOverride?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   artist?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  artistOverride?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   album?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  albumOverride?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   albumArtist?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  albumArtistOverride?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   trackNo?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  trackNoOverride?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   discNo?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  discNoOverride?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   year?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  yearOverride?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   genre?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  genreOverride?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  metadataEditedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   tagsJson?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   artworkKind?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   artworkMime?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1074,13 +1317,22 @@ export type TrackUncheckedUpdateWithoutTranscodesInput = {
   bitDepth?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   channels?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   title?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  titleOverride?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   artist?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  artistOverride?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   album?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  albumOverride?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   albumArtist?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  albumArtistOverride?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   trackNo?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  trackNoOverride?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   discNo?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  discNoOverride?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   year?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  yearOverride?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   genre?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  genreOverride?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  metadataEditedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   tagsJson?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   artworkKind?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   artworkMime?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1136,13 +1388,22 @@ export type TrackSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = 
   bitDepth?: boolean
   channels?: boolean
   title?: boolean
+  titleOverride?: boolean
   artist?: boolean
+  artistOverride?: boolean
   album?: boolean
+  albumOverride?: boolean
   albumArtist?: boolean
+  albumArtistOverride?: boolean
   trackNo?: boolean
+  trackNoOverride?: boolean
   discNo?: boolean
+  discNoOverride?: boolean
   year?: boolean
+  yearOverride?: boolean
   genre?: boolean
+  genreOverride?: boolean
+  metadataEditedAt?: boolean
   tagsJson?: boolean
   artworkKind?: boolean
   artworkMime?: boolean
@@ -1169,13 +1430,22 @@ export type TrackSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensi
   bitDepth?: boolean
   channels?: boolean
   title?: boolean
+  titleOverride?: boolean
   artist?: boolean
+  artistOverride?: boolean
   album?: boolean
+  albumOverride?: boolean
   albumArtist?: boolean
+  albumArtistOverride?: boolean
   trackNo?: boolean
+  trackNoOverride?: boolean
   discNo?: boolean
+  discNoOverride?: boolean
   year?: boolean
+  yearOverride?: boolean
   genre?: boolean
+  genreOverride?: boolean
+  metadataEditedAt?: boolean
   tagsJson?: boolean
   artworkKind?: boolean
   artworkMime?: boolean
@@ -1200,13 +1470,22 @@ export type TrackSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensi
   bitDepth?: boolean
   channels?: boolean
   title?: boolean
+  titleOverride?: boolean
   artist?: boolean
+  artistOverride?: boolean
   album?: boolean
+  albumOverride?: boolean
   albumArtist?: boolean
+  albumArtistOverride?: boolean
   trackNo?: boolean
+  trackNoOverride?: boolean
   discNo?: boolean
+  discNoOverride?: boolean
   year?: boolean
+  yearOverride?: boolean
   genre?: boolean
+  genreOverride?: boolean
+  metadataEditedAt?: boolean
   tagsJson?: boolean
   artworkKind?: boolean
   artworkMime?: boolean
@@ -1231,13 +1510,22 @@ export type TrackSelectScalar = {
   bitDepth?: boolean
   channels?: boolean
   title?: boolean
+  titleOverride?: boolean
   artist?: boolean
+  artistOverride?: boolean
   album?: boolean
+  albumOverride?: boolean
   albumArtist?: boolean
+  albumArtistOverride?: boolean
   trackNo?: boolean
+  trackNoOverride?: boolean
   discNo?: boolean
+  discNoOverride?: boolean
   year?: boolean
+  yearOverride?: boolean
   genre?: boolean
+  genreOverride?: boolean
+  metadataEditedAt?: boolean
   tagsJson?: boolean
   artworkKind?: boolean
   artworkMime?: boolean
@@ -1248,7 +1536,7 @@ export type TrackSelectScalar = {
   updatedAt?: boolean
 }
 
-export type TrackOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "path" | "dirPath" | "filename" | "fileSize" | "mtimeMs" | "container" | "durationMs" | "bitrateKbps" | "sampleRate" | "bitDepth" | "channels" | "title" | "artist" | "album" | "albumArtist" | "trackNo" | "discNo" | "year" | "genre" | "tagsJson" | "artworkKind" | "artworkMime" | "artworkHash" | "lyricsKind" | "lyricsHash" | "createdAt" | "updatedAt", ExtArgs["result"]["track"]>
+export type TrackOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "path" | "dirPath" | "filename" | "fileSize" | "mtimeMs" | "container" | "durationMs" | "bitrateKbps" | "sampleRate" | "bitDepth" | "channels" | "title" | "titleOverride" | "artist" | "artistOverride" | "album" | "albumOverride" | "albumArtist" | "albumArtistOverride" | "trackNo" | "trackNoOverride" | "discNo" | "discNoOverride" | "year" | "yearOverride" | "genre" | "genreOverride" | "metadataEditedAt" | "tagsJson" | "artworkKind" | "artworkMime" | "artworkHash" | "lyricsKind" | "lyricsHash" | "createdAt" | "updatedAt", ExtArgs["result"]["track"]>
 export type TrackInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   transcodes?: boolean | Prisma.Track$transcodesArgs<ExtArgs>
   _count?: boolean | Prisma.TrackCountOutputTypeDefaultArgs<ExtArgs>
@@ -1275,13 +1563,22 @@ export type $TrackPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs 
     bitDepth: number | null
     channels: number | null
     title: string | null
+    titleOverride: string | null
     artist: string | null
+    artistOverride: string | null
     album: string | null
+    albumOverride: string | null
     albumArtist: string | null
+    albumArtistOverride: string | null
     trackNo: number | null
+    trackNoOverride: number | null
     discNo: number | null
+    discNoOverride: number | null
     year: number | null
+    yearOverride: number | null
     genre: string | null
+    genreOverride: string | null
+    metadataEditedAt: Date | null
     tagsJson: string | null
     artworkKind: string | null
     artworkMime: string | null
@@ -1727,13 +2024,22 @@ export interface TrackFieldRefs {
   readonly bitDepth: Prisma.FieldRef<"Track", 'Int'>
   readonly channels: Prisma.FieldRef<"Track", 'Int'>
   readonly title: Prisma.FieldRef<"Track", 'String'>
+  readonly titleOverride: Prisma.FieldRef<"Track", 'String'>
   readonly artist: Prisma.FieldRef<"Track", 'String'>
+  readonly artistOverride: Prisma.FieldRef<"Track", 'String'>
   readonly album: Prisma.FieldRef<"Track", 'String'>
+  readonly albumOverride: Prisma.FieldRef<"Track", 'String'>
   readonly albumArtist: Prisma.FieldRef<"Track", 'String'>
+  readonly albumArtistOverride: Prisma.FieldRef<"Track", 'String'>
   readonly trackNo: Prisma.FieldRef<"Track", 'Int'>
+  readonly trackNoOverride: Prisma.FieldRef<"Track", 'Int'>
   readonly discNo: Prisma.FieldRef<"Track", 'Int'>
+  readonly discNoOverride: Prisma.FieldRef<"Track", 'Int'>
   readonly year: Prisma.FieldRef<"Track", 'Int'>
+  readonly yearOverride: Prisma.FieldRef<"Track", 'Int'>
   readonly genre: Prisma.FieldRef<"Track", 'String'>
+  readonly genreOverride: Prisma.FieldRef<"Track", 'String'>
+  readonly metadataEditedAt: Prisma.FieldRef<"Track", 'DateTime'>
   readonly tagsJson: Prisma.FieldRef<"Track", 'String'>
   readonly artworkKind: Prisma.FieldRef<"Track", 'String'>
   readonly artworkMime: Prisma.FieldRef<"Track", 'String'>

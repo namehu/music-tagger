@@ -20,6 +20,15 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import {
   Table,
   TableBody,
@@ -49,9 +58,24 @@ function renderCell(primary: string | null | undefined, fallback: string) {
   return primary && primary.trim().length > 0 ? primary : fallback;
 }
 
+function formatNumberField(value: number | null | undefined) {
+  return typeof value === "number" && Number.isFinite(value) ? String(value) : "";
+}
+
 export default function AdminLibraryPage() {
   const [search, setSearch] = React.useState("");
   const [order, setOrder] = React.useState<TrackOrder>("recent");
+  const [editingTrackId, setEditingTrackId] = React.useState<string | null>(null);
+  const [formValues, setFormValues] = React.useState({
+    title: "",
+    artist: "",
+    album: "",
+    albumArtist: "",
+    trackNo: "",
+    discNo: "",
+    year: "",
+    genre: "",
+  });
   const deferredSearch = React.useDeferredValue(search);
   const query = deferredSearch.trim();
   const { activeTrackId, pendingTrackId, isAudioPlaying, isPreparing, setQueue, toggleTrack } = useGlobalPlayback();
@@ -63,6 +87,20 @@ export default function AdminLibraryPage() {
     q: query.length > 0 ? query : undefined,
   });
   const currentTracks = React.useMemo(() => tracksQuery.data?.items ?? [], [tracksQuery.data?.items]);
+  const editingTrack = React.useMemo(
+    () => currentTracks.find((track) => track.id === editingTrackId) ?? null,
+    [currentTracks, editingTrackId],
+  );
+  const updateMetadata = trpc.tracks.updateMetadata.useMutation({
+    onSuccess: async (track) => {
+      toast.success(`已保存 ${renderCell(track.title, track.fallbackTitle)} 的元数据`);
+      setEditingTrackId(null);
+      await Promise.all([tracksQuery.refetch(), statsQuery.refetch()]);
+    },
+    onError: (error) => {
+      toast.error(error.message ?? "元数据保存失败");
+    },
+  });
 
   React.useEffect(() => {
     const queueTracks: PlaybackQueueTrack[] = currentTracks.map((track) => ({
@@ -85,11 +123,56 @@ export default function AdminLibraryPage() {
     }
   }, [tracksQuery.error]);
 
+  React.useEffect(() => {
+    if (!editingTrack) {
+      return;
+    }
+
+    setFormValues({
+      title: editingTrack.title ?? "",
+      artist: editingTrack.artist ?? "",
+      album: editingTrack.album ?? "",
+      albumArtist: editingTrack.albumArtist ?? "",
+      trackNo: formatNumberField(editingTrack.trackNo),
+      discNo: formatNumberField(editingTrack.discNo),
+      year: formatNumberField(editingTrack.year),
+      genre: editingTrack.genre ?? "",
+    });
+  }, [editingTrack]);
+
   const statCards = [
     { title: "曲目", value: statsQuery.data?.tracks ?? 0 },
     { title: "专辑", value: statsQuery.data?.albums ?? 0 },
     { title: "艺人", value: statsQuery.data?.artists ?? 0 },
   ];
+
+  function parseNullableInt(value: string) {
+    const trimmed = value.trim();
+    if (trimmed.length === 0) {
+      return null;
+    }
+
+    const parsed = Number.parseInt(trimmed, 10);
+    return Number.isInteger(parsed) ? parsed : null;
+  }
+
+  function buildMetadataPayload() {
+    if (!editingTrack) {
+      return null;
+    }
+
+    return {
+      trackId: editingTrack.id,
+      title: formValues.title.trim() || null,
+      artist: formValues.artist.trim() || null,
+      album: formValues.album.trim() || null,
+      albumArtist: formValues.albumArtist.trim() || null,
+      trackNo: parseNullableInt(formValues.trackNo),
+      discNo: parseNullableInt(formValues.discNo),
+      year: parseNullableInt(formValues.year),
+      genre: formValues.genre.trim() || null,
+    };
+  }
 
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
@@ -168,6 +251,7 @@ export default function AdminLibraryPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>播放</TableHead>
+                <TableHead>编辑</TableHead>
                 <TableHead>标题</TableHead>
                 <TableHead>艺人</TableHead>
                 <TableHead>专辑</TableHead>
@@ -207,6 +291,16 @@ export default function AdminLibraryPage() {
                         )}
                       </Button>
                     </TableCell>
+                    <TableCell className="w-20">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setEditingTrackId(track.id)}
+                      >
+                        编辑
+                      </Button>
+                    </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
                         <span>{renderCell(track.title, track.filename)}</span>
@@ -216,6 +310,8 @@ export default function AdminLibraryPage() {
                           <Badge variant="secondary">
                             {isAudioPlaying && !isPreparing ? "当前播放" : "当前已暂停"}
                           </Badge>
+                        ) : track.metadataEditedAt ? (
+                          <Badge variant="outline">已手动修改</Badge>
                         ) : null}
                       </div>
                     </TableCell>
@@ -231,7 +327,7 @@ export default function AdminLibraryPage() {
 
               {!tracksQuery.isLoading && currentTracks.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">
+                  <TableCell colSpan={7} className="py-8 text-center text-muted-foreground">
                     暂无曲目，请先触发一次 scan_full。
                   </TableCell>
                 </TableRow>
@@ -240,6 +336,157 @@ export default function AdminLibraryPage() {
           </Table>
         </CardContent>
       </Card>
+
+      <Sheet open={editingTrack !== null} onOpenChange={(open) => !open && setEditingTrackId(null)}>
+        <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-xl">
+          <SheetHeader>
+            <SheetTitle>编辑元数据</SheetTitle>
+            <SheetDescription>
+              当前只修改 SQLite 里的人工覆盖值，不会回写音频文件标签；后续 `scan_full` 也不会覆盖这里的人工修改。
+            </SheetDescription>
+          </SheetHeader>
+
+          {editingTrack ? (
+            <div className="space-y-6 py-4">
+              <div className="rounded-xl border bg-muted/20 p-4 text-sm">
+                <div className="font-medium">{renderCell(editingTrack.title, editingTrack.filename)}</div>
+                <div className="mt-1 text-muted-foreground">{renderCell(editingTrack.artist, "未知艺人")}</div>
+                <div className="mt-2 truncate font-mono text-xs text-muted-foreground">{editingTrack.path}</div>
+                {editingTrack.metadataEditedAt ? (
+                  <div className="mt-3">
+                    <Badge variant="outline">上次人工修改: {formatDateTime(editingTrack.metadataEditedAt)}</Badge>
+                  </div>
+                ) : null}
+              </div>
+
+              <div className="grid gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="track-title">标题</Label>
+                  <Input
+                    id="track-title"
+                    value={formValues.title}
+                    onChange={(event) => setFormValues((current) => ({ ...current, title: event.target.value }))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="track-artist">艺人</Label>
+                  <Input
+                    id="track-artist"
+                    value={formValues.artist}
+                    onChange={(event) => setFormValues((current) => ({ ...current, artist: event.target.value }))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="track-album">专辑</Label>
+                  <Input
+                    id="track-album"
+                    value={formValues.album}
+                    onChange={(event) => setFormValues((current) => ({ ...current, album: event.target.value }))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="track-album-artist">专辑艺人</Label>
+                  <Input
+                    id="track-album-artist"
+                    value={formValues.albumArtist}
+                    onChange={(event) =>
+                      setFormValues((current) => ({ ...current, albumArtist: event.target.value }))
+                    }
+                  />
+                </div>
+                <div className="grid gap-4 sm:grid-cols-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="track-track-no">Track No</Label>
+                    <Input
+                      id="track-track-no"
+                      inputMode="numeric"
+                      value={formValues.trackNo}
+                      onChange={(event) =>
+                        setFormValues((current) => ({ ...current, trackNo: event.target.value }))
+                      }
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="track-disc-no">Disc No</Label>
+                    <Input
+                      id="track-disc-no"
+                      inputMode="numeric"
+                      value={formValues.discNo}
+                      onChange={(event) =>
+                        setFormValues((current) => ({ ...current, discNo: event.target.value }))
+                      }
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="track-year">年份</Label>
+                    <Input
+                      id="track-year"
+                      inputMode="numeric"
+                      value={formValues.year}
+                      onChange={(event) =>
+                        setFormValues((current) => ({ ...current, year: event.target.value }))
+                      }
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="track-genre">流派</Label>
+                  <Input
+                    id="track-genre"
+                    value={formValues.genre}
+                    onChange={(event) => setFormValues((current) => ({ ...current, genre: event.target.value }))}
+                  />
+                </div>
+              </div>
+
+              <SheetFooter className="gap-2 sm:justify-between">
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={updateMetadata.isPending}
+                  onClick={() =>
+                    setFormValues({
+                      title: "",
+                      artist: "",
+                      album: "",
+                      albumArtist: "",
+                      trackNo: "",
+                      discNo: "",
+                      year: "",
+                      genre: "",
+                    })
+                  }
+                >
+                  恢复扫描值
+                </Button>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={updateMetadata.isPending}
+                    onClick={() => setEditingTrackId(null)}
+                  >
+                    取消
+                  </Button>
+                  <Button
+                    type="button"
+                    disabled={updateMetadata.isPending}
+                    onClick={() => {
+                      const payload = buildMetadataPayload();
+                      if (!payload) {
+                        return;
+                      }
+                      updateMetadata.mutate(payload);
+                    }}
+                  >
+                    {updateMetadata.isPending ? "保存中..." : "保存修改"}
+                  </Button>
+                </div>
+              </SheetFooter>
+            </div>
+          ) : null}
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }

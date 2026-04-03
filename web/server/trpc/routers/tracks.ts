@@ -1,8 +1,8 @@
+import { TRPCError } from "@trpc/server";
+import { Prisma } from "@/generated/prisma/client";
 import { z } from "zod";
 
-import { Prisma } from "@/generated/prisma/client";
-
-import { protectedProcedure, router } from "../trpc";
+import { adminProcedure, protectedProcedure, router } from "../trpc";
 
 const listTracksInputSchema = z.object({
   cursor: z.string().min(1).optional(),
@@ -11,15 +11,50 @@ const listTracksInputSchema = z.object({
   q: z.string().trim().max(200).optional(),
 });
 
+const updateTrackMetadataInputSchema = z.object({
+  trackId: z.string().min(1),
+  title: z.string().trim().max(300).nullable(),
+  artist: z.string().trim().max(300).nullable(),
+  album: z.string().trim().max(300).nullable(),
+  albumArtist: z.string().trim().max(300).nullable(),
+  trackNo: z.number().int().min(0).max(999).nullable(),
+  discNo: z.number().int().min(0).max(99).nullable(),
+  year: z.number().int().min(0).max(9999).nullable(),
+  genre: z.string().trim().max(200).nullable(),
+});
+
 type TrackListItem = {
   id: string;
   title: string | null;
   artist: string | null;
   album: string | null;
+  albumArtist: string | null;
+  trackNo: number | null;
+  discNo: number | null;
+  year: number | null;
+  genre: string | null;
   filename: string;
   path: string;
+  metadataEditedAt: Date | string | null;
   updatedAt: Date | string;
 };
+
+function toNullableNumber(value: number | bigint | null | undefined) {
+  if (typeof value === "bigint") {
+    return Number(value);
+  }
+
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function serializeTrackListItem(item: TrackListItem) {
+  return {
+    ...item,
+    trackNo: toNullableNumber(item.trackNo),
+    discNo: toNullableNumber(item.discNo),
+    year: toNullableNumber(item.year),
+  };
+}
 
 function buildFtsQuery(input: string) {
   const terms = input
@@ -34,20 +69,8 @@ function buildFtsQuery(input: string) {
 
 function getTrackOrder(input: z.infer<typeof listTracksInputSchema>["order"]) {
   if (input === "title") {
-    return [{ title: "asc" as const }, { filename: "asc" as const }, { id: "asc" as const }];
-  }
-
-  if (input === "artist") {
-    return [{ artist: "asc" as const }, { album: "asc" as const }, { id: "asc" as const }];
-  }
-
-  return [{ updatedAt: "desc" as const }, { id: "desc" as const }];
-}
-
-function getFtsSecondaryOrder(input: z.infer<typeof listTracksInputSchema>["order"]) {
-  if (input === "title") {
     return Prisma.sql`
-      COALESCE(t."title", t."filename") ASC,
+      COALESCE(t."titleOverride", t."title", t."filename") ASC,
       t."filename" ASC,
       t."id" ASC
     `;
@@ -55,8 +78,31 @@ function getFtsSecondaryOrder(input: z.infer<typeof listTracksInputSchema>["orde
 
   if (input === "artist") {
     return Prisma.sql`
-      COALESCE(t."artist", '') ASC,
-      COALESCE(t."album", '') ASC,
+      COALESCE(t."artistOverride", t."artist", '') ASC,
+      COALESCE(t."albumOverride", t."album", '') ASC,
+      t."id" ASC
+    `;
+  }
+
+  return Prisma.sql`
+    t."updatedAt" DESC,
+    t."id" DESC
+  `;
+}
+
+function getFtsSecondaryOrder(input: z.infer<typeof listTracksInputSchema>["order"]) {
+  if (input === "title") {
+    return Prisma.sql`
+      COALESCE(t."titleOverride", t."title", t."filename") ASC,
+      t."filename" ASC,
+      t."id" ASC
+    `;
+  }
+
+  if (input === "artist") {
+    return Prisma.sql`
+      COALESCE(t."artistOverride", t."artist", '') ASC,
+      COALESCE(t."albumOverride", t."album", '') ASC,
       t."id" ASC
     `;
   }
@@ -75,10 +121,21 @@ function isMissingFtsIndex(error: unknown) {
   return error.message.includes("tracks_fts") || error.message.includes("no such table");
 }
 
+function normalizeText(value: string | null | undefined) {
+  const trimmed = value?.trim() ?? "";
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function getOverrideValue<T extends string | number | null>(
+  nextValue: T,
+  scannedValue: T,
+) {
+  return nextValue === scannedValue ? null : nextValue;
+}
+
 export const tracksRouter = router({
   list: protectedProcedure.input(listTracksInputSchema).query(async ({ ctx, input }) => {
     const q = input.q?.trim();
-    const orderBy = getTrackOrder(input.order);
 
     if (q) {
       const ftsQuery = buildFtsQuery(q);
@@ -88,11 +145,17 @@ export const tracksRouter = router({
           const items = await ctx.prisma.$queryRaw<TrackListItem[]>(Prisma.sql`
             SELECT
               t."id",
-              t."title",
-              t."artist",
-              t."album",
+              COALESCE(t."titleOverride", t."title") AS "title",
+              COALESCE(t."artistOverride", t."artist") AS "artist",
+              COALESCE(t."albumOverride", t."album") AS "album",
+              COALESCE(t."albumArtistOverride", t."albumArtist") AS "albumArtist",
+              COALESCE(t."trackNoOverride", t."trackNo") AS "trackNo",
+              COALESCE(t."discNoOverride", t."discNo") AS "discNo",
+              COALESCE(t."yearOverride", t."year") AS "year",
+              COALESCE(t."genreOverride", t."genre") AS "genre",
               t."filename",
               t."path",
+              t."metadataEditedAt",
               t."updatedAt"
             FROM "tracks_fts"
             JOIN "tracks" AS t
@@ -105,7 +168,7 @@ export const tracksRouter = router({
           `);
 
           return {
-            items,
+            items: items.map(serializeTrackListItem),
             nextCursor: null,
           };
         } catch (error) {
@@ -116,40 +179,138 @@ export const tracksRouter = router({
       }
     }
 
-    const where = q
-      ? {
-          OR: [
-            { title: { contains: q } },
-            { artist: { contains: q } },
-            { album: { contains: q } },
-            { filename: { contains: q } },
-            { path: { contains: q } },
-          ],
-        }
-      : undefined;
+    const searchLike = q ? `%${q}%` : null;
+    const items = await ctx.prisma.$queryRaw<TrackListItem[]>(Prisma.sql`
+      SELECT
+        t."id",
+        COALESCE(t."titleOverride", t."title") AS "title",
+        COALESCE(t."artistOverride", t."artist") AS "artist",
+        COALESCE(t."albumOverride", t."album") AS "album",
+        COALESCE(t."albumArtistOverride", t."albumArtist") AS "albumArtist",
+        COALESCE(t."trackNoOverride", t."trackNo") AS "trackNo",
+        COALESCE(t."discNoOverride", t."discNo") AS "discNo",
+        COALESCE(t."yearOverride", t."year") AS "year",
+        COALESCE(t."genreOverride", t."genre") AS "genre",
+        t."filename",
+        t."path",
+        t."metadataEditedAt",
+        t."updatedAt"
+      FROM "tracks" AS t
+      ${searchLike ? Prisma.sql`
+        WHERE
+          LOWER(COALESCE(t."titleOverride", t."title", '')) LIKE LOWER(${searchLike})
+          OR LOWER(COALESCE(t."artistOverride", t."artist", '')) LIKE LOWER(${searchLike})
+          OR LOWER(COALESCE(t."albumOverride", t."album", '')) LIKE LOWER(${searchLike})
+          OR LOWER(COALESCE(t."albumArtistOverride", t."albumArtist", '')) LIKE LOWER(${searchLike})
+          OR LOWER(COALESCE(t."genreOverride", t."genre", '')) LIKE LOWER(${searchLike})
+          OR LOWER(COALESCE(t."filename", '')) LIKE LOWER(${searchLike})
+          OR LOWER(COALESCE(t."path", '')) LIKE LOWER(${searchLike})
+      ` : Prisma.empty}
+      ORDER BY ${getTrackOrder(input.order)}
+      LIMIT ${input.limit}
+    `);
 
-    const items = await ctx.prisma.track.findMany({
-      where,
-      take: input.limit + 1,
-      ...(input.cursor ? { cursor: { id: input.cursor }, skip: 1 } : {}),
-      orderBy,
+    return {
+      items: items.map(serializeTrackListItem),
+      nextCursor: null,
+    };
+  }),
+
+  updateMetadata: adminProcedure.input(updateTrackMetadataInputSchema).mutation(async ({ ctx, input }) => {
+    const track = await ctx.prisma.track.findUnique({
+      where: { id: input.trackId },
       select: {
         id: true,
         title: true,
         artist: true,
         album: true,
-        filename: true,
-        path: true,
-        updatedAt: true,
+        albumArtist: true,
+        trackNo: true,
+        discNo: true,
+        year: true,
+        genre: true,
       },
     });
 
-    const hasMore = items.length > input.limit;
-    const visibleItems = hasMore ? items.slice(0, input.limit) : items;
+    if (!track) {
+      throw new TRPCError({ code: "NOT_FOUND", message: "曲目不存在" });
+    }
+
+    const nextTitle = normalizeText(input.title);
+    const nextArtist = normalizeText(input.artist);
+    const nextAlbum = normalizeText(input.album);
+    const nextAlbumArtist = normalizeText(input.albumArtist);
+    const nextGenre = normalizeText(input.genre);
+
+    const titleOverride = getOverrideValue(nextTitle, track.title);
+    const artistOverride = getOverrideValue(nextArtist, track.artist);
+    const albumOverride = getOverrideValue(nextAlbum, track.album);
+    const albumArtistOverride = getOverrideValue(nextAlbumArtist, track.albumArtist);
+    const trackNoOverride = getOverrideValue(input.trackNo, track.trackNo);
+    const discNoOverride = getOverrideValue(input.discNo, track.discNo);
+    const yearOverride = getOverrideValue(input.year, track.year);
+    const genreOverride = getOverrideValue(nextGenre, track.genre);
+
+    const hasOverrides = [
+      titleOverride,
+      artistOverride,
+      albumOverride,
+      albumArtistOverride,
+      trackNoOverride,
+      discNoOverride,
+      yearOverride,
+      genreOverride,
+    ].some((value) => value !== null);
+
+    const updated = await ctx.prisma.track.update({
+      where: { id: input.trackId },
+      data: {
+        titleOverride,
+        artistOverride,
+        albumOverride,
+        albumArtistOverride,
+        trackNoOverride,
+        discNoOverride,
+        yearOverride,
+        genreOverride,
+        metadataEditedAt: hasOverrides ? new Date() : null,
+      },
+      select: {
+        id: true,
+        filename: true,
+        title: true,
+        titleOverride: true,
+        artist: true,
+        artistOverride: true,
+        album: true,
+        albumOverride: true,
+        albumArtist: true,
+        albumArtistOverride: true,
+        trackNo: true,
+        trackNoOverride: true,
+        discNo: true,
+        discNoOverride: true,
+        year: true,
+        yearOverride: true,
+        genre: true,
+        genreOverride: true,
+        metadataEditedAt: true,
+      },
+    });
 
     return {
-      items: visibleItems,
-      nextCursor: hasMore ? visibleItems.at(-1)?.id ?? null : null,
+      id: updated.id,
+      title: updated.titleOverride ?? updated.title,
+      artist: updated.artistOverride ?? updated.artist,
+      album: updated.albumOverride ?? updated.album,
+      albumArtist: updated.albumArtistOverride ?? updated.albumArtist,
+      trackNo: updated.trackNoOverride ?? updated.trackNo,
+      discNo: updated.discNoOverride ?? updated.discNo,
+      year: updated.yearOverride ?? updated.year,
+      genre: updated.genreOverride ?? updated.genre,
+      metadataEditedAt: updated.metadataEditedAt,
+      hasOverrides,
+      fallbackTitle: updated.filename,
     };
   }),
 });

@@ -110,35 +110,44 @@ model Job {
 
 // ===== Media index (M0 minimal) =====
 model Track {
-  id          String   @id
-  path        String   @unique
-  dirPath     String
-  filename    String
-  fileSize    Int
-  mtimeMs     BigInt
-  container   String
-  durationMs  Int
-  bitrateKbps Int?
-  sampleRate  Int?
-  bitDepth    Int?
-  channels    Int?
-  title       String?
-  artist      String?
-  album       String?
-  albumArtist String?
-  trackNo     Int?
-  discNo      Int?
-  year        Int?
-  genre       String?
-  tagsJson    String?
-  artworkKind String?
-  artworkMime String?
-  artworkHash String?
-  lyricsKind  String?
-  lyricsHash  String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  transcodes  TranscodeCache[]
+  id                 String   @id
+  path               String   @unique
+  dirPath            String
+  filename           String
+  fileSize           Int
+  mtimeMs            BigInt
+  container          String
+  durationMs         Int
+  bitrateKbps        Int?
+  sampleRate         Int?
+  bitDepth           Int?
+  channels           Int?
+  title              String?
+  titleOverride      String?
+  artist             String?
+  artistOverride     String?
+  album              String?
+  albumOverride      String?
+  albumArtist        String?
+  albumArtistOverride String?
+  trackNo            Int?
+  trackNoOverride    Int?
+  discNo             Int?
+  discNoOverride     Int?
+  year               Int?
+  yearOverride       Int?
+  genre              String?
+  genreOverride      String?
+  metadataEditedAt   DateTime?
+  tagsJson           String?
+  artworkKind        String?
+  artworkMime        String?
+  artworkHash        String?
+  lyricsKind         String?
+  lyricsHash         String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  transcodes         TranscodeCache[]
 
   @@index([dirPath], map: "idx_tracks_dir_path")
   @@index([album, albumArtist], map: "idx_tracks_album")
