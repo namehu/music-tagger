@@ -2,7 +2,7 @@
 doc_type: baseline
 product: music-tagger
 module: current-capability-matrix
-version: 2026-04-03
+version: 2026-04-04
 source_refs:
   - web/app/(app)/admin/page.tsx
   - web/app/(app)/admin/jobs/page.tsx
@@ -27,14 +27,15 @@ source_refs:
 | --- | --- | --- | --- | --- |
 | Setup / Auth | implemented | `/setup` `/sign-in` | `setup` router, better-auth models | 首个管理员初始化已落地 |
 | Jobs Queue | implemented | `/admin` `/admin/jobs` | `Job`, `jobs` router, `worker.py` | 已支持 scan 与转码任务 |
-| Library Browse | implemented | `/admin/library` | `tracks.list`, `library.stats`, `Track` | 已支持搜索、排序、播放入口 |
+| User Dashboard | partial | `/dashboard` | `library`, `playlists`, playback components | 当前是轻量入口页，不是完整首页模块 |
+| Library Browse | implemented | `/library` `/admin/library` | `tracks.list`, `library.stats`, `Track` | 用户区与管理区共享浏览/播放层 |
 | Metadata Override Editing | partial | `/admin/library` | `tracks.updateMetadata`, `Track` override fields | 仅支持数据库 override，不写回源文件 |
-| Playback Resolve | implemented | 全局播放器 | `playback.resolve`, `/api/stream/[trackId]` | 已支持原始与 `mp3_192` |
+| Playback Resolve | implemented | 全局播放器 | `playback.resolve`, `playback.getPreparationStatus`, `/api/stream/[trackId]` | 已支持原始与 `mp3_192` |
 | Transcode Cache Ops | implemented | `/admin/cache` `/admin/settings` | `TranscodeCache`, `library.cacheOverview`, settings router | 已支持容量治理与失败分类 |
 | Dashboard Overview | partial | `/admin` | `library`, `jobs`, `tracks` 聚合查询 | 还不是独立定义的首页模块 |
 | Playback Modes | planned | 无 | 无 | 仅在 README / 历史需求材料中声明 |
 | Plan Workflow | partial | `/admin/plans` `/admin/plans/[planId]` | `Plan` / `PlanItem`, `plans` router, `plan_execute` job | 当前支持 `rename` 与基础 `tag_write`，其他类型未落地 |
-| Playlist | planned | 无 | 无 | 多用户体验尚未开始 |
+| Playlist | implemented | `/playlists` `/playlists/[playlistId]` | `Playlist` / `PlaylistItem`, `playlists` router | 已支持个人歌单 CRUD、加歌、移歌与顺序点播 |
 | Ignored Tracks | planned | 无 | 无 | 仅存在于需求稿 |
 
 ## 当前事实源与未来目标的分界
@@ -45,11 +46,12 @@ source_refs:
 - `/api/stream/[trackId]` 作为流媒体例外接口
 - worker 通过 SQLite jobs 队列表领取任务
 - 曲库编辑目前只修改数据库 override 字段
+- 已登录用户默认进入用户区
+- 歌单已拥有独立数据模型与页面入口
 - Plan 模块已具备 `rename` / `tag_write` 的 preview / confirm / execute 闭环
 
 以下内容不能被当作当前事实：
 
-- 歌单数据模型
 - 忽略曲目默认过滤规则
 - 播放模式策略
 - 封面、歌词、move、delete 等更高阶 Plan 执行能力

@@ -24,6 +24,10 @@ const resolvePlaybackInputSchema = z.object({
   profile: z.enum(PLAYBACK_PROFILES).default("original"),
 });
 
+const preparationStatusInputSchema = z.object({
+  jobId: z.string().min(1),
+});
+
 function buildTranscodeJobKey(trackId: string, profile: string, sourceMtimeMs: bigint) {
   return `transcode:${trackId}:${profile}:${sourceMtimeMs}`;
 }
@@ -73,6 +77,26 @@ async function recordPlaybackResolveEvent(input: {
 }
 
 export const playbackRouter = router({
+  getPreparationStatus: protectedProcedure
+    .input(preparationStatusInputSchema)
+    .query(async ({ ctx, input }) => {
+      const job = await ctx.prisma.job.findUnique({
+        where: { id: input.jobId },
+        select: {
+          id: true,
+          type: true,
+          status: true,
+          errorJson: true,
+        },
+      });
+
+      if (!job || job.type !== TRANSCODE_JOB_TYPE) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "转码准备任务不存在" });
+      }
+
+      return job;
+    }),
+
   resolve: protectedProcedure.input(resolvePlaybackInputSchema).mutation(async ({ ctx, input }) => {
     const userId = ctx.session?.user?.id;
     if (!userId) {

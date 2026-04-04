@@ -114,8 +114,7 @@ python3 /Users/namehu/mm_code/mm-agents/codex-skills/prd-structuring-agent/refer
 
 ## 9. 当前优先级最高的模块
 
-- `plan-workflow`
-- `playlist`
 - `ignored-tracks`
 - `playback-modes`
 - `library-dashboard`
+- `plan-workflow`

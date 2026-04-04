@@ -194,9 +194,7 @@ export function GlobalPlaybackProvider({ children }: { children: React.ReactNode
       toast.error(message);
     },
   });
-  const cancelJob = trpc.jobs.cancel.useMutation();
-
-  const preparingJobQuery = trpc.jobs.get.useQuery(
+  const preparingJobQuery = trpc.playback.getPreparationStatus.useQuery(
     {
       jobId: preparingJobId ?? "",
     },
@@ -287,22 +285,13 @@ export function GlobalPlaybackProvider({ children }: { children: React.ReactNode
 
   const playTrack = React.useCallback(
     (track: PlaybackQueueTrack) => {
-      const previousPreparingJobId = preparingJobId;
-      const previousPreparingTrackId = pendingTrackId;
-      if (previousPreparingJobId && previousPreparingTrackId && previousPreparingTrackId !== track.id) {
-        cancelJob.mutate({
-          jobId: previousPreparingJobId,
-          reason: "用户切换到其他曲目，旧的转码准备任务已取消",
-        });
-      }
-
       setPlaybackError(null);
       resolvePlayback.mutate({
         trackId: track.id,
         profile: "mp3_192",
       });
     },
-    [cancelJob, pendingTrackId, preparingJobId, resolvePlayback],
+    [resolvePlayback],
   );
 
   const toggleTrack = React.useCallback(

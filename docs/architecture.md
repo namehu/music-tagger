@@ -19,16 +19,18 @@
 
 - 首次管理员初始化
 - better-auth 登录与角色控制
+- 登录后用户区入口：`/dashboard`、`/library`、`/playlists`
 - `scan_full` 后台任务
 - SQLite 曲库索引与 FTS 搜索
 - 全局原始音频播放
 - `mp3_192` 转码缓存播放
+- 个人歌单 CRUD、加歌、移歌与按保存顺序点播
 - `rename` / `tag_write` 类型的 Plan 预览、确认与后台执行
 - 转码观测、缓存容量治理与后台策略配置
 
 当前尚未完成：
 
-- Dashboard / Jobs 当前播放摘要
+- 用户级忽略曲目
 - 封面、歌词、move、delete 等其他类型的 Plan 工作流
 - 播放模式：顺序 / 随机 / 单曲循环
 
@@ -41,7 +43,7 @@ flowchart LR
   Browser[Browser<br/>Admin/User UI]
   Web[Next.js 16 Web<br/>App Router + tRPC + Prisma]
   Auth[better-auth]
-  DB[(SQLite<br/>jobs / tracks / plans / plan_items / transcode_cache)]
+  DB[(SQLite<br/>jobs / tracks / playlists / playlist_items<br/>plans / plan_items / transcode_cache)]
   Worker[Python Worker]
   FF[ffmpeg / ffprobe]
   Music[(NAS Music Dir<br/>/music)]
@@ -62,11 +64,11 @@ flowchart LR
 ### 2.2 分层职责
 
 - 浏览器：
-  - 渲染后台页面
+  - 渲染用户页面与后台页面
   - 调用 tRPC 过程
   - 使用全局播放器消费 `/api/stream/[trackId]`
 - Web：
-  - 渲染页面与管理 UI
+  - 渲染用户区与管理区 UI
   - 通过 better-auth 处理登录态
   - 通过 tRPC 提供业务控制面
   - 通过 Prisma 直接读写 SQLite
@@ -79,7 +81,7 @@ flowchart LR
   - 回写 `jobs`、`tracks`、`plans`、`plan_items`、`transcode_cache`
 - SQLite：
   - 作为当前唯一业务数据库
-  - 保存认证数据、任务队列、曲库索引、Plan 数据与转码缓存索引
+  - 保存认证数据、任务队列、曲库索引、歌单数据、Plan 数据与转码缓存索引
 - 音乐目录 `/music`：
   - Web 读取原始音频
   - Worker 扫描与转码读取源文件
@@ -95,6 +97,7 @@ flowchart LR
 - `server/trpc/`：tRPC 路由与鉴权中间件
 - `components/playback/`：全局播放器与播放状态管理
 - `components/shell/`：后台导航、顶栏与管理壳
+- `components/library/`：用户区与管理区共享的曲库浏览组件
 - `lib/`：认证、Prisma、播放 token/路径解析等基础能力
 - `prisma/`：Schema 与 migrations
 
@@ -154,7 +157,16 @@ flowchart LR
 - `status`
 - `executionJobId`
 
-### 4.4 `plan_items`
+### 4.4 `playlists` / `playlist_items`
+
+保存用户个人歌单与歌单内曲目顺序。
+
+关键字段：
+
+- `playlists.id / userId / name`
+- `playlist_items.id / playlistId / trackId / position`
+
+### 4.5 `plan_items`
 
 保存 Plan 拆分后的单项执行记录。
 
@@ -170,7 +182,7 @@ flowchart LR
 - `status`
 - `errorJson`
 
-### 4.5 `transcode_cache`
+### 4.6 `transcode_cache`
 
 保存转码缓存的数据库索引，不直接存音频内容。
 
@@ -196,7 +208,7 @@ flowchart LR
 - 源文件 `mtimeMs` 变化后，旧缓存自然失效，新版本重新生成
 - `lastAccessedAt` 用于区分冷缓存与近期命中缓存，支撑容量治理
 
-### 4.6 `admin_settings`
+### 4.7 `admin_settings`
 
 当前除了初始化锁状态，也承载轻量后台策略配置。
 
@@ -219,15 +231,19 @@ flowchart LR
 当前权限边界：
 
 - 管理员：
+  - 进入用户区
+  - 从右上角进入 `/admin`
   - `/setup` 后的管理入口
   - `scan_full`
   - `jobs.list`
   - `jobs.get`
   - `plans.*`
 - 已登录用户：
+  - `/dashboard`
   - 曲库浏览
   - 搜索
   - 播放
+  - 个人歌单 CRUD 与歌单点播
 
 ### 5.2 流媒体接口
 

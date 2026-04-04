@@ -3,17 +3,19 @@
 一个基于 Next.js、tRPC、Prisma(SQLite) 和 Python worker 的本地音乐库控制台。当前版本已经支持：
 
 - 首次初始化管理员账号
+- 登录后进入用户音乐区：`/dashboard`、`/library`、`/playlists`
 - 触发与查看 `scan_full` 后台任务
 - 扫描本地音乐目录并写入 SQLite 索引
 - 在 Web 控制台浏览最小音乐库统计、曲目列表与全文搜索
 - 原始音频直出播放与 `mp3_192` 转码缓存播放
+- 个人歌单的创建、重命名、删除、加歌、移歌与顺序点播
 - 转码缓存观测、容量治理与策略配置
 - `rename` / `tag_write` 类型的 Plan 预览、确认与后台执行
 
 暂未支持：
 
-- Dashboard / Jobs 当前播放摘要
 - 播放模式：顺序 / 随机 / 单曲循环
+- 用户级忽略曲目
 - 封面、歌词、move、delete 等其他类型的 Plan 执行链路
 
 ## 项目结构
@@ -79,9 +81,9 @@ pnpm prisma:studio
 
 1. 打开 `/setup` 创建首个管理员。
 2. 进入 `/admin` 或 `/admin/jobs` 触发 `scan_full`。
-3. 进入 `/admin/library` 验证扫描结果与播放链路。
-4. 进入 `/admin/plans` 创建 `rename` Plan，生成 preview 并执行。
-5. 进入 `/admin/cache` 查看异常缓存、冷缓存与清理动作。
-6. 进入 `/admin/settings` 调整冷缓存天数、容量预算和单次清理上限。
+3. 进入 `/library` 验证普通用户侧的浏览与播放链路。
+4. 进入 `/playlists` 创建个人歌单，并在歌单详情页加入曲目。
+5. 如需管理任务与策略，管理员可从右上角菜单进入 `/admin`。
+6. 在 `/admin/plans`、`/admin/cache`、`/admin/settings` 完成整理计划与缓存策略管理。
 
 更多细节见 [`web/README.md`](./web/README.md) 和 [`worker/README.md`](./worker/README.md)。

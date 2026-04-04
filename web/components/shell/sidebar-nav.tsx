@@ -19,25 +19,29 @@ import {
   FolderIcon,
   HardDriveDownloadIcon,
   LayoutDashboardIcon,
+  ListMusicIcon,
   MenuIcon,
   RouteIcon,
   SlidersHorizontalIcon,
 } from "lucide-react";
 
-type NavItem = {
-  title: string;
-  href: string;
-  icon: React.ComponentType<{ className?: string }>;
-};
+import type { ShellKind, ShellNavItem } from "./shell-config";
 
-const NAV_ITEMS: NavItem[] = [
-  { title: "概览", href: "/admin", icon: LayoutDashboardIcon },
-  { title: "Jobs", href: "/admin/jobs", icon: BriefcaseIcon },
-  { title: "Plans", href: "/admin/plans", icon: RouteIcon },
-  { title: "音乐库", href: "/admin/library", icon: FolderIcon },
-  { title: "缓存", href: "/admin/cache", icon: HardDriveDownloadIcon },
-  { title: "设置", href: "/admin/settings", icon: SlidersHorizontalIcon },
-];
+const SHELL_NAV_ITEMS: Record<ShellKind, ShellNavItem[]> = {
+  user: [
+    { title: "首页", href: "/dashboard", icon: LayoutDashboardIcon },
+    { title: "音乐库", href: "/library", icon: FolderIcon },
+    { title: "歌单", href: "/playlists", icon: ListMusicIcon },
+  ],
+  admin: [
+    { title: "概览", href: "/admin", icon: LayoutDashboardIcon },
+    { title: "Jobs", href: "/admin/jobs", icon: BriefcaseIcon },
+    { title: "Plans", href: "/admin/plans", icon: RouteIcon },
+    { title: "音乐库", href: "/admin/library", icon: FolderIcon },
+    { title: "缓存", href: "/admin/cache", icon: HardDriveDownloadIcon },
+    { title: "设置", href: "/admin/settings", icon: SlidersHorizontalIcon },
+  ],
+};
 
 function isActivePath(pathname: string, href: string) {
   if (href === "/") return pathname === "/";
@@ -45,18 +49,22 @@ function isActivePath(pathname: string, href: string) {
 }
 
 function SidebarNavContent({
+  brand,
+  navItems,
   onNavigate,
 }: {
+  brand: string;
+  navItems: ShellNavItem[];
   onNavigate?: () => void;
 }) {
   const pathname = usePathname() ?? "";
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="flex h-14 items-center px-4 font-semibold">Dashboard</div>
+      <div className="flex h-14 items-center px-4 font-semibold">{brand}</div>
       <Separator />
       <nav className="flex flex-1 flex-col gap-1 overflow-auto p-2">
-        {NAV_ITEMS.map((item) => {
+        {navItems.map((item) => {
           const active = isActivePath(pathname, item.href);
           const Icon = item.icon;
 
@@ -84,7 +92,17 @@ function SidebarNavContent({
   );
 }
 
-export function SidebarNav({ className }: { className?: string }) {
+export function ShellSidebarNav({
+  shellKind,
+  brand,
+  className,
+}: {
+  shellKind: ShellKind;
+  brand: string;
+  className?: string;
+}) {
+  const navItems = SHELL_NAV_ITEMS[shellKind];
+
   return (
     <aside
       className={cn(
@@ -92,13 +110,22 @@ export function SidebarNav({ className }: { className?: string }) {
         className
       )}
     >
-      <SidebarNavContent />
+      <SidebarNavContent brand={brand} navItems={navItems} />
     </aside>
   );
 }
 
-export function SidebarNavSheet({ className }: { className?: string }) {
+export function SidebarNavSheet({
+  shellKind,
+  brand,
+  className,
+}: {
+  shellKind: ShellKind;
+  brand: string;
+  className?: string;
+}) {
   const [open, setOpen] = React.useState(false);
+  const navItems = SHELL_NAV_ITEMS[shellKind];
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
@@ -118,7 +145,7 @@ export function SidebarNavSheet({ className }: { className?: string }) {
         <SheetHeader className="sr-only">
           <SheetTitle>导航</SheetTitle>
         </SheetHeader>
-        <SidebarNavContent onNavigate={() => setOpen(false)} />
+        <SidebarNavContent brand={brand} navItems={navItems} onNavigate={() => setOpen(false)} />
       </SheetContent>
     </Sheet>
   );

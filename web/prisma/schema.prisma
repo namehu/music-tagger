@@ -28,6 +28,7 @@ model User {
 
   role          UserRole  @default(user)
   plans         Plan[]
+  playlists     Playlist[]
 
   @@unique([email])
   @@map("user")
@@ -150,12 +151,42 @@ model Track {
   updatedAt          DateTime @updatedAt
   transcodes         TranscodeCache[]
   planItems          PlanItem[]
+  playlistItems      PlaylistItem[]
 
   @@index([dirPath], map: "idx_tracks_dir_path")
   @@index([album, albumArtist], map: "idx_tracks_album")
   @@index([artist], map: "idx_tracks_artist")
   @@index([updatedAt], map: "idx_tracks_updated_at")
   @@map("tracks")
+}
+
+model Playlist {
+  id        String         @id
+  userId    String
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+  items     PlaylistItem[]
+
+  @@index([userId, updatedAt], map: "idx_playlists_user_updated_at")
+  @@map("playlists")
+}
+
+model PlaylistItem {
+  id         String   @id
+  playlistId String
+  playlist   Playlist @relation(fields: [playlistId], references: [id], onDelete: Cascade)
+  trackId    String
+  track      Track    @relation(fields: [trackId], references: [id], onDelete: Cascade)
+  position   Int
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([playlistId, position], map: "playlist_items_playlistId_position_key")
+  @@index([playlistId, position], map: "idx_playlist_items_playlist_position")
+  @@index([trackId], map: "idx_playlist_items_track_id")
+  @@map("playlist_items")
 }
 
 model Plan {

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 
+import { resolveSignInCallbackPath } from "@/lib/app-routes";
 import { signIn } from "@/lib/auth-client";
 import { Button } from "@/components/ui/button";
 import {
@@ -41,7 +42,7 @@ function SignInPageContent() {
     setEmail(emailFromQuery);
   }, [emailFromQuery]);
 
-  const callbackURL = nextFromQuery.length > 0 ? nextFromQuery : "/admin/library";
+  const callbackURL = resolveSignInCallbackPath(nextFromQuery);
 
   return (
     <main className="flex min-h-dvh items-center justify-center p-4">
@@ -51,7 +52,7 @@ function SignInPageContent() {
           <CardDescription>
             {nextFromQuery
               ? `请登录后继续访问：${nextFromQuery}`
-              : "使用管理员账号登录后进入 Jobs 管理页。"}
+              : "登录后进入用户音乐区；管理员可再切换到管理台。"}
           </CardDescription>
         </CardHeader>
 

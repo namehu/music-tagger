@@ -53,6 +53,16 @@ export type Job = Prisma.JobModel
  */
 export type Track = Prisma.TrackModel
 /**
+ * Model Playlist
+ * 
+ */
+export type Playlist = Prisma.PlaylistModel
+/**
+ * Model PlaylistItem
+ * 
+ */
+export type PlaylistItem = Prisma.PlaylistItemModel
+/**
  * Model Plan
  * 
  */
