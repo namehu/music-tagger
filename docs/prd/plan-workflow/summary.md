@@ -4,10 +4,10 @@ product: music-tagger
 module: plan-workflow
 version: v0.1
 source_refs:
-  - 本地音乐管理工具-需求与架构设计 (1).md
-  - docs/superpowers/specs/2026-04-01-local-music-manager-design.md
+  - docs/archive/raw-requirements/2026-04-01-local-music-manager-requirements.md
   - docs/baseline/product-baseline.md
   - docs/baseline/module-baseline-current-capabilities.md
+  - docs/architecture.md
 ---
 
 # 产品白皮书与索引
@@ -72,6 +72,6 @@ flowchart TD
 | 依赖对象 | 类型 | 触发页面/流程 | 现状 | 处理方式 |
 | --- | --- | --- | --- | --- |
 | SQLite | 数据库 | 创建 plan、预览、执行回写 | 已落地 | 新增 `plans` / `plan_items` 模型与索引 |
-| Python worker | 异步执行器 | `execute` 后的后台执行 | 已落地 scan / transcode | 新增 `plan_execute` dispatch |
+| Python worker | 异步执行器 | `execute` 后的后台执行 | 已落地 scan / transcode / plan execute | 当前已支持 `plan_execute` dispatch |
 | `/music` | 文件系统 | rename / tag write 执行 | 已落地扫描和播放读取 | 执行前在 preview 阶段做路径与权限预检查 |
 | Jobs 页面 | 关联观测入口 | 执行后的问题排障 | 已落地 | 当前仅提供跳转到 `/admin/jobs` 的人工排障入口，未提供 `planId` 级联过滤 |

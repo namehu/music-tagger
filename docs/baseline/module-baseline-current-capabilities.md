@@ -19,7 +19,7 @@ source_refs:
 
 - `implemented`：代码闭环已存在
 - `partial`：有部分能力，但未形成完整模块
-- `planned`：仅存在于设计稿或后续规划
+- `planned`：仅存在于历史需求材料或后续规划
 
 ## 模块矩阵
 
@@ -32,7 +32,7 @@ source_refs:
 | Playback Resolve | implemented | 全局播放器 | `playback.resolve`, `/api/stream/[trackId]` | 已支持原始与 `mp3_192` |
 | Transcode Cache Ops | implemented | `/admin/cache` `/admin/settings` | `TranscodeCache`, `library.cacheOverview`, settings router | 已支持容量治理与失败分类 |
 | Dashboard Overview | partial | `/admin` | `library`, `jobs`, `tracks` 聚合查询 | 还不是独立定义的首页模块 |
-| Playback Modes | planned | 无 | 无 | 仅在 README / 设计稿中声明 |
+| Playback Modes | planned | 无 | 无 | 仅在 README / 历史需求材料中声明 |
 | Plan Workflow | partial | `/admin/plans` `/admin/plans/[planId]` | `Plan` / `PlanItem`, `plans` router, `plan_execute` job | 当前支持 `rename` 与基础 `tag_write`，其他类型未落地 |
 | Playlist | planned | 无 | 无 | 多用户体验尚未开始 |
 | Ignored Tracks | planned | 无 | 无 | 仅存在于需求稿 |

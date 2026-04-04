@@ -6,9 +6,9 @@ route: /admin/plans
 permissions:
   - admin
 source_refs:
-  - 本地音乐管理工具-需求与架构设计 (1).md
-  - docs/superpowers/specs/2026-04-01-local-music-manager-design.md
+  - docs/archive/raw-requirements/2026-04-01-local-music-manager-requirements.md
   - docs/baseline/product-baseline.md
+  - docs/architecture.md
 ---
 
 # Plans 管理页

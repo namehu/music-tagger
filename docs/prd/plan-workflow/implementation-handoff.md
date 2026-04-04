@@ -3,18 +3,18 @@
 ## 1. 影响范围
 
 - 页面：
-  - `/admin/plans`
-  - `/admin/plans/[planId]`
+  - 已新增 `/admin/plans`
+  - 已新增 `/admin/plans/[planId]`
 - tRPC：
-  - 新增 `plans` router
-  - `jobs` router 可选增加按 `planId` 关联查询
+  - 已新增 `plans` router
+  - `jobs` router 暂未提供按 `planId` 关联查询
 - Prisma：
-  - 新增 `Plan`
-  - 新增 `PlanItem`
-  - `Job` 增加 `plan_execute` 使用约定
+  - 已新增 `Plan`
+  - 已新增 `PlanItem`
+  - `Job` 已增加 `plan_execute` 使用约定
 - Worker / Jobs：
-  - `worker.py` 增加 `plan_execute` dispatch
-  - 新增 plan executor 模块
+  - `worker.py` 已增加 `plan_execute` dispatch
+  - 已新增 plan executor 模块
 
 ## 2. 数据与接口变更
 
@@ -35,11 +35,11 @@
 
 ## 3. 开发顺序
 
-1. 先在 Prisma schema 中引入 `Plan` 与 `PlanItem`，补 migration。
-2. 落 `plans` router 的读写与状态流转。
-3. 实现 `/admin/plans` 与 `/admin/plans/[planId]` 的最小页面。
-4. 在 worker 中引入 `plan_execute` dispatcher 和 executor。
-5. 提供跳转到 `/admin/jobs` 的人工排障入口；按 `planId` 深度联动作为后续增强。
+1. 已在 Prisma schema 中引入 `Plan` 与 `PlanItem`，并补 migration。
+2. 已落 `plans` router 的读写与状态流转。
+3. 已实现 `/admin/plans` 与 `/admin/plans/[planId]` 的最小页面。
+4. 已在 worker 中引入 `plan_execute` dispatcher 和 executor。
+5. 当前保留跳转到 `/admin/jobs` 的人工排障入口；按 `planId` 深度联动作为后续增强。
 
 ## 4. v1 范围控制
 

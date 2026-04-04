@@ -23,6 +23,7 @@ source_refs:
 - `README.md` 只做入口和索引，不承担需求定义职责。
 - `docs/architecture.md` 只描述当前真实架构。
 - `docs/baseline/*` 是所有 PRD 的事实起点。
+- 原始需求稿、会议纪要、草案白皮书统一放入 `docs/archive/raw-requirements/`，只作为背景输入，不作为事实源。
 
 ## 2. 何时新建一个模块 PRD
 

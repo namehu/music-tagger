@@ -20,7 +20,7 @@
 
 - [`web/`](./web): Next.js 16 控制台，包含认证、tRPC、Prisma 与管理页面
 - [`worker/`](./worker): Python worker，负责领取 jobs 并执行扫描
-- [`docs/`](./docs): 设计稿与使用文档
+- [`docs/`](./docs): 架构、基线、PRD 与使用文档
 
 ## 两套启动方案
 
@@ -58,6 +58,7 @@
 - 当前系统基线：[`docs/baseline/product-baseline.md`](./docs/baseline/product-baseline.md)
 - 当前能力矩阵：[`docs/baseline/module-baseline-current-capabilities.md`](./docs/baseline/module-baseline-current-capabilities.md)
 - PRD 驱动开发约定：[`docs/prd/README.md`](./docs/prd/README.md)
+- 历史需求输入归档：[`docs/archive/README.md`](./docs/archive/README.md)
 - 首个模块 PRD（Plan Workflow）：[`docs/prd/plan-workflow/summary.md`](./docs/prd/plan-workflow/summary.md)
 - 本地开发：[`docs/local-development.md`](./docs/local-development.md)
 - 生产部署与缓存持久化：[`docs/production-deployment.md`](./docs/production-deployment.md)

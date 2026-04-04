@@ -4,9 +4,9 @@ product: music-tagger
 module: plan-workflow
 version: v0.1
 source_refs:
-  - 本地音乐管理工具-需求与架构设计 (1).md
-  - docs/superpowers/specs/2026-04-01-local-music-manager-design.md
+  - docs/archive/raw-requirements/2026-04-01-local-music-manager-requirements.md
   - docs/baseline/product-baseline.md
+  - docs/architecture.md
 ---
 
 # Gaps And Assumptions
@@ -24,15 +24,15 @@ source_refs:
 
 | 编号 | 冲突描述 | 来源 A | 来源 B | 影响范围 |
 | --- | --- | --- | --- | --- |
-| CONFLICT-001 | 需求稿提出多种整理动作，设计稿的里程碑描述则聚焦 `rename / tag_write` | 需求稿 | 设计稿 | v1 范围边界 |
+| CONFLICT-001 | 原始需求材料覆盖多种整理动作，而当前 v1 收敛为 `rename / tag_write` | 原始需求材料 | 当前模块范围 | v1 范围边界 |
 
 ## 已采用假设
 
 | 编号 | 假设内容 | 原因 | 影响页面 | 是否可回退 |
 | --- | --- | --- | --- | --- |
 | ASSUME-001 | v1 仅管理员可见且可操作 Plan 模块 | 当前代码的管理台权限模型最简单明确 | `admin-plans-page.md`，`admin-plan-detail-page.md` | 是 |
-| ASSUME-002 | confirm 后禁止直接改动 `scope` 与 `params` | 设计稿明确要求冻结 | `admin-plan-detail-page.md` | 否 |
-| ASSUME-003 | 执行失败采用尽力回滚，不承诺强一致 | 设计稿已有明确边界 | `admin-plan-detail-page.md`，worker 执行器 | 否 |
+| ASSUME-002 | confirm 后禁止直接改动 `scope` 与 `params` | 当前模块范围要求冻结 preview 与 execute 的输入 | `admin-plan-detail-page.md` | 否 |
+| ASSUME-003 | 执行失败采用尽力回滚，不承诺强一致 | 当前 worker 与文件系统操作不具备强一致事务边界 | `admin-plan-detail-page.md`，worker 执行器 | 否 |
 
 ## 待补充材料
 

@@ -103,7 +103,7 @@ flowchart LR
 - `worker.py`：主循环、SQLite 重连、job dispatch
 - `jobs.py`：job claim / heartbeat / progress / done / failed
 - `scanner.py`：全量扫描与 `tracks` 写入
-- `plan_executor.py`：Plan 执行器，当前支持 `rename`
+- `plan_executor.py`：Plan 执行器，当前支持 `rename` 与基础 `tag_write`
 - `transcoder.py`：`mp3_192` 转码、原子写入缓存、`transcode_cache` 回写
 
 ## 4. 关键数据表
@@ -115,7 +115,7 @@ flowchart LR
 关键字段：
 
 - `id`
-- `type`：当前已有 `scan_full`、`transcode_prepare`
+- `type`：当前已有 `scan_full`、`transcode_prepare`、`plan_execute`
 - `status`：`pending | running | done | failed`
 - `payloadJson`
 - `progress`
@@ -146,7 +146,7 @@ flowchart LR
 
 - `id`
 - `createdById`
-- `type`：当前已支持 `rename`
+- `type`：当前已支持 `rename`、`tag_write`
 - `scopeJson`
 - `paramsJson`
 - `previewSummaryJson`
