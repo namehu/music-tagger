@@ -2,7 +2,7 @@
 
 import React from "react";
 import { toast } from "sonner";
-import { LoaderCircleIcon, PauseCircleIcon, PlayCircleIcon } from "lucide-react";
+import { EyeOffIcon, LoaderCircleIcon, PauseCircleIcon, PlayCircleIcon } from "lucide-react";
 
 import { trpc } from "@/app/_trpc/provider";
 import { useGlobalPlayback, type PlaybackQueueTrack } from "@/components/playback/global-playback-provider";
@@ -49,6 +49,7 @@ function formatNumberField(value: number | null | undefined) {
 
 export function LibraryBrowser({ mode }: { mode: LibraryBrowserMode }) {
   const isAdminMode = mode === "admin";
+  const utils = trpc.useUtils();
   const [search, setSearch] = React.useState("");
   const [order, setOrder] = React.useState<TrackOrder>("recent");
   const [editedFilter, setEditedFilter] = React.useState<EditedFilter>("all");
@@ -78,12 +79,15 @@ export function LibraryBrowser({ mode }: { mode: LibraryBrowserMode }) {
   const query = deferredSearch.trim();
   const { activeTrackId, pendingTrackId, isAudioPlaying, isPreparing, setQueue, toggleTrack } = useGlobalPlayback();
 
-  const statsQuery = trpc.library.stats.useQuery();
+  const statsQuery = trpc.library.stats.useQuery({
+    surface: isAdminMode ? "admin" : "user",
+  });
   const tracksQuery = trpc.tracks.list.useQuery({
     limit: 50,
     order,
     edited: isAdminMode ? editedFilter : "all",
     q: query.length > 0 ? query : undefined,
+    surface: isAdminMode ? "admin" : "user",
   });
   const currentTracks = React.useMemo(() => tracksQuery.data?.items ?? [], [tracksQuery.data?.items]);
   const visibleTrackIds = React.useMemo(() => currentTracks.map((track) => track.id), [currentTracks]);
@@ -142,6 +146,49 @@ export function LibraryBrowser({ mode }: { mode: LibraryBrowserMode }) {
     },
     onError: (error) => {
       toast.error(error.message ?? "批量恢复失败");
+    },
+  });
+  const ignoreMine = trpc.ignoredTracks.ignoreMine.useMutation({
+    onSuccess: async () => {
+      toast.success("已加入我的忽略");
+      await Promise.all([
+        tracksQuery.refetch(),
+        statsQuery.refetch(),
+        utils.ignoredTracks.listMine.invalidate(),
+        utils.playlists.invalidate(),
+      ]);
+    },
+    onError: (error) => {
+      toast.error(error.message ?? "加入我的忽略失败");
+    },
+  });
+  const ignoreGlobal = trpc.ignoredTracks.ignoreGlobal.useMutation({
+    onSuccess: async () => {
+      toast.success("已设为全局忽略");
+      await Promise.all([
+        tracksQuery.refetch(),
+        statsQuery.refetch(),
+        utils.ignoredTracks.listGlobal.invalidate(),
+        utils.playlists.invalidate(),
+      ]);
+    },
+    onError: (error) => {
+      toast.error(error.message ?? "设为全局忽略失败");
+    },
+  });
+  const batchIgnoreGlobal = trpc.ignoredTracks.batchIgnoreGlobal.useMutation({
+    onSuccess: async (result) => {
+      toast.success(`已将 ${result.affectedCount} 首曲目设为全局忽略`);
+      setSelectedTrackIds([]);
+      await Promise.all([
+        tracksQuery.refetch(),
+        statsQuery.refetch(),
+        utils.ignoredTracks.listGlobal.invalidate(),
+        utils.playlists.invalidate(),
+      ]);
+    },
+    onError: (error) => {
+      toast.error(error.message ?? "批量设为全局忽略失败");
     },
   });
 
@@ -314,6 +361,14 @@ export function LibraryBrowser({ mode }: { mode: LibraryBrowserMode }) {
               <div className="flex flex-wrap gap-2">
                 {isAdminMode && selectedCount > 0 ? (
                   <>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => batchIgnoreGlobal.mutate({ trackIds: selectedTrackIds })}
+                    >
+                      批量全局忽略 {selectedCount} 首
+                    </Button>
                     <Button type="button" size="sm" onClick={() => setBatchEditOpen(true)}>
                       批量编辑 {selectedCount} 首
                     </Button>
@@ -419,6 +474,7 @@ export function LibraryBrowser({ mode }: { mode: LibraryBrowserMode }) {
                   ) : null}
                   <TableHead>播放</TableHead>
                   {isAdminMode ? <TableHead>编辑</TableHead> : null}
+                  <TableHead>{isAdminMode ? "忽略" : "操作"}</TableHead>
                   <TableHead>标题</TableHead>
                   <TableHead>艺人</TableHead>
                   <TableHead>专辑</TableHead>
@@ -503,6 +559,31 @@ export function LibraryBrowser({ mode }: { mode: LibraryBrowserMode }) {
                           ) : null}
                         </div>
                       </TableCell>
+                      <TableCell className="w-28">
+                        {isAdminMode ? (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            disabled={ignoreGlobal.isPending || batchIgnoreGlobal.isPending}
+                            onClick={() => ignoreGlobal.mutate({ trackId: track.id })}
+                          >
+                            <EyeOffIcon data-icon="inline-start" />
+                            全局忽略
+                          </Button>
+                        ) : (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            disabled={ignoreMine.isPending}
+                            onClick={() => ignoreMine.mutate({ trackId: track.id })}
+                          >
+                            <EyeOffIcon data-icon="inline-start" />
+                            忽略
+                          </Button>
+                        )}
+                      </TableCell>
                       <TableCell>
                         <div className="space-y-0.5">
                           <div>{renderCell(track.artist, "-")}</div>
@@ -527,7 +608,7 @@ export function LibraryBrowser({ mode }: { mode: LibraryBrowserMode }) {
 
                 {!tracksQuery.isLoading && currentTracks.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={isAdminMode ? 8 : 6} className="py-10 text-center text-muted-foreground">
+                    <TableCell colSpan={isAdminMode ? 9 : 7} className="py-10 text-center text-muted-foreground">
                       暂无曲目，请先触发一次 scan_full。
                     </TableCell>
                   </TableRow>

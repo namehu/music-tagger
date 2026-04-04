@@ -2,6 +2,8 @@ import { TRPCError } from "@trpc/server";
 import { Prisma } from "@/generated/prisma/client";
 import { z } from "zod";
 
+import { TRACK_VISIBILITY_SURFACES } from "@/lib/ignored-tracks";
+
 import { adminProcedure, protectedProcedure, router } from "../trpc";
 
 const listTracksInputSchema = z.object({
@@ -10,6 +12,7 @@ const listTracksInputSchema = z.object({
   order: z.enum(["recent", "title", "artist"]).default("recent"),
   q: z.string().trim().max(200).optional(),
   edited: z.enum(["all", "edited", "unedited"]).default("all"),
+  surface: z.enum(TRACK_VISIBILITY_SURFACES).default("user"),
 });
 
 const updateTrackMetadataInputSchema = z.object({
@@ -165,6 +168,11 @@ function getOverrideValue<T extends string | number | null>(
 
 export const tracksRouter = router({
   list: protectedProcedure.input(listTracksInputSchema).query(async ({ ctx, input }) => {
+    const userId = ctx.session?.user?.id;
+    if (!userId) {
+      throw new TRPCError({ code: "UNAUTHORIZED", message: "需要登录" });
+    }
+
     const q = input.q?.trim();
     const editedFilter =
       input.edited === "edited"
@@ -172,6 +180,23 @@ export const tracksRouter = router({
         : input.edited === "unedited"
           ? Prisma.sql`AND t."metadataEditedAt" IS NULL`
           : Prisma.empty;
+    const ignoreJoinClause =
+      input.surface === "admin"
+        ? Prisma.sql`
+            LEFT JOIN "global_ignored_tracks" AS git
+              ON git."trackId" = t."id"
+          `
+        : Prisma.sql`
+            LEFT JOIN "global_ignored_tracks" AS git
+              ON git."trackId" = t."id"
+            LEFT JOIN "user_ignored_tracks" AS uit
+              ON uit."trackId" = t."id"
+             AND uit."userId" = ${userId}
+          `;
+    const visibilityFilter =
+      input.surface === "admin"
+        ? Prisma.sql`AND git."id" IS NULL`
+        : Prisma.sql`AND git."id" IS NULL AND uit."id" IS NULL`;
 
     if (q) {
       const ftsQuery = buildFtsQuery(q);
@@ -196,7 +221,9 @@ export const tracksRouter = router({
             FROM "tracks_fts"
             JOIN "tracks" AS t
               ON t."id" = "tracks_fts"."trackId"
+            ${ignoreJoinClause}
             WHERE "tracks_fts" MATCH ${ftsQuery}
+              ${visibilityFilter}
               ${editedFilter}
             ORDER BY
               bm25("tracks_fts", 5.0, 3.0, 2.0, 1.0, 0.5) ASC,
@@ -251,7 +278,9 @@ export const tracksRouter = router({
         t."metadataEditedAt",
         t."updatedAt"
       FROM "tracks" AS t
+      ${ignoreJoinClause}
       ${whereClause}
+      ${visibilityFilter}
       ORDER BY ${getTrackOrder(input.order)}
       LIMIT ${input.limit}
     `);

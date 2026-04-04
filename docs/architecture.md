@@ -19,18 +19,18 @@
 
 - 首次管理员初始化
 - better-auth 登录与角色控制
-- 登录后用户区入口：`/dashboard`、`/library`、`/playlists`
+- 登录后用户区入口：`/dashboard`、`/library`、`/playlists`、`/ignored-tracks`
 - `scan_full` 后台任务
 - SQLite 曲库索引与 FTS 搜索
 - 全局原始音频播放
 - `mp3_192` 转码缓存播放
 - 个人歌单 CRUD、加歌、移歌与按保存顺序点播
+- 双层忽略曲目：用户“我的忽略”与管理员“全局忽略”
 - `rename` / `tag_write` 类型的 Plan 预览、确认与后台执行
 - 转码观测、缓存容量治理与后台策略配置
 
 当前尚未完成：
 
-- 用户级忽略曲目
 - 封面、歌词、move、delete 等其他类型的 Plan 工作流
 - 播放模式：顺序 / 随机 / 单曲循环
 
@@ -43,7 +43,7 @@ flowchart LR
   Browser[Browser<br/>Admin/User UI]
   Web[Next.js 16 Web<br/>App Router + tRPC + Prisma]
   Auth[better-auth]
-  DB[(SQLite<br/>jobs / tracks / playlists / playlist_items<br/>plans / plan_items / transcode_cache)]
+  DB[(SQLite<br/>jobs / tracks / playlists / playlist_items<br/>user_ignored_tracks / global_ignored_tracks<br/>plans / plan_items / transcode_cache)]
   Worker[Python Worker]
   FF[ffmpeg / ffprobe]
   Music[(NAS Music Dir<br/>/music)]
@@ -81,7 +81,7 @@ flowchart LR
   - 回写 `jobs`、`tracks`、`plans`、`plan_items`、`transcode_cache`
 - SQLite：
   - 作为当前唯一业务数据库
-  - 保存认证数据、任务队列、曲库索引、歌单数据、Plan 数据与转码缓存索引
+  - 保存认证数据、任务队列、曲库索引、歌单数据、忽略曲目关系、Plan 数据与转码缓存索引
 - 音乐目录 `/music`：
   - Web 读取原始音频
   - Worker 扫描与转码读取源文件
@@ -166,7 +166,24 @@ flowchart LR
 - `playlists.id / userId / name`
 - `playlist_items.id / playlistId / trackId / position`
 
-### 4.5 `plan_items`
+### 4.5 `user_ignored_tracks` / `global_ignored_tracks`
+
+保存双层忽略关系。
+
+关键字段：
+
+- `user_ignored_tracks.id / userId / trackId / createdAt`
+- `global_ignored_tracks.id / trackId / createdById / reason / createdAt`
+
+业务规则：
+
+- `global_ignored_tracks.trackId` 全局唯一，同一首歌最多只有一条全局忽略记录
+- `user_ignored_tracks.userId + trackId` 联合唯一，同一用户不会重复忽略同一首歌
+- 默认曲库可见性遵循 `全局忽略 > 我的忽略 > 正常`
+- 用户区默认过滤 `global + mine`
+- 管理区默认过滤 `global`
+
+### 4.6 `plan_items`
 
 保存 Plan 拆分后的单项执行记录。
 
@@ -182,7 +199,7 @@ flowchart LR
 - `status`
 - `errorJson`
 
-### 4.6 `transcode_cache`
+### 4.7 `transcode_cache`
 
 保存转码缓存的数据库索引，不直接存音频内容。
 
@@ -208,7 +225,7 @@ flowchart LR
 - 源文件 `mtimeMs` 变化后，旧缓存自然失效，新版本重新生成
 - `lastAccessedAt` 用于区分冷缓存与近期命中缓存，支撑容量治理
 
-### 4.7 `admin_settings`
+### 4.8 `admin_settings`
 
 当前除了初始化锁状态，也承载轻量后台策略配置。
 
@@ -237,6 +254,7 @@ flowchart LR
   - `scan_full`
   - `jobs.list`
   - `jobs.get`
+  - 全局忽略曲目查看、设置与解除
   - `plans.*`
 - 已登录用户：
   - `/dashboard`
@@ -244,6 +262,7 @@ flowchart LR
   - 搜索
   - 播放
   - 个人歌单 CRUD 与歌单点播
+  - 我的忽略查看、设置与解除
 
 ### 5.2 流媒体接口
 

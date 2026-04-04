@@ -210,6 +210,8 @@ export type UserWhereInput = {
   accounts?: Prisma.AccountListRelationFilter
   plans?: Prisma.PlanListRelationFilter
   playlists?: Prisma.PlaylistListRelationFilter
+  ignoredTracks?: Prisma.UserIgnoredTrackListRelationFilter
+  createdGlobalIgnoredTracks?: Prisma.GlobalIgnoredTrackListRelationFilter
 }
 
 export type UserOrderByWithRelationInput = {
@@ -225,6 +227,8 @@ export type UserOrderByWithRelationInput = {
   accounts?: Prisma.AccountOrderByRelationAggregateInput
   plans?: Prisma.PlanOrderByRelationAggregateInput
   playlists?: Prisma.PlaylistOrderByRelationAggregateInput
+  ignoredTracks?: Prisma.UserIgnoredTrackOrderByRelationAggregateInput
+  createdGlobalIgnoredTracks?: Prisma.GlobalIgnoredTrackOrderByRelationAggregateInput
 }
 
 export type UserWhereUniqueInput = Prisma.AtLeast<{
@@ -243,6 +247,8 @@ export type UserWhereUniqueInput = Prisma.AtLeast<{
   accounts?: Prisma.AccountListRelationFilter
   plans?: Prisma.PlanListRelationFilter
   playlists?: Prisma.PlaylistListRelationFilter
+  ignoredTracks?: Prisma.UserIgnoredTrackListRelationFilter
+  createdGlobalIgnoredTracks?: Prisma.GlobalIgnoredTrackListRelationFilter
 }, "id" | "email">
 
 export type UserOrderByWithAggregationInput = {
@@ -286,6 +292,8 @@ export type UserCreateInput = {
   accounts?: Prisma.AccountCreateNestedManyWithoutUserInput
   plans?: Prisma.PlanCreateNestedManyWithoutCreatedByInput
   playlists?: Prisma.PlaylistCreateNestedManyWithoutUserInput
+  ignoredTracks?: Prisma.UserIgnoredTrackCreateNestedManyWithoutUserInput
+  createdGlobalIgnoredTracks?: Prisma.GlobalIgnoredTrackCreateNestedManyWithoutCreatedByInput
 }
 
 export type UserUncheckedCreateInput = {
@@ -301,6 +309,8 @@ export type UserUncheckedCreateInput = {
   accounts?: Prisma.AccountUncheckedCreateNestedManyWithoutUserInput
   plans?: Prisma.PlanUncheckedCreateNestedManyWithoutCreatedByInput
   playlists?: Prisma.PlaylistUncheckedCreateNestedManyWithoutUserInput
+  ignoredTracks?: Prisma.UserIgnoredTrackUncheckedCreateNestedManyWithoutUserInput
+  createdGlobalIgnoredTracks?: Prisma.GlobalIgnoredTrackUncheckedCreateNestedManyWithoutCreatedByInput
 }
 
 export type UserUpdateInput = {
@@ -316,6 +326,8 @@ export type UserUpdateInput = {
   accounts?: Prisma.AccountUpdateManyWithoutUserNestedInput
   plans?: Prisma.PlanUpdateManyWithoutCreatedByNestedInput
   playlists?: Prisma.PlaylistUpdateManyWithoutUserNestedInput
+  ignoredTracks?: Prisma.UserIgnoredTrackUpdateManyWithoutUserNestedInput
+  createdGlobalIgnoredTracks?: Prisma.GlobalIgnoredTrackUpdateManyWithoutCreatedByNestedInput
 }
 
 export type UserUncheckedUpdateInput = {
@@ -331,6 +343,8 @@ export type UserUncheckedUpdateInput = {
   accounts?: Prisma.AccountUncheckedUpdateManyWithoutUserNestedInput
   plans?: Prisma.PlanUncheckedUpdateManyWithoutCreatedByNestedInput
   playlists?: Prisma.PlaylistUncheckedUpdateManyWithoutUserNestedInput
+  ignoredTracks?: Prisma.UserIgnoredTrackUncheckedUpdateManyWithoutUserNestedInput
+  createdGlobalIgnoredTracks?: Prisma.GlobalIgnoredTrackUncheckedUpdateManyWithoutCreatedByNestedInput
 }
 
 export type UserCreateManyInput = {
@@ -452,6 +466,34 @@ export type UserUpdateOneRequiredWithoutAccountsNestedInput = {
   update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutAccountsInput, Prisma.UserUpdateWithoutAccountsInput>, Prisma.UserUncheckedUpdateWithoutAccountsInput>
 }
 
+export type UserCreateNestedOneWithoutIgnoredTracksInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutIgnoredTracksInput, Prisma.UserUncheckedCreateWithoutIgnoredTracksInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutIgnoredTracksInput
+  connect?: Prisma.UserWhereUniqueInput
+}
+
+export type UserUpdateOneRequiredWithoutIgnoredTracksNestedInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutIgnoredTracksInput, Prisma.UserUncheckedCreateWithoutIgnoredTracksInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutIgnoredTracksInput
+  upsert?: Prisma.UserUpsertWithoutIgnoredTracksInput
+  connect?: Prisma.UserWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutIgnoredTracksInput, Prisma.UserUpdateWithoutIgnoredTracksInput>, Prisma.UserUncheckedUpdateWithoutIgnoredTracksInput>
+}
+
+export type UserCreateNestedOneWithoutCreatedGlobalIgnoredTracksInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutCreatedGlobalIgnoredTracksInput, Prisma.UserUncheckedCreateWithoutCreatedGlobalIgnoredTracksInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutCreatedGlobalIgnoredTracksInput
+  connect?: Prisma.UserWhereUniqueInput
+}
+
+export type UserUpdateOneRequiredWithoutCreatedGlobalIgnoredTracksNestedInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutCreatedGlobalIgnoredTracksInput, Prisma.UserUncheckedCreateWithoutCreatedGlobalIgnoredTracksInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutCreatedGlobalIgnoredTracksInput
+  upsert?: Prisma.UserUpsertWithoutCreatedGlobalIgnoredTracksInput
+  connect?: Prisma.UserWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutCreatedGlobalIgnoredTracksInput, Prisma.UserUpdateWithoutCreatedGlobalIgnoredTracksInput>, Prisma.UserUncheckedUpdateWithoutCreatedGlobalIgnoredTracksInput>
+}
+
 export type UserCreateNestedOneWithoutPlaylistsInput = {
   create?: Prisma.XOR<Prisma.UserCreateWithoutPlaylistsInput, Prisma.UserUncheckedCreateWithoutPlaylistsInput>
   connectOrCreate?: Prisma.UserCreateOrConnectWithoutPlaylistsInput
@@ -492,6 +534,8 @@ export type UserCreateWithoutSessionsInput = {
   accounts?: Prisma.AccountCreateNestedManyWithoutUserInput
   plans?: Prisma.PlanCreateNestedManyWithoutCreatedByInput
   playlists?: Prisma.PlaylistCreateNestedManyWithoutUserInput
+  ignoredTracks?: Prisma.UserIgnoredTrackCreateNestedManyWithoutUserInput
+  createdGlobalIgnoredTracks?: Prisma.GlobalIgnoredTrackCreateNestedManyWithoutCreatedByInput
 }
 
 export type UserUncheckedCreateWithoutSessionsInput = {
@@ -506,6 +550,8 @@ export type UserUncheckedCreateWithoutSessionsInput = {
   accounts?: Prisma.AccountUncheckedCreateNestedManyWithoutUserInput
   plans?: Prisma.PlanUncheckedCreateNestedManyWithoutCreatedByInput
   playlists?: Prisma.PlaylistUncheckedCreateNestedManyWithoutUserInput
+  ignoredTracks?: Prisma.UserIgnoredTrackUncheckedCreateNestedManyWithoutUserInput
+  createdGlobalIgnoredTracks?: Prisma.GlobalIgnoredTrackUncheckedCreateNestedManyWithoutCreatedByInput
 }
 
 export type UserCreateOrConnectWithoutSessionsInput = {
@@ -536,6 +582,8 @@ export type UserUpdateWithoutSessionsInput = {
   accounts?: Prisma.AccountUpdateManyWithoutUserNestedInput
   plans?: Prisma.PlanUpdateManyWithoutCreatedByNestedInput
   playlists?: Prisma.PlaylistUpdateManyWithoutUserNestedInput
+  ignoredTracks?: Prisma.UserIgnoredTrackUpdateManyWithoutUserNestedInput
+  createdGlobalIgnoredTracks?: Prisma.GlobalIgnoredTrackUpdateManyWithoutCreatedByNestedInput
 }
 
 export type UserUncheckedUpdateWithoutSessionsInput = {
@@ -550,6 +598,8 @@ export type UserUncheckedUpdateWithoutSessionsInput = {
   accounts?: Prisma.AccountUncheckedUpdateManyWithoutUserNestedInput
   plans?: Prisma.PlanUncheckedUpdateManyWithoutCreatedByNestedInput
   playlists?: Prisma.PlaylistUncheckedUpdateManyWithoutUserNestedInput
+  ignoredTracks?: Prisma.UserIgnoredTrackUncheckedUpdateManyWithoutUserNestedInput
+  createdGlobalIgnoredTracks?: Prisma.GlobalIgnoredTrackUncheckedUpdateManyWithoutCreatedByNestedInput
 }
 
 export type UserCreateWithoutAccountsInput = {
@@ -564,6 +614,8 @@ export type UserCreateWithoutAccountsInput = {
   sessions?: Prisma.SessionCreateNestedManyWithoutUserInput
   plans?: Prisma.PlanCreateNestedManyWithoutCreatedByInput
   playlists?: Prisma.PlaylistCreateNestedManyWithoutUserInput
+  ignoredTracks?: Prisma.UserIgnoredTrackCreateNestedManyWithoutUserInput
+  createdGlobalIgnoredTracks?: Prisma.GlobalIgnoredTrackCreateNestedManyWithoutCreatedByInput
 }
 
 export type UserUncheckedCreateWithoutAccountsInput = {
@@ -578,6 +630,8 @@ export type UserUncheckedCreateWithoutAccountsInput = {
   sessions?: Prisma.SessionUncheckedCreateNestedManyWithoutUserInput
   plans?: Prisma.PlanUncheckedCreateNestedManyWithoutCreatedByInput
   playlists?: Prisma.PlaylistUncheckedCreateNestedManyWithoutUserInput
+  ignoredTracks?: Prisma.UserIgnoredTrackUncheckedCreateNestedManyWithoutUserInput
+  createdGlobalIgnoredTracks?: Prisma.GlobalIgnoredTrackUncheckedCreateNestedManyWithoutCreatedByInput
 }
 
 export type UserCreateOrConnectWithoutAccountsInput = {
@@ -608,6 +662,8 @@ export type UserUpdateWithoutAccountsInput = {
   sessions?: Prisma.SessionUpdateManyWithoutUserNestedInput
   plans?: Prisma.PlanUpdateManyWithoutCreatedByNestedInput
   playlists?: Prisma.PlaylistUpdateManyWithoutUserNestedInput
+  ignoredTracks?: Prisma.UserIgnoredTrackUpdateManyWithoutUserNestedInput
+  createdGlobalIgnoredTracks?: Prisma.GlobalIgnoredTrackUpdateManyWithoutCreatedByNestedInput
 }
 
 export type UserUncheckedUpdateWithoutAccountsInput = {
@@ -622,6 +678,168 @@ export type UserUncheckedUpdateWithoutAccountsInput = {
   sessions?: Prisma.SessionUncheckedUpdateManyWithoutUserNestedInput
   plans?: Prisma.PlanUncheckedUpdateManyWithoutCreatedByNestedInput
   playlists?: Prisma.PlaylistUncheckedUpdateManyWithoutUserNestedInput
+  ignoredTracks?: Prisma.UserIgnoredTrackUncheckedUpdateManyWithoutUserNestedInput
+  createdGlobalIgnoredTracks?: Prisma.GlobalIgnoredTrackUncheckedUpdateManyWithoutCreatedByNestedInput
+}
+
+export type UserCreateWithoutIgnoredTracksInput = {
+  id: string
+  name: string
+  email: string
+  emailVerified: boolean
+  image?: string | null
+  createdAt: Date | string
+  updatedAt: Date | string
+  role?: $Enums.UserRole
+  sessions?: Prisma.SessionCreateNestedManyWithoutUserInput
+  accounts?: Prisma.AccountCreateNestedManyWithoutUserInput
+  plans?: Prisma.PlanCreateNestedManyWithoutCreatedByInput
+  playlists?: Prisma.PlaylistCreateNestedManyWithoutUserInput
+  createdGlobalIgnoredTracks?: Prisma.GlobalIgnoredTrackCreateNestedManyWithoutCreatedByInput
+}
+
+export type UserUncheckedCreateWithoutIgnoredTracksInput = {
+  id: string
+  name: string
+  email: string
+  emailVerified: boolean
+  image?: string | null
+  createdAt: Date | string
+  updatedAt: Date | string
+  role?: $Enums.UserRole
+  sessions?: Prisma.SessionUncheckedCreateNestedManyWithoutUserInput
+  accounts?: Prisma.AccountUncheckedCreateNestedManyWithoutUserInput
+  plans?: Prisma.PlanUncheckedCreateNestedManyWithoutCreatedByInput
+  playlists?: Prisma.PlaylistUncheckedCreateNestedManyWithoutUserInput
+  createdGlobalIgnoredTracks?: Prisma.GlobalIgnoredTrackUncheckedCreateNestedManyWithoutCreatedByInput
+}
+
+export type UserCreateOrConnectWithoutIgnoredTracksInput = {
+  where: Prisma.UserWhereUniqueInput
+  create: Prisma.XOR<Prisma.UserCreateWithoutIgnoredTracksInput, Prisma.UserUncheckedCreateWithoutIgnoredTracksInput>
+}
+
+export type UserUpsertWithoutIgnoredTracksInput = {
+  update: Prisma.XOR<Prisma.UserUpdateWithoutIgnoredTracksInput, Prisma.UserUncheckedUpdateWithoutIgnoredTracksInput>
+  create: Prisma.XOR<Prisma.UserCreateWithoutIgnoredTracksInput, Prisma.UserUncheckedCreateWithoutIgnoredTracksInput>
+  where?: Prisma.UserWhereInput
+}
+
+export type UserUpdateToOneWithWhereWithoutIgnoredTracksInput = {
+  where?: Prisma.UserWhereInput
+  data: Prisma.XOR<Prisma.UserUpdateWithoutIgnoredTracksInput, Prisma.UserUncheckedUpdateWithoutIgnoredTracksInput>
+}
+
+export type UserUpdateWithoutIgnoredTracksInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.StringFieldUpdateOperationsInput | string
+  emailVerified?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  image?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  sessions?: Prisma.SessionUpdateManyWithoutUserNestedInput
+  accounts?: Prisma.AccountUpdateManyWithoutUserNestedInput
+  plans?: Prisma.PlanUpdateManyWithoutCreatedByNestedInput
+  playlists?: Prisma.PlaylistUpdateManyWithoutUserNestedInput
+  createdGlobalIgnoredTracks?: Prisma.GlobalIgnoredTrackUpdateManyWithoutCreatedByNestedInput
+}
+
+export type UserUncheckedUpdateWithoutIgnoredTracksInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.StringFieldUpdateOperationsInput | string
+  emailVerified?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  image?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  sessions?: Prisma.SessionUncheckedUpdateManyWithoutUserNestedInput
+  accounts?: Prisma.AccountUncheckedUpdateManyWithoutUserNestedInput
+  plans?: Prisma.PlanUncheckedUpdateManyWithoutCreatedByNestedInput
+  playlists?: Prisma.PlaylistUncheckedUpdateManyWithoutUserNestedInput
+  createdGlobalIgnoredTracks?: Prisma.GlobalIgnoredTrackUncheckedUpdateManyWithoutCreatedByNestedInput
+}
+
+export type UserCreateWithoutCreatedGlobalIgnoredTracksInput = {
+  id: string
+  name: string
+  email: string
+  emailVerified: boolean
+  image?: string | null
+  createdAt: Date | string
+  updatedAt: Date | string
+  role?: $Enums.UserRole
+  sessions?: Prisma.SessionCreateNestedManyWithoutUserInput
+  accounts?: Prisma.AccountCreateNestedManyWithoutUserInput
+  plans?: Prisma.PlanCreateNestedManyWithoutCreatedByInput
+  playlists?: Prisma.PlaylistCreateNestedManyWithoutUserInput
+  ignoredTracks?: Prisma.UserIgnoredTrackCreateNestedManyWithoutUserInput
+}
+
+export type UserUncheckedCreateWithoutCreatedGlobalIgnoredTracksInput = {
+  id: string
+  name: string
+  email: string
+  emailVerified: boolean
+  image?: string | null
+  createdAt: Date | string
+  updatedAt: Date | string
+  role?: $Enums.UserRole
+  sessions?: Prisma.SessionUncheckedCreateNestedManyWithoutUserInput
+  accounts?: Prisma.AccountUncheckedCreateNestedManyWithoutUserInput
+  plans?: Prisma.PlanUncheckedCreateNestedManyWithoutCreatedByInput
+  playlists?: Prisma.PlaylistUncheckedCreateNestedManyWithoutUserInput
+  ignoredTracks?: Prisma.UserIgnoredTrackUncheckedCreateNestedManyWithoutUserInput
+}
+
+export type UserCreateOrConnectWithoutCreatedGlobalIgnoredTracksInput = {
+  where: Prisma.UserWhereUniqueInput
+  create: Prisma.XOR<Prisma.UserCreateWithoutCreatedGlobalIgnoredTracksInput, Prisma.UserUncheckedCreateWithoutCreatedGlobalIgnoredTracksInput>
+}
+
+export type UserUpsertWithoutCreatedGlobalIgnoredTracksInput = {
+  update: Prisma.XOR<Prisma.UserUpdateWithoutCreatedGlobalIgnoredTracksInput, Prisma.UserUncheckedUpdateWithoutCreatedGlobalIgnoredTracksInput>
+  create: Prisma.XOR<Prisma.UserCreateWithoutCreatedGlobalIgnoredTracksInput, Prisma.UserUncheckedCreateWithoutCreatedGlobalIgnoredTracksInput>
+  where?: Prisma.UserWhereInput
+}
+
+export type UserUpdateToOneWithWhereWithoutCreatedGlobalIgnoredTracksInput = {
+  where?: Prisma.UserWhereInput
+  data: Prisma.XOR<Prisma.UserUpdateWithoutCreatedGlobalIgnoredTracksInput, Prisma.UserUncheckedUpdateWithoutCreatedGlobalIgnoredTracksInput>
+}
+
+export type UserUpdateWithoutCreatedGlobalIgnoredTracksInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.StringFieldUpdateOperationsInput | string
+  emailVerified?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  image?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  sessions?: Prisma.SessionUpdateManyWithoutUserNestedInput
+  accounts?: Prisma.AccountUpdateManyWithoutUserNestedInput
+  plans?: Prisma.PlanUpdateManyWithoutCreatedByNestedInput
+  playlists?: Prisma.PlaylistUpdateManyWithoutUserNestedInput
+  ignoredTracks?: Prisma.UserIgnoredTrackUpdateManyWithoutUserNestedInput
+}
+
+export type UserUncheckedUpdateWithoutCreatedGlobalIgnoredTracksInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.StringFieldUpdateOperationsInput | string
+  emailVerified?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  image?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  sessions?: Prisma.SessionUncheckedUpdateManyWithoutUserNestedInput
+  accounts?: Prisma.AccountUncheckedUpdateManyWithoutUserNestedInput
+  plans?: Prisma.PlanUncheckedUpdateManyWithoutCreatedByNestedInput
+  playlists?: Prisma.PlaylistUncheckedUpdateManyWithoutUserNestedInput
+  ignoredTracks?: Prisma.UserIgnoredTrackUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutPlaylistsInput = {
@@ -636,6 +854,8 @@ export type UserCreateWithoutPlaylistsInput = {
   sessions?: Prisma.SessionCreateNestedManyWithoutUserInput
   accounts?: Prisma.AccountCreateNestedManyWithoutUserInput
   plans?: Prisma.PlanCreateNestedManyWithoutCreatedByInput
+  ignoredTracks?: Prisma.UserIgnoredTrackCreateNestedManyWithoutUserInput
+  createdGlobalIgnoredTracks?: Prisma.GlobalIgnoredTrackCreateNestedManyWithoutCreatedByInput
 }
 
 export type UserUncheckedCreateWithoutPlaylistsInput = {
@@ -650,6 +870,8 @@ export type UserUncheckedCreateWithoutPlaylistsInput = {
   sessions?: Prisma.SessionUncheckedCreateNestedManyWithoutUserInput
   accounts?: Prisma.AccountUncheckedCreateNestedManyWithoutUserInput
   plans?: Prisma.PlanUncheckedCreateNestedManyWithoutCreatedByInput
+  ignoredTracks?: Prisma.UserIgnoredTrackUncheckedCreateNestedManyWithoutUserInput
+  createdGlobalIgnoredTracks?: Prisma.GlobalIgnoredTrackUncheckedCreateNestedManyWithoutCreatedByInput
 }
 
 export type UserCreateOrConnectWithoutPlaylistsInput = {
@@ -680,6 +902,8 @@ export type UserUpdateWithoutPlaylistsInput = {
   sessions?: Prisma.SessionUpdateManyWithoutUserNestedInput
   accounts?: Prisma.AccountUpdateManyWithoutUserNestedInput
   plans?: Prisma.PlanUpdateManyWithoutCreatedByNestedInput
+  ignoredTracks?: Prisma.UserIgnoredTrackUpdateManyWithoutUserNestedInput
+  createdGlobalIgnoredTracks?: Prisma.GlobalIgnoredTrackUpdateManyWithoutCreatedByNestedInput
 }
 
 export type UserUncheckedUpdateWithoutPlaylistsInput = {
@@ -694,6 +918,8 @@ export type UserUncheckedUpdateWithoutPlaylistsInput = {
   sessions?: Prisma.SessionUncheckedUpdateManyWithoutUserNestedInput
   accounts?: Prisma.AccountUncheckedUpdateManyWithoutUserNestedInput
   plans?: Prisma.PlanUncheckedUpdateManyWithoutCreatedByNestedInput
+  ignoredTracks?: Prisma.UserIgnoredTrackUncheckedUpdateManyWithoutUserNestedInput
+  createdGlobalIgnoredTracks?: Prisma.GlobalIgnoredTrackUncheckedUpdateManyWithoutCreatedByNestedInput
 }
 
 export type UserCreateWithoutPlansInput = {
@@ -708,6 +934,8 @@ export type UserCreateWithoutPlansInput = {
   sessions?: Prisma.SessionCreateNestedManyWithoutUserInput
   accounts?: Prisma.AccountCreateNestedManyWithoutUserInput
   playlists?: Prisma.PlaylistCreateNestedManyWithoutUserInput
+  ignoredTracks?: Prisma.UserIgnoredTrackCreateNestedManyWithoutUserInput
+  createdGlobalIgnoredTracks?: Prisma.GlobalIgnoredTrackCreateNestedManyWithoutCreatedByInput
 }
 
 export type UserUncheckedCreateWithoutPlansInput = {
@@ -722,6 +950,8 @@ export type UserUncheckedCreateWithoutPlansInput = {
   sessions?: Prisma.SessionUncheckedCreateNestedManyWithoutUserInput
   accounts?: Prisma.AccountUncheckedCreateNestedManyWithoutUserInput
   playlists?: Prisma.PlaylistUncheckedCreateNestedManyWithoutUserInput
+  ignoredTracks?: Prisma.UserIgnoredTrackUncheckedCreateNestedManyWithoutUserInput
+  createdGlobalIgnoredTracks?: Prisma.GlobalIgnoredTrackUncheckedCreateNestedManyWithoutCreatedByInput
 }
 
 export type UserCreateOrConnectWithoutPlansInput = {
@@ -752,6 +982,8 @@ export type UserUpdateWithoutPlansInput = {
   sessions?: Prisma.SessionUpdateManyWithoutUserNestedInput
   accounts?: Prisma.AccountUpdateManyWithoutUserNestedInput
   playlists?: Prisma.PlaylistUpdateManyWithoutUserNestedInput
+  ignoredTracks?: Prisma.UserIgnoredTrackUpdateManyWithoutUserNestedInput
+  createdGlobalIgnoredTracks?: Prisma.GlobalIgnoredTrackUpdateManyWithoutCreatedByNestedInput
 }
 
 export type UserUncheckedUpdateWithoutPlansInput = {
@@ -766,6 +998,8 @@ export type UserUncheckedUpdateWithoutPlansInput = {
   sessions?: Prisma.SessionUncheckedUpdateManyWithoutUserNestedInput
   accounts?: Prisma.AccountUncheckedUpdateManyWithoutUserNestedInput
   playlists?: Prisma.PlaylistUncheckedUpdateManyWithoutUserNestedInput
+  ignoredTracks?: Prisma.UserIgnoredTrackUncheckedUpdateManyWithoutUserNestedInput
+  createdGlobalIgnoredTracks?: Prisma.GlobalIgnoredTrackUncheckedUpdateManyWithoutCreatedByNestedInput
 }
 
 
@@ -778,6 +1012,8 @@ export type UserCountOutputType = {
   accounts: number
   plans: number
   playlists: number
+  ignoredTracks: number
+  createdGlobalIgnoredTracks: number
 }
 
 export type UserCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -785,6 +1021,8 @@ export type UserCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.I
   accounts?: boolean | UserCountOutputTypeCountAccountsArgs
   plans?: boolean | UserCountOutputTypeCountPlansArgs
   playlists?: boolean | UserCountOutputTypeCountPlaylistsArgs
+  ignoredTracks?: boolean | UserCountOutputTypeCountIgnoredTracksArgs
+  createdGlobalIgnoredTracks?: boolean | UserCountOutputTypeCountCreatedGlobalIgnoredTracksArgs
 }
 
 /**
@@ -825,6 +1063,20 @@ export type UserCountOutputTypeCountPlaylistsArgs<ExtArgs extends runtime.Types.
   where?: Prisma.PlaylistWhereInput
 }
 
+/**
+ * UserCountOutputType without action
+ */
+export type UserCountOutputTypeCountIgnoredTracksArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.UserIgnoredTrackWhereInput
+}
+
+/**
+ * UserCountOutputType without action
+ */
+export type UserCountOutputTypeCountCreatedGlobalIgnoredTracksArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.GlobalIgnoredTrackWhereInput
+}
+
 
 export type UserSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
@@ -839,6 +1091,8 @@ export type UserSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = r
   accounts?: boolean | Prisma.User$accountsArgs<ExtArgs>
   plans?: boolean | Prisma.User$plansArgs<ExtArgs>
   playlists?: boolean | Prisma.User$playlistsArgs<ExtArgs>
+  ignoredTracks?: boolean | Prisma.User$ignoredTracksArgs<ExtArgs>
+  createdGlobalIgnoredTracks?: boolean | Prisma.User$createdGlobalIgnoredTracksArgs<ExtArgs>
   _count?: boolean | Prisma.UserCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["user"]>
 
@@ -881,6 +1135,8 @@ export type UserInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = 
   accounts?: boolean | Prisma.User$accountsArgs<ExtArgs>
   plans?: boolean | Prisma.User$plansArgs<ExtArgs>
   playlists?: boolean | Prisma.User$playlistsArgs<ExtArgs>
+  ignoredTracks?: boolean | Prisma.User$ignoredTracksArgs<ExtArgs>
+  createdGlobalIgnoredTracks?: boolean | Prisma.User$createdGlobalIgnoredTracksArgs<ExtArgs>
   _count?: boolean | Prisma.UserCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type UserIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {}
@@ -893,6 +1149,8 @@ export type $UserPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs =
     accounts: Prisma.$AccountPayload<ExtArgs>[]
     plans: Prisma.$PlanPayload<ExtArgs>[]
     playlists: Prisma.$PlaylistPayload<ExtArgs>[]
+    ignoredTracks: Prisma.$UserIgnoredTrackPayload<ExtArgs>[]
+    createdGlobalIgnoredTracks: Prisma.$GlobalIgnoredTrackPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
@@ -1301,6 +1559,8 @@ export interface Prisma__UserClient<T, Null = never, ExtArgs extends runtime.Typ
   accounts<T extends Prisma.User$accountsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$accountsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$AccountPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   plans<T extends Prisma.User$plansArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$plansArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$PlanPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   playlists<T extends Prisma.User$playlistsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$playlistsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$PlaylistPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  ignoredTracks<T extends Prisma.User$ignoredTracksArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$ignoredTracksArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$UserIgnoredTrackPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  createdGlobalIgnoredTracks<T extends Prisma.User$createdGlobalIgnoredTracksArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$createdGlobalIgnoredTracksArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$GlobalIgnoredTrackPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -1822,6 +2082,54 @@ export type User$playlistsArgs<ExtArgs extends runtime.Types.Extensions.Internal
   take?: number
   skip?: number
   distinct?: Prisma.PlaylistScalarFieldEnum | Prisma.PlaylistScalarFieldEnum[]
+}
+
+/**
+ * User.ignoredTracks
+ */
+export type User$ignoredTracksArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the UserIgnoredTrack
+   */
+  select?: Prisma.UserIgnoredTrackSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the UserIgnoredTrack
+   */
+  omit?: Prisma.UserIgnoredTrackOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.UserIgnoredTrackInclude<ExtArgs> | null
+  where?: Prisma.UserIgnoredTrackWhereInput
+  orderBy?: Prisma.UserIgnoredTrackOrderByWithRelationInput | Prisma.UserIgnoredTrackOrderByWithRelationInput[]
+  cursor?: Prisma.UserIgnoredTrackWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.UserIgnoredTrackScalarFieldEnum | Prisma.UserIgnoredTrackScalarFieldEnum[]
+}
+
+/**
+ * User.createdGlobalIgnoredTracks
+ */
+export type User$createdGlobalIgnoredTracksArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the GlobalIgnoredTrack
+   */
+  select?: Prisma.GlobalIgnoredTrackSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the GlobalIgnoredTrack
+   */
+  omit?: Prisma.GlobalIgnoredTrackOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.GlobalIgnoredTrackInclude<ExtArgs> | null
+  where?: Prisma.GlobalIgnoredTrackWhereInput
+  orderBy?: Prisma.GlobalIgnoredTrackOrderByWithRelationInput | Prisma.GlobalIgnoredTrackOrderByWithRelationInput[]
+  cursor?: Prisma.GlobalIgnoredTrackWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.GlobalIgnoredTrackScalarFieldEnum | Prisma.GlobalIgnoredTrackScalarFieldEnum[]
 }
 
 /**

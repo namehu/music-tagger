@@ -3,6 +3,8 @@ import { randomUUID } from "crypto";
 import { z } from "zod";
 import { Prisma } from "@/generated/prisma/client";
 
+import { canCurrentUserUnignoreTrack, resolveTrackIgnoreSource } from "@/lib/ignored-tracks";
+
 import { protectedProcedure, router } from "../trpc";
 
 const playlistIdSchema = z.object({
@@ -143,6 +145,11 @@ export const playlistsRouter = router({
 
   get: protectedProcedure.input(playlistIdSchema).query(async ({ ctx, input }) => {
     const playlist = await getOwnedPlaylistOrThrow(ctx, input.playlistId);
+    const userId = ctx.session?.user?.id;
+    if (!userId) {
+      throw new TRPCError({ code: "UNAUTHORIZED", message: "需要登录" });
+    }
+
     const items = await ctx.prisma.playlistItem.findMany({
       where: { playlistId: playlist.id },
       orderBy: [
@@ -169,13 +176,45 @@ export const playlistsRouter = router({
         },
       },
     });
+    const trackIds = items.map((item) => item.track.id);
+    const [globalIgnored, mineIgnored] = await Promise.all([
+      ctx.prisma.globalIgnoredTrack.findMany({
+        where: {
+          trackId: {
+            in: trackIds,
+          },
+        },
+        select: { trackId: true },
+      }),
+      ctx.prisma.userIgnoredTrack.findMany({
+        where: {
+          userId,
+          trackId: {
+            in: trackIds,
+          },
+        },
+        select: { trackId: true },
+      }),
+    ]);
+    const globalIgnoredSet = new Set(globalIgnored.map((entry) => entry.trackId));
+    const mineIgnoredSet = new Set(mineIgnored.map((entry) => entry.trackId));
 
     return {
       ...playlist,
       items: items.map((item) => ({
+        ignoreSource: resolveTrackIgnoreSource({
+          hasGlobalIgnore: globalIgnoredSet.has(item.track.id),
+          hasMineIgnore: mineIgnoredSet.has(item.track.id),
+        }),
         id: item.id,
         position: item.position,
         createdAt: item.createdAt,
+        canUnignoreTrack: canCurrentUserUnignoreTrack(
+          resolveTrackIgnoreSource({
+            hasGlobalIgnore: globalIgnoredSet.has(item.track.id),
+            hasMineIgnore: mineIgnoredSet.has(item.track.id),
+          }),
+        ),
         track: toPlaylistTrack(item.track),
       })),
     };

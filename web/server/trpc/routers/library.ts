@@ -8,6 +8,7 @@ import {
   getTranscodeFailureCategoryLabel,
 } from "@/lib/transcode-failure";
 import { doesCacheFileExist, removeCacheFile } from "@/lib/transcode-cache";
+import { TRACK_VISIBILITY_SURFACES } from "@/lib/ignored-tracks";
 
 import { adminProcedure, protectedProcedure, router } from "../trpc";
 
@@ -49,31 +50,68 @@ function toSafeNumber(value: number | bigint | null | undefined) {
   return typeof value === "number" && Number.isFinite(value) ? value : 0;
 }
 
+const libraryStatsInputSchema = z
+  .object({
+    surface: z.enum(TRACK_VISIBILITY_SURFACES).default("user"),
+  })
+  .optional();
+
 export const libraryRouter = router({
-  stats: protectedProcedure.query(async ({ ctx }) => {
+  stats: protectedProcedure.input(libraryStatsInputSchema).query(async ({ ctx, input }) => {
+    const userId = ctx.session?.user?.id;
+    if (!userId) {
+      throw new Error("需要登录");
+    }
+
+    const surface = input?.surface ?? "user";
+    const ignoreJoinClause =
+      surface === "admin"
+        ? Prisma.sql`
+            LEFT JOIN "global_ignored_tracks" AS git
+              ON git."trackId" = t."id"
+          `
+        : Prisma.sql`
+            LEFT JOIN "global_ignored_tracks" AS git
+              ON git."trackId" = t."id"
+            LEFT JOIN "user_ignored_tracks" AS uit
+              ON uit."trackId" = t."id"
+             AND uit."userId" = ${userId}
+          `;
+    const visibilityFilter =
+      surface === "admin"
+        ? Prisma.sql`AND git."id" IS NULL`
+        : Prisma.sql`AND git."id" IS NULL AND uit."id" IS NULL`;
+
     const [tracksRow, albumsRow, artistsRow] = await Promise.all([
       ctx.prisma.$queryRaw<Array<{ count: number }>>(Prisma.sql`
         SELECT COUNT(*) AS "count"
-        FROM "tracks"
+        FROM "tracks" AS t
+        ${ignoreJoinClause}
+        WHERE 1 = 1
+          ${visibilityFilter}
       `),
       ctx.prisma.$queryRaw<Array<{ count: number }>>(Prisma.sql`
         SELECT COUNT(*) AS "count"
         FROM (
           SELECT DISTINCT
-            COALESCE("albumOverride", "album") AS "album",
-            COALESCE("albumArtistOverride", "albumArtist") AS "albumArtist"
-          FROM "tracks"
-          WHERE COALESCE("albumOverride", "album") IS NOT NULL
-            AND COALESCE("albumOverride", "album") != ''
+            COALESCE(t."albumOverride", t."album") AS "album",
+            COALESCE(t."albumArtistOverride", t."albumArtist") AS "albumArtist"
+          FROM "tracks" AS t
+          ${ignoreJoinClause}
+          WHERE COALESCE(t."albumOverride", t."album") IS NOT NULL
+            AND COALESCE(t."albumOverride", t."album") != ''
+            ${visibilityFilter}
         )
       `),
       ctx.prisma.$queryRaw<Array<{ count: number }>>(Prisma.sql`
         SELECT COUNT(*) AS "count"
         FROM (
-          SELECT DISTINCT COALESCE("artistOverride", "artist") AS "artist"
-          FROM "tracks"
-          WHERE COALESCE("artistOverride", "artist") IS NOT NULL
-            AND COALESCE("artistOverride", "artist") != ''
+          SELECT DISTINCT COALESCE(t."artistOverride", t."artist") AS "artist"
+          FROM "tracks" AS t
+          ${ignoreJoinClause}
+          WHERE COALESCE(t."artistOverride", t."artist") IS NOT NULL
+            AND COALESCE(t."artistOverride", t."artist") != ''
+            ${visibilityFilter}
         )
       `),
     ]);

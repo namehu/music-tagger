@@ -3,7 +3,7 @@
 import React from "react";
 import { useParams } from "next/navigation";
 import { toast } from "sonner";
-import { LoaderCircleIcon, PauseCircleIcon, PlayCircleIcon, PlusIcon, Trash2Icon } from "lucide-react";
+import { EyeOffIcon, LoaderCircleIcon, PauseCircleIcon, PlayCircleIcon, PlusIcon, Trash2Icon } from "lucide-react";
 
 import { trpc } from "@/app/_trpc/provider";
 import { useGlobalPlayback, type PlaybackQueueTrack } from "@/components/playback/global-playback-provider";
@@ -33,6 +33,7 @@ export default function PlaylistDetailPage() {
     order: "title",
     edited: "all",
     q: deferredSearch.trim().length > 0 ? deferredSearch.trim() : undefined,
+    surface: "user",
   });
   const addTrack = trpc.playlists.addTrack.useMutation({
     onSuccess: async () => {
@@ -52,6 +53,15 @@ export default function PlaylistDetailPage() {
     },
     onError: (error) => {
       toast.error(error.message ?? "移除曲目失败");
+    },
+  });
+  const unignoreMine = trpc.ignoredTracks.unignoreMine.useMutation({
+    onSuccess: async () => {
+      toast.success("已从我的忽略恢复");
+      await Promise.all([playlistQuery.refetch(), tracksQuery.refetch(), utils.ignoredTracks.listMine.invalidate()]);
+    },
+    onError: (error) => {
+      toast.error(error.message ?? "解除忽略失败");
     },
   });
 
@@ -132,6 +142,12 @@ export default function PlaylistDetailPage() {
                         <TableCell>
                           <div className="flex items-center gap-2">
                             <span>{item.track.title}</span>
+                            {item.ignoreSource === "mine" ? (
+                              <Badge variant="outline">我的忽略</Badge>
+                            ) : null}
+                            {item.ignoreSource === "global" ? (
+                              <Badge variant="secondary">全局忽略</Badge>
+                            ) : null}
                             {isPendingTrack ? (
                               <Badge variant="outline">准备中</Badge>
                             ) : isActiveTrack ? (
@@ -142,21 +158,35 @@ export default function PlaylistDetailPage() {
                         <TableCell>{item.track.artist}</TableCell>
                         <TableCell>{renderText(item.track.album, "-")}</TableCell>
                         <TableCell className="w-24">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            disabled={removeTrack.isPending}
-                            onClick={() =>
-                              removeTrack.mutate({
-                                playlistId,
-                                itemId: item.id,
-                              })
-                            }
-                          >
-                            <Trash2Icon data-icon="inline-start" />
-                            移除
-                          </Button>
+                          <div className="flex gap-2">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              disabled={removeTrack.isPending}
+                              onClick={() =>
+                                removeTrack.mutate({
+                                  playlistId,
+                                  itemId: item.id,
+                                })
+                              }
+                            >
+                              <Trash2Icon data-icon="inline-start" />
+                              移除
+                            </Button>
+                            {item.canUnignoreTrack ? (
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                disabled={unignoreMine.isPending}
+                                onClick={() => unignoreMine.mutate({ trackId: item.track.id })}
+                              >
+                                <EyeOffIcon data-icon="inline-start" />
+                                解除忽略
+                              </Button>
+                            ) : null}
+                          </div>
                         </TableCell>
                       </TableRow>
                     );

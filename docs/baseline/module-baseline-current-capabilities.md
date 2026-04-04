@@ -36,7 +36,7 @@ source_refs:
 | Playback Modes | planned | 无 | 无 | 仅在 README / 历史需求材料中声明 |
 | Plan Workflow | partial | `/admin/plans` `/admin/plans/[planId]` | `Plan` / `PlanItem`, `plans` router, `plan_execute` job | 当前支持 `rename` 与基础 `tag_write`，其他类型未落地 |
 | Playlist | implemented | `/playlists` `/playlists/[playlistId]` | `Playlist` / `PlaylistItem`, `playlists` router | 已支持个人歌单 CRUD、加歌、移歌与顺序点播 |
-| Ignored Tracks | planned | 无 | 无 | 仅存在于需求稿 |
+| Ignored Tracks | implemented | `/ignored-tracks` `/admin/ignored-tracks` | `UserIgnoredTrack` / `GlobalIgnoredTrack`, `ignoredTracks` router | 已支持双层忽略、默认过滤与歌单忽略标记 |
 
 ## 当前事实源与未来目标的分界
 
@@ -48,11 +48,11 @@ source_refs:
 - 曲库编辑目前只修改数据库 override 字段
 - 已登录用户默认进入用户区
 - 歌单已拥有独立数据模型与页面入口
+- 忽略曲目已拥有独立数据模型、用户页、管理页与过滤规则
 - Plan 模块已具备 `rename` / `tag_write` 的 preview / confirm / execute 闭环
 
 以下内容不能被当作当前事实：
 
-- 忽略曲目默认过滤规则
 - 播放模式策略
 - 封面、歌词、move、delete 等更高阶 Plan 执行能力
 

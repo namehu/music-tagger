@@ -1,6 +1,7 @@
 import { libraryRouter } from "./routers/library";
 import { jobsRouter } from "./routers/jobs";
 import { playbackRouter } from "./routers/playback";
+import { ignoredTracksRouter } from "./routers/ignoredTracks";
 import { playlistsRouter } from "./routers/playlists";
 import { plansRouter } from "./routers/plans";
 import { settingsRouter } from "./routers/settings";
@@ -11,6 +12,7 @@ import { router } from "./trpc";
 export const appRouter = router({
   library: libraryRouter,
   jobs: jobsRouter,
+  ignoredTracks: ignoredTracksRouter,
   playback: playbackRouter,
   playlists: playlistsRouter,
   plans: plansRouter,

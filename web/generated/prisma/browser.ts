@@ -53,6 +53,16 @@ export type Job = Prisma.JobModel
  */
 export type Track = Prisma.TrackModel
 /**
+ * Model UserIgnoredTrack
+ * 
+ */
+export type UserIgnoredTrack = Prisma.UserIgnoredTrackModel
+/**
+ * Model GlobalIgnoredTrack
+ * 
+ */
+export type GlobalIgnoredTrack = Prisma.GlobalIgnoredTrackModel
+/**
  * Model Playlist
  * 
  */

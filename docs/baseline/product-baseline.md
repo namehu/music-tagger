@@ -87,13 +87,32 @@ source_refs:
 - 暂不支持共享、公开链接或协作歌单
 - 暂不支持随机 / 单曲循环等播放模式
 
-### 3.7 管理台 UI
+### 3.7 Ignored Tracks
+
+- 已支持双层忽略曲目：
+  - 用户侧“我的忽略”
+  - 管理侧“全局忽略”
+- 已支持用户区 `/ignored-tracks`
+- 已支持管理区 `/admin/ignored-tracks`
+- 已支持用户区 `/library` 默认过滤 `global + mine`
+- 已支持管理区 `/admin/library` 默认过滤 `global`
+- 已支持用户区在曲库中加入“我的忽略”
+- 已支持管理区在曲库中设置“全局忽略”与批量全局忽略
+- 已支持歌单详情页展示忽略来源标记，并允许用户解除自己的忽略
+
+当前限制：
+
+- v1 只支持 track 级忽略，不支持目录规则或扫描期自动规则
+- v1 不提供普通曲库内的“显示已忽略曲目”切换器
+- 用户不能解除全局忽略，只能由管理员在管理区解除
+
+### 3.8 管理台 UI
 
 - 已有 Dashboard shell
-- 已有 `/admin`、`/admin/jobs`、`/admin/library`、`/admin/cache`、`/admin/settings`
+- 已有 `/admin`、`/admin/jobs`、`/admin/library`、`/admin/ignored-tracks`、`/admin/cache`、`/admin/settings`
 - 已有 `/admin/plans`、`/admin/plans/[planId]`
 - 已有全局播放器与当前播放摘要
-- 已有用户区 shell：`/dashboard`、`/library`、`/playlists`
+- 已有用户区 shell：`/dashboard`、`/library`、`/playlists`、`/ignored-tracks`
 
 ## 4. 部分实现能力
 
@@ -105,7 +124,6 @@ source_refs:
 
 以下能力仅存在于历史需求材料或长期规划中，当前代码未形成完整主线：
 
-- 用户级忽略曲目
 - 顺序 / 随机 / 单曲循环播放模式
 - 扫描增量策略的独立产品化界面
 - 封面、歌词、move、delete 等更高阶 Plan 类型
@@ -119,6 +137,7 @@ source_refs:
 - `library`
 - `jobs`
 - `playback`
+- `ignoredTracks`
 - `playlists`
 - `plans`
 - `settings`
@@ -146,6 +165,8 @@ source_refs:
 - `PlanItem`
 - `Playlist`
 - `PlaylistItem`
+- `UserIgnoredTrack`
+- `GlobalIgnoredTrack`
 - `Track`
 - `TranscodeCache`
 - `PlaybackResolveEvent`

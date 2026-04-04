@@ -25,11 +25,13 @@ import { SidebarNavSheet } from "./sidebar-nav";
 
 const SHELL_TITLE_MAP: Record<ShellKind, Array<[prefix: string, title: string]>> = {
   user: [
+    ["/ignored-tracks", "忽略"],
     ["/playlists", "歌单"],
     ["/library", "音乐库"],
     ["/dashboard", "首页"],
   ],
   admin: [
+    ["/admin/ignored-tracks", "忽略"],
     ["/admin/settings", "设置"],
     ["/admin/cache", "缓存"],
     ["/admin/library", "音乐库"],

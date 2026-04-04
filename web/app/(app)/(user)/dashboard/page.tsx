@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { FolderIcon, ListMusicIcon, Music4Icon } from "lucide-react";
+import { EyeOffIcon, FolderIcon, ListMusicIcon, Music4Icon } from "lucide-react";
 
 import { trpc } from "@/app/_trpc/provider";
 import { CurrentPlaybackSummary } from "@/components/playback/current-playback-summary";
@@ -10,7 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { cn } from "@/lib/utils";
 
 export default function UserDashboardPage() {
-  const statsQuery = trpc.library.stats.useQuery();
+  const statsQuery = trpc.library.stats.useQuery({ surface: "user" });
   const playlistsQuery = trpc.playlists.list.useQuery();
 
   const quickLinks = [
@@ -25,6 +25,12 @@ export default function UserDashboardPage() {
       description: "创建自己的歌单并维护播放顺序。",
       href: "/playlists",
       icon: ListMusicIcon,
+    },
+    {
+      title: "我的忽略",
+      description: "查看你手动隐藏的曲目，并按需恢复。",
+      href: "/ignored-tracks",
+      icon: EyeOffIcon,
     },
   ];
 

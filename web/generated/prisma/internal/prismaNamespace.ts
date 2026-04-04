@@ -391,6 +391,8 @@ export const ModelName = {
   AdminSettings: 'AdminSettings',
   Job: 'Job',
   Track: 'Track',
+  UserIgnoredTrack: 'UserIgnoredTrack',
+  GlobalIgnoredTrack: 'GlobalIgnoredTrack',
   Playlist: 'Playlist',
   PlaylistItem: 'PlaylistItem',
   Plan: 'Plan',
@@ -412,7 +414,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "user" | "session" | "account" | "verification" | "adminSettings" | "job" | "track" | "playlist" | "playlistItem" | "plan" | "planItem" | "transcodeCache" | "playbackResolveEvent"
+    modelProps: "user" | "session" | "account" | "verification" | "adminSettings" | "job" | "track" | "userIgnoredTrack" | "globalIgnoredTrack" | "playlist" | "playlistItem" | "plan" | "planItem" | "transcodeCache" | "playbackResolveEvent"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -931,6 +933,154 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         count: {
           args: Prisma.TrackCountArgs<ExtArgs>
           result: runtime.Types.Utils.Optional<Prisma.TrackCountAggregateOutputType> | number
+        }
+      }
+    }
+    UserIgnoredTrack: {
+      payload: Prisma.$UserIgnoredTrackPayload<ExtArgs>
+      fields: Prisma.UserIgnoredTrackFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.UserIgnoredTrackFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$UserIgnoredTrackPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.UserIgnoredTrackFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$UserIgnoredTrackPayload>
+        }
+        findFirst: {
+          args: Prisma.UserIgnoredTrackFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$UserIgnoredTrackPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.UserIgnoredTrackFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$UserIgnoredTrackPayload>
+        }
+        findMany: {
+          args: Prisma.UserIgnoredTrackFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$UserIgnoredTrackPayload>[]
+        }
+        create: {
+          args: Prisma.UserIgnoredTrackCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$UserIgnoredTrackPayload>
+        }
+        createMany: {
+          args: Prisma.UserIgnoredTrackCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.UserIgnoredTrackCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$UserIgnoredTrackPayload>[]
+        }
+        delete: {
+          args: Prisma.UserIgnoredTrackDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$UserIgnoredTrackPayload>
+        }
+        update: {
+          args: Prisma.UserIgnoredTrackUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$UserIgnoredTrackPayload>
+        }
+        deleteMany: {
+          args: Prisma.UserIgnoredTrackDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.UserIgnoredTrackUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.UserIgnoredTrackUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$UserIgnoredTrackPayload>[]
+        }
+        upsert: {
+          args: Prisma.UserIgnoredTrackUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$UserIgnoredTrackPayload>
+        }
+        aggregate: {
+          args: Prisma.UserIgnoredTrackAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateUserIgnoredTrack>
+        }
+        groupBy: {
+          args: Prisma.UserIgnoredTrackGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.UserIgnoredTrackGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.UserIgnoredTrackCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.UserIgnoredTrackCountAggregateOutputType> | number
+        }
+      }
+    }
+    GlobalIgnoredTrack: {
+      payload: Prisma.$GlobalIgnoredTrackPayload<ExtArgs>
+      fields: Prisma.GlobalIgnoredTrackFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.GlobalIgnoredTrackFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GlobalIgnoredTrackPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.GlobalIgnoredTrackFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GlobalIgnoredTrackPayload>
+        }
+        findFirst: {
+          args: Prisma.GlobalIgnoredTrackFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GlobalIgnoredTrackPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.GlobalIgnoredTrackFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GlobalIgnoredTrackPayload>
+        }
+        findMany: {
+          args: Prisma.GlobalIgnoredTrackFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GlobalIgnoredTrackPayload>[]
+        }
+        create: {
+          args: Prisma.GlobalIgnoredTrackCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GlobalIgnoredTrackPayload>
+        }
+        createMany: {
+          args: Prisma.GlobalIgnoredTrackCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.GlobalIgnoredTrackCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GlobalIgnoredTrackPayload>[]
+        }
+        delete: {
+          args: Prisma.GlobalIgnoredTrackDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GlobalIgnoredTrackPayload>
+        }
+        update: {
+          args: Prisma.GlobalIgnoredTrackUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GlobalIgnoredTrackPayload>
+        }
+        deleteMany: {
+          args: Prisma.GlobalIgnoredTrackDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.GlobalIgnoredTrackUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.GlobalIgnoredTrackUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GlobalIgnoredTrackPayload>[]
+        }
+        upsert: {
+          args: Prisma.GlobalIgnoredTrackUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GlobalIgnoredTrackPayload>
+        }
+        aggregate: {
+          args: Prisma.GlobalIgnoredTrackAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateGlobalIgnoredTrack>
+        }
+        groupBy: {
+          args: Prisma.GlobalIgnoredTrackGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.GlobalIgnoredTrackGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.GlobalIgnoredTrackCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.GlobalIgnoredTrackCountAggregateOutputType> | number
         }
       }
     }
@@ -1545,6 +1695,27 @@ export const TrackScalarFieldEnum = {
 export type TrackScalarFieldEnum = (typeof TrackScalarFieldEnum)[keyof typeof TrackScalarFieldEnum]
 
 
+export const UserIgnoredTrackScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  trackId: 'trackId',
+  createdAt: 'createdAt'
+} as const
+
+export type UserIgnoredTrackScalarFieldEnum = (typeof UserIgnoredTrackScalarFieldEnum)[keyof typeof UserIgnoredTrackScalarFieldEnum]
+
+
+export const GlobalIgnoredTrackScalarFieldEnum = {
+  id: 'id',
+  trackId: 'trackId',
+  createdById: 'createdById',
+  reason: 'reason',
+  createdAt: 'createdAt'
+} as const
+
+export type GlobalIgnoredTrackScalarFieldEnum = (typeof GlobalIgnoredTrackScalarFieldEnum)[keyof typeof GlobalIgnoredTrackScalarFieldEnum]
+
+
 export const PlaylistScalarFieldEnum = {
   id: 'id',
   userId: 'userId',
@@ -1809,6 +1980,8 @@ export type GlobalOmitConfig = {
   adminSettings?: Prisma.AdminSettingsOmit
   job?: Prisma.JobOmit
   track?: Prisma.TrackOmit
+  userIgnoredTrack?: Prisma.UserIgnoredTrackOmit
+  globalIgnoredTrack?: Prisma.GlobalIgnoredTrackOmit
   playlist?: Prisma.PlaylistOmit
   playlistItem?: Prisma.PlaylistItemOmit
   plan?: Prisma.PlanOmit

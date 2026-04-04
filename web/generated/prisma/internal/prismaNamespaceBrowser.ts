@@ -58,6 +58,8 @@ export const ModelName = {
   AdminSettings: 'AdminSettings',
   Job: 'Job',
   Track: 'Track',
+  UserIgnoredTrack: 'UserIgnoredTrack',
+  GlobalIgnoredTrack: 'GlobalIgnoredTrack',
   Playlist: 'Playlist',
   PlaylistItem: 'PlaylistItem',
   Plan: 'Plan',
@@ -208,6 +210,27 @@ export const TrackScalarFieldEnum = {
 } as const
 
 export type TrackScalarFieldEnum = (typeof TrackScalarFieldEnum)[keyof typeof TrackScalarFieldEnum]
+
+
+export const UserIgnoredTrackScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  trackId: 'trackId',
+  createdAt: 'createdAt'
+} as const
+
+export type UserIgnoredTrackScalarFieldEnum = (typeof UserIgnoredTrackScalarFieldEnum)[keyof typeof UserIgnoredTrackScalarFieldEnum]
+
+
+export const GlobalIgnoredTrackScalarFieldEnum = {
+  id: 'id',
+  trackId: 'trackId',
+  createdById: 'createdById',
+  reason: 'reason',
+  createdAt: 'createdAt'
+} as const
+
+export type GlobalIgnoredTrackScalarFieldEnum = (typeof GlobalIgnoredTrackScalarFieldEnum)[keyof typeof GlobalIgnoredTrackScalarFieldEnum]
 
 
 export const PlaylistScalarFieldEnum = {

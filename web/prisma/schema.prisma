@@ -29,6 +29,8 @@ model User {
   role          UserRole  @default(user)
   plans         Plan[]
   playlists     Playlist[]
+  ignoredTracks UserIgnoredTrack[]
+  createdGlobalIgnoredTracks GlobalIgnoredTrack[] @relation("GlobalIgnoredTrackCreatedBy")
 
   @@unique([email])
   @@map("user")
@@ -152,12 +154,41 @@ model Track {
   transcodes         TranscodeCache[]
   planItems          PlanItem[]
   playlistItems      PlaylistItem[]
+  userIgnoredEntries UserIgnoredTrack[]
+  globalIgnoredEntry GlobalIgnoredTrack?
 
   @@index([dirPath], map: "idx_tracks_dir_path")
   @@index([album, albumArtist], map: "idx_tracks_album")
   @@index([artist], map: "idx_tracks_artist")
   @@index([updatedAt], map: "idx_tracks_updated_at")
   @@map("tracks")
+}
+
+model UserIgnoredTrack {
+  id        String   @id
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  trackId   String
+  track     Track    @relation(fields: [trackId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, trackId], map: "user_ignored_tracks_userId_trackId_key")
+  @@index([userId, createdAt], map: "idx_user_ignored_tracks_user_created_at")
+  @@index([trackId], map: "idx_user_ignored_tracks_track_id")
+  @@map("user_ignored_tracks")
+}
+
+model GlobalIgnoredTrack {
+  id          String   @id
+  trackId     String   @unique
+  track       Track    @relation(fields: [trackId], references: [id], onDelete: Cascade)
+  createdById String
+  createdBy   User     @relation("GlobalIgnoredTrackCreatedBy", fields: [createdById], references: [id], onDelete: Cascade)
+  reason      String?
+  createdAt   DateTime @default(now())
+
+  @@index([createdById, createdAt], map: "idx_global_ignored_tracks_created_by_created_at")
+  @@map("global_ignored_tracks")
 }
 
 model Playlist {

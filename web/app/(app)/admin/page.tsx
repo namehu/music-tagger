@@ -139,7 +139,7 @@ function OverviewStatCard({
 
 export default function AdminOverviewPage() {
   const utils = trpc.useUtils();
-  const statsQuery = trpc.library.stats.useQuery();
+  const statsQuery = trpc.library.stats.useQuery({ surface: "admin" });
   const cacheOverviewQuery = trpc.library.cacheOverview.useQuery();
   const settingsQuery = trpc.settings.get.useQuery();
   const transcodeMetricsQuery = trpc.library.transcodeMetrics.useQuery();
@@ -147,6 +147,7 @@ export default function AdminOverviewPage() {
   const tracksQuery = trpc.tracks.list.useQuery({
     limit: 6,
     order: "recent",
+    surface: "admin",
   });
   const maintainCache = trpc.library.maintainCache.useMutation({
     onSuccess: async (result) => {
