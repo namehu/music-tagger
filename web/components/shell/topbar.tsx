@@ -11,6 +11,7 @@ const TITLE_MAP: Array<[prefix: string, title: string]> = [
   ["/admin/settings", "设置"],
   ["/admin/cache", "缓存"],
   ["/admin/library", "音乐库"],
+  ["/admin/plans", "Plans"],
   ["/admin/jobs", "Jobs"],
   ["/admin", "概览"],
 ];

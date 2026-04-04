@@ -391,6 +391,8 @@ export const ModelName = {
   AdminSettings: 'AdminSettings',
   Job: 'Job',
   Track: 'Track',
+  Plan: 'Plan',
+  PlanItem: 'PlanItem',
   TranscodeCache: 'TranscodeCache',
   PlaybackResolveEvent: 'PlaybackResolveEvent'
 } as const
@@ -408,7 +410,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "user" | "session" | "account" | "verification" | "adminSettings" | "job" | "track" | "transcodeCache" | "playbackResolveEvent"
+    modelProps: "user" | "session" | "account" | "verification" | "adminSettings" | "job" | "track" | "plan" | "planItem" | "transcodeCache" | "playbackResolveEvent"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -930,6 +932,154 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         }
       }
     }
+    Plan: {
+      payload: Prisma.$PlanPayload<ExtArgs>
+      fields: Prisma.PlanFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.PlanFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PlanPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.PlanFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PlanPayload>
+        }
+        findFirst: {
+          args: Prisma.PlanFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PlanPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.PlanFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PlanPayload>
+        }
+        findMany: {
+          args: Prisma.PlanFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PlanPayload>[]
+        }
+        create: {
+          args: Prisma.PlanCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PlanPayload>
+        }
+        createMany: {
+          args: Prisma.PlanCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.PlanCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PlanPayload>[]
+        }
+        delete: {
+          args: Prisma.PlanDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PlanPayload>
+        }
+        update: {
+          args: Prisma.PlanUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PlanPayload>
+        }
+        deleteMany: {
+          args: Prisma.PlanDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.PlanUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.PlanUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PlanPayload>[]
+        }
+        upsert: {
+          args: Prisma.PlanUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PlanPayload>
+        }
+        aggregate: {
+          args: Prisma.PlanAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregatePlan>
+        }
+        groupBy: {
+          args: Prisma.PlanGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.PlanGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.PlanCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.PlanCountAggregateOutputType> | number
+        }
+      }
+    }
+    PlanItem: {
+      payload: Prisma.$PlanItemPayload<ExtArgs>
+      fields: Prisma.PlanItemFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.PlanItemFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PlanItemPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.PlanItemFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PlanItemPayload>
+        }
+        findFirst: {
+          args: Prisma.PlanItemFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PlanItemPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.PlanItemFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PlanItemPayload>
+        }
+        findMany: {
+          args: Prisma.PlanItemFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PlanItemPayload>[]
+        }
+        create: {
+          args: Prisma.PlanItemCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PlanItemPayload>
+        }
+        createMany: {
+          args: Prisma.PlanItemCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.PlanItemCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PlanItemPayload>[]
+        }
+        delete: {
+          args: Prisma.PlanItemDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PlanItemPayload>
+        }
+        update: {
+          args: Prisma.PlanItemUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PlanItemPayload>
+        }
+        deleteMany: {
+          args: Prisma.PlanItemDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.PlanItemUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.PlanItemUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PlanItemPayload>[]
+        }
+        upsert: {
+          args: Prisma.PlanItemUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PlanItemPayload>
+        }
+        aggregate: {
+          args: Prisma.PlanItemAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregatePlanItem>
+        }
+        groupBy: {
+          args: Prisma.PlanItemGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.PlanItemGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.PlanItemCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.PlanItemCountAggregateOutputType> | number
+        }
+      }
+    }
     TranscodeCache: {
       payload: Prisma.$TranscodeCachePayload<ExtArgs>
       fields: Prisma.TranscodeCacheFieldRefs
@@ -1245,6 +1395,46 @@ export const TrackScalarFieldEnum = {
 export type TrackScalarFieldEnum = (typeof TrackScalarFieldEnum)[keyof typeof TrackScalarFieldEnum]
 
 
+export const PlanScalarFieldEnum = {
+  id: 'id',
+  createdById: 'createdById',
+  type: 'type',
+  scopeJson: 'scopeJson',
+  paramsJson: 'paramsJson',
+  previewSummaryJson: 'previewSummaryJson',
+  warningsJson: 'warningsJson',
+  status: 'status',
+  executionJobId: 'executionJobId',
+  previewedAt: 'previewedAt',
+  confirmedAt: 'confirmedAt',
+  startedAt: 'startedAt',
+  completedAt: 'completedAt',
+  errorJson: 'errorJson',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type PlanScalarFieldEnum = (typeof PlanScalarFieldEnum)[keyof typeof PlanScalarFieldEnum]
+
+
+export const PlanItemScalarFieldEnum = {
+  id: 'id',
+  planId: 'planId',
+  kind: 'kind',
+  trackId: 'trackId',
+  fromPath: 'fromPath',
+  toPath: 'toPath',
+  tagDiffJson: 'tagDiffJson',
+  warningsJson: 'warningsJson',
+  status: 'status',
+  errorJson: 'errorJson',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type PlanItemScalarFieldEnum = (typeof PlanItemScalarFieldEnum)[keyof typeof PlanItemScalarFieldEnum]
+
+
 export const TranscodeCacheScalarFieldEnum = {
   id: 'id',
   trackId: 'trackId',
@@ -1446,6 +1636,8 @@ export type GlobalOmitConfig = {
   adminSettings?: Prisma.AdminSettingsOmit
   job?: Prisma.JobOmit
   track?: Prisma.TrackOmit
+  plan?: Prisma.PlanOmit
+  planItem?: Prisma.PlanItemOmit
   transcodeCache?: Prisma.TranscodeCacheOmit
   playbackResolveEvent?: Prisma.PlaybackResolveEventOmit
 }

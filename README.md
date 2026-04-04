@@ -8,12 +8,13 @@
 - 在 Web 控制台浏览最小音乐库统计、曲目列表与全文搜索
 - 原始音频直出播放与 `mp3_192` 转码缓存播放
 - 转码缓存观测、容量治理与策略配置
+- `rename` / `tag_write` 类型的 Plan 预览、确认与后台执行
 
 暂未支持：
 
-- Plan 执行链路
 - Dashboard / Jobs 当前播放摘要
 - 播放模式：顺序 / 随机 / 单曲循环
+- 封面、歌词、move、delete 等其他类型的 Plan 执行链路
 
 ## 项目结构
 
@@ -54,6 +55,10 @@
 ## 关键文档
 
 - 系统架构说明：[`docs/architecture.md`](./docs/architecture.md)
+- 当前系统基线：[`docs/baseline/product-baseline.md`](./docs/baseline/product-baseline.md)
+- 当前能力矩阵：[`docs/baseline/module-baseline-current-capabilities.md`](./docs/baseline/module-baseline-current-capabilities.md)
+- PRD 驱动开发约定：[`docs/prd/README.md`](./docs/prd/README.md)
+- 首个模块 PRD（Plan Workflow）：[`docs/prd/plan-workflow/summary.md`](./docs/prd/plan-workflow/summary.md)
 - 本地开发：[`docs/local-development.md`](./docs/local-development.md)
 - 生产部署与缓存持久化：[`docs/production-deployment.md`](./docs/production-deployment.md)
 
@@ -73,7 +78,8 @@ pnpm prisma:studio
 1. 打开 `/setup` 创建首个管理员。
 2. 进入 `/admin` 或 `/admin/jobs` 触发 `scan_full`。
 3. 进入 `/admin/library` 验证扫描结果与播放链路。
-4. 进入 `/admin/cache` 查看异常缓存、冷缓存与清理动作。
-5. 进入 `/admin/settings` 调整冷缓存天数、容量预算和单次清理上限。
+4. 进入 `/admin/plans` 创建 `rename` Plan，生成 preview 并执行。
+5. 进入 `/admin/cache` 查看异常缓存、冷缓存与清理动作。
+6. 进入 `/admin/settings` 调整冷缓存天数、容量预算和单次清理上限。
 
 更多细节见 [`web/README.md`](./web/README.md) 和 [`worker/README.md`](./worker/README.md)。

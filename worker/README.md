@@ -7,6 +7,7 @@
 - Python 3.9+
 - `ffprobe`（真实扫描时用于提取音频元数据）
 - `ffmpeg`（转码缓存时用于生成 `mp3_192`）
+- `mutagen`（`tag_write` 类型 Plan 写回媒体标签时使用）
 - 已存在的 SQLite 数据库（默认使用 `web/dev.db`）
 
 ## 运行
@@ -14,6 +15,7 @@
 在仓库根目录执行：
 
 ```bash
+python3 -m pip install -r worker/requirements.txt
 python worker/worker.py
 ```
 
@@ -50,6 +52,7 @@ worker 领取后会调用 `scan_full`，遍历 `MUSIC_ROOT` 下支持的音频�
 
 - `scan_full`
 - `transcode_prepare`
+- `plan_execute`（当前支持 `rename` 与 `tag_write` 类型 Plan）
 
 ## SQLite 自动重连
 
@@ -67,7 +70,7 @@ worker 现在会在两类情况下自动重连 SQLite：
 
 ## Docker
 
-如果通过 Docker 部署，推荐直接使用 [`worker/Dockerfile`](/Users/namehu/github/music-tagger/worker/Dockerfile)，镜像内已经安装 `ffmpeg`，因此同时具备 `ffprobe` 能力，无需在 NAS 宿主机额外手工安装。
+如果通过 Docker 部署，推荐直接使用 [`worker/Dockerfile`](/Users/namehu/github/music-tagger/worker/Dockerfile)，镜像内已经安装 `ffmpeg` 和 `mutagen` 依赖，因此同时具备 `ffprobe` 能力与标签写回能力，无需在 NAS 宿主机额外手工安装。
 
 启动方式分成两条：
 

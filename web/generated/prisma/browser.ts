@@ -53,6 +53,16 @@ export type Job = Prisma.JobModel
  */
 export type Track = Prisma.TrackModel
 /**
+ * Model Plan
+ * 
+ */
+export type Plan = Prisma.PlanModel
+/**
+ * Model PlanItem
+ * 
+ */
+export type PlanItem = Prisma.PlanItemModel
+/**
  * Model TranscodeCache
  * 
  */

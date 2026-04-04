@@ -23,12 +23,13 @@
 - SQLite 曲库索引与 FTS 搜索
 - 全局原始音频播放
 - `mp3_192` 转码缓存播放
+- `rename` / `tag_write` 类型的 Plan 预览、确认与后台执行
 - 转码观测、缓存容量治理与后台策略配置
 
 当前尚未完成：
 
-- Plan/预览/执行工作流
 - Dashboard / Jobs 当前播放摘要
+- 封面、歌词、move、delete 等其他类型的 Plan 工作流
 - 播放模式：顺序 / 随机 / 单曲循环
 
 ## 2. 架构总览
@@ -40,7 +41,7 @@ flowchart LR
   Browser[Browser<br/>Admin/User UI]
   Web[Next.js 16 Web<br/>App Router + tRPC + Prisma]
   Auth[better-auth]
-  DB[(SQLite<br/>jobs / tracks / transcode_cache)]
+  DB[(SQLite<br/>jobs / tracks / plans / plan_items / transcode_cache)]
   Worker[Python Worker]
   FF[ffmpeg / ffprobe]
   Music[(NAS Music Dir<br/>/music)]
@@ -74,10 +75,11 @@ flowchart LR
   - 轮询 `jobs`
   - 执行 `scan_full`
   - 执行 `transcode_prepare`
-  - 回写 `jobs`、`tracks`、`transcode_cache`
+  - 执行 `plan_execute`
+  - 回写 `jobs`、`tracks`、`plans`、`plan_items`、`transcode_cache`
 - SQLite：
   - 作为当前唯一业务数据库
-  - 保存认证数据、任务队列、曲库索引、转码缓存索引
+  - 保存认证数据、任务队列、曲库索引、Plan 数据与转码缓存索引
 - 音乐目录 `/music`：
   - Web 读取原始音频
   - Worker 扫描与转码读取源文件
@@ -101,6 +103,7 @@ flowchart LR
 - `worker.py`：主循环、SQLite 重连、job dispatch
 - `jobs.py`：job claim / heartbeat / progress / done / failed
 - `scanner.py`：全量扫描与 `tracks` 写入
+- `plan_executor.py`：Plan 执行器，当前支持 `rename`
 - `transcoder.py`：`mp3_192` 转码、原子写入缓存、`transcode_cache` 回写
 
 ## 4. 关键数据表
@@ -135,7 +138,39 @@ flowchart LR
 - `title / artist / album`
 - `updatedAt`
 
-### 4.3 `transcode_cache`
+### 4.3 `plans`
+
+保存整理计划的顶层元数据。
+
+关键字段：
+
+- `id`
+- `createdById`
+- `type`：当前已支持 `rename`
+- `scopeJson`
+- `paramsJson`
+- `previewSummaryJson`
+- `warningsJson`
+- `status`
+- `executionJobId`
+
+### 4.4 `plan_items`
+
+保存 Plan 拆分后的单项执行记录。
+
+关键字段：
+
+- `id`
+- `planId`
+- `kind`
+- `trackId`
+- `fromPath / toPath`
+- `tagDiffJson`
+- `warningsJson`
+- `status`
+- `errorJson`
+
+### 4.5 `transcode_cache`
 
 保存转码缓存的数据库索引，不直接存音频内容。
 
@@ -161,7 +196,7 @@ flowchart LR
 - 源文件 `mtimeMs` 变化后，旧缓存自然失效，新版本重新生成
 - `lastAccessedAt` 用于区分冷缓存与近期命中缓存，支撑容量治理
 
-### 4.4 `admin_settings`
+### 4.6 `admin_settings`
 
 当前除了初始化锁状态，也承载轻量后台策略配置。
 
@@ -188,6 +223,7 @@ flowchart LR
   - `scan_full`
   - `jobs.list`
   - `jobs.get`
+  - `plans.*`
 - 已登录用户：
   - 曲库浏览
   - 搜索

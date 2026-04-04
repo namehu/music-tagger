@@ -521,6 +521,7 @@ export type TrackWhereInput = {
   createdAt?: Prisma.DateTimeFilter<"Track"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"Track"> | Date | string
   transcodes?: Prisma.TranscodeCacheListRelationFilter
+  planItems?: Prisma.PlanItemListRelationFilter
 }
 
 export type TrackOrderByWithRelationInput = {
@@ -562,6 +563,7 @@ export type TrackOrderByWithRelationInput = {
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   transcodes?: Prisma.TranscodeCacheOrderByRelationAggregateInput
+  planItems?: Prisma.PlanItemOrderByRelationAggregateInput
 }
 
 export type TrackWhereUniqueInput = Prisma.AtLeast<{
@@ -606,6 +608,7 @@ export type TrackWhereUniqueInput = Prisma.AtLeast<{
   createdAt?: Prisma.DateTimeFilter<"Track"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"Track"> | Date | string
   transcodes?: Prisma.TranscodeCacheListRelationFilter
+  planItems?: Prisma.PlanItemListRelationFilter
 }, "id" | "path">
 
 export type TrackOrderByWithAggregationInput = {
@@ -735,6 +738,7 @@ export type TrackCreateInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   transcodes?: Prisma.TranscodeCacheCreateNestedManyWithoutTrackInput
+  planItems?: Prisma.PlanItemCreateNestedManyWithoutTrackInput
 }
 
 export type TrackUncheckedCreateInput = {
@@ -776,6 +780,7 @@ export type TrackUncheckedCreateInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   transcodes?: Prisma.TranscodeCacheUncheckedCreateNestedManyWithoutTrackInput
+  planItems?: Prisma.PlanItemUncheckedCreateNestedManyWithoutTrackInput
 }
 
 export type TrackUpdateInput = {
@@ -817,6 +822,7 @@ export type TrackUpdateInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   transcodes?: Prisma.TranscodeCacheUpdateManyWithoutTrackNestedInput
+  planItems?: Prisma.PlanItemUpdateManyWithoutTrackNestedInput
 }
 
 export type TrackUncheckedUpdateInput = {
@@ -858,6 +864,7 @@ export type TrackUncheckedUpdateInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   transcodes?: Prisma.TranscodeCacheUncheckedUpdateManyWithoutTrackNestedInput
+  planItems?: Prisma.PlanItemUncheckedUpdateManyWithoutTrackNestedInput
 }
 
 export type TrackCreateManyInput = {
@@ -1132,6 +1139,11 @@ export type TrackSumOrderByAggregateInput = {
   yearOverride?: Prisma.SortOrder
 }
 
+export type TrackNullableScalarRelationFilter = {
+  is?: Prisma.TrackWhereInput | null
+  isNot?: Prisma.TrackWhereInput | null
+}
+
 export type TrackScalarRelationFilter = {
   is?: Prisma.TrackWhereInput
   isNot?: Prisma.TrackWhereInput
@@ -1153,6 +1165,22 @@ export type NullableIntFieldUpdateOperationsInput = {
   divide?: number
 }
 
+export type TrackCreateNestedOneWithoutPlanItemsInput = {
+  create?: Prisma.XOR<Prisma.TrackCreateWithoutPlanItemsInput, Prisma.TrackUncheckedCreateWithoutPlanItemsInput>
+  connectOrCreate?: Prisma.TrackCreateOrConnectWithoutPlanItemsInput
+  connect?: Prisma.TrackWhereUniqueInput
+}
+
+export type TrackUpdateOneWithoutPlanItemsNestedInput = {
+  create?: Prisma.XOR<Prisma.TrackCreateWithoutPlanItemsInput, Prisma.TrackUncheckedCreateWithoutPlanItemsInput>
+  connectOrCreate?: Prisma.TrackCreateOrConnectWithoutPlanItemsInput
+  upsert?: Prisma.TrackUpsertWithoutPlanItemsInput
+  disconnect?: Prisma.TrackWhereInput | boolean
+  delete?: Prisma.TrackWhereInput | boolean
+  connect?: Prisma.TrackWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.TrackUpdateToOneWithWhereWithoutPlanItemsInput, Prisma.TrackUpdateWithoutPlanItemsInput>, Prisma.TrackUncheckedUpdateWithoutPlanItemsInput>
+}
+
 export type TrackCreateNestedOneWithoutTranscodesInput = {
   create?: Prisma.XOR<Prisma.TrackCreateWithoutTranscodesInput, Prisma.TrackUncheckedCreateWithoutTranscodesInput>
   connectOrCreate?: Prisma.TrackCreateOrConnectWithoutTranscodesInput
@@ -1165,6 +1193,186 @@ export type TrackUpdateOneRequiredWithoutTranscodesNestedInput = {
   upsert?: Prisma.TrackUpsertWithoutTranscodesInput
   connect?: Prisma.TrackWhereUniqueInput
   update?: Prisma.XOR<Prisma.XOR<Prisma.TrackUpdateToOneWithWhereWithoutTranscodesInput, Prisma.TrackUpdateWithoutTranscodesInput>, Prisma.TrackUncheckedUpdateWithoutTranscodesInput>
+}
+
+export type TrackCreateWithoutPlanItemsInput = {
+  id: string
+  path: string
+  dirPath: string
+  filename: string
+  fileSize: number
+  mtimeMs: bigint | number
+  container: string
+  durationMs: number
+  bitrateKbps?: number | null
+  sampleRate?: number | null
+  bitDepth?: number | null
+  channels?: number | null
+  title?: string | null
+  titleOverride?: string | null
+  artist?: string | null
+  artistOverride?: string | null
+  album?: string | null
+  albumOverride?: string | null
+  albumArtist?: string | null
+  albumArtistOverride?: string | null
+  trackNo?: number | null
+  trackNoOverride?: number | null
+  discNo?: number | null
+  discNoOverride?: number | null
+  year?: number | null
+  yearOverride?: number | null
+  genre?: string | null
+  genreOverride?: string | null
+  metadataEditedAt?: Date | string | null
+  tagsJson?: string | null
+  artworkKind?: string | null
+  artworkMime?: string | null
+  artworkHash?: string | null
+  lyricsKind?: string | null
+  lyricsHash?: string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  transcodes?: Prisma.TranscodeCacheCreateNestedManyWithoutTrackInput
+}
+
+export type TrackUncheckedCreateWithoutPlanItemsInput = {
+  id: string
+  path: string
+  dirPath: string
+  filename: string
+  fileSize: number
+  mtimeMs: bigint | number
+  container: string
+  durationMs: number
+  bitrateKbps?: number | null
+  sampleRate?: number | null
+  bitDepth?: number | null
+  channels?: number | null
+  title?: string | null
+  titleOverride?: string | null
+  artist?: string | null
+  artistOverride?: string | null
+  album?: string | null
+  albumOverride?: string | null
+  albumArtist?: string | null
+  albumArtistOverride?: string | null
+  trackNo?: number | null
+  trackNoOverride?: number | null
+  discNo?: number | null
+  discNoOverride?: number | null
+  year?: number | null
+  yearOverride?: number | null
+  genre?: string | null
+  genreOverride?: string | null
+  metadataEditedAt?: Date | string | null
+  tagsJson?: string | null
+  artworkKind?: string | null
+  artworkMime?: string | null
+  artworkHash?: string | null
+  lyricsKind?: string | null
+  lyricsHash?: string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  transcodes?: Prisma.TranscodeCacheUncheckedCreateNestedManyWithoutTrackInput
+}
+
+export type TrackCreateOrConnectWithoutPlanItemsInput = {
+  where: Prisma.TrackWhereUniqueInput
+  create: Prisma.XOR<Prisma.TrackCreateWithoutPlanItemsInput, Prisma.TrackUncheckedCreateWithoutPlanItemsInput>
+}
+
+export type TrackUpsertWithoutPlanItemsInput = {
+  update: Prisma.XOR<Prisma.TrackUpdateWithoutPlanItemsInput, Prisma.TrackUncheckedUpdateWithoutPlanItemsInput>
+  create: Prisma.XOR<Prisma.TrackCreateWithoutPlanItemsInput, Prisma.TrackUncheckedCreateWithoutPlanItemsInput>
+  where?: Prisma.TrackWhereInput
+}
+
+export type TrackUpdateToOneWithWhereWithoutPlanItemsInput = {
+  where?: Prisma.TrackWhereInput
+  data: Prisma.XOR<Prisma.TrackUpdateWithoutPlanItemsInput, Prisma.TrackUncheckedUpdateWithoutPlanItemsInput>
+}
+
+export type TrackUpdateWithoutPlanItemsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  path?: Prisma.StringFieldUpdateOperationsInput | string
+  dirPath?: Prisma.StringFieldUpdateOperationsInput | string
+  filename?: Prisma.StringFieldUpdateOperationsInput | string
+  fileSize?: Prisma.IntFieldUpdateOperationsInput | number
+  mtimeMs?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
+  container?: Prisma.StringFieldUpdateOperationsInput | string
+  durationMs?: Prisma.IntFieldUpdateOperationsInput | number
+  bitrateKbps?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  sampleRate?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  bitDepth?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  channels?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  title?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  titleOverride?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  artist?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  artistOverride?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  album?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  albumOverride?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  albumArtist?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  albumArtistOverride?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  trackNo?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  trackNoOverride?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  discNo?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  discNoOverride?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  year?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  yearOverride?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  genre?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  genreOverride?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  metadataEditedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  tagsJson?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  artworkKind?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  artworkMime?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  artworkHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lyricsKind?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lyricsHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  transcodes?: Prisma.TranscodeCacheUpdateManyWithoutTrackNestedInput
+}
+
+export type TrackUncheckedUpdateWithoutPlanItemsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  path?: Prisma.StringFieldUpdateOperationsInput | string
+  dirPath?: Prisma.StringFieldUpdateOperationsInput | string
+  filename?: Prisma.StringFieldUpdateOperationsInput | string
+  fileSize?: Prisma.IntFieldUpdateOperationsInput | number
+  mtimeMs?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
+  container?: Prisma.StringFieldUpdateOperationsInput | string
+  durationMs?: Prisma.IntFieldUpdateOperationsInput | number
+  bitrateKbps?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  sampleRate?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  bitDepth?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  channels?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  title?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  titleOverride?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  artist?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  artistOverride?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  album?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  albumOverride?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  albumArtist?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  albumArtistOverride?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  trackNo?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  trackNoOverride?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  discNo?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  discNoOverride?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  year?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  yearOverride?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  genre?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  genreOverride?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  metadataEditedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  tagsJson?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  artworkKind?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  artworkMime?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  artworkHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lyricsKind?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lyricsHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  transcodes?: Prisma.TranscodeCacheUncheckedUpdateManyWithoutTrackNestedInput
 }
 
 export type TrackCreateWithoutTranscodesInput = {
@@ -1205,6 +1413,7 @@ export type TrackCreateWithoutTranscodesInput = {
   lyricsHash?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
+  planItems?: Prisma.PlanItemCreateNestedManyWithoutTrackInput
 }
 
 export type TrackUncheckedCreateWithoutTranscodesInput = {
@@ -1245,6 +1454,7 @@ export type TrackUncheckedCreateWithoutTranscodesInput = {
   lyricsHash?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
+  planItems?: Prisma.PlanItemUncheckedCreateNestedManyWithoutTrackInput
 }
 
 export type TrackCreateOrConnectWithoutTranscodesInput = {
@@ -1301,6 +1511,7 @@ export type TrackUpdateWithoutTranscodesInput = {
   lyricsHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  planItems?: Prisma.PlanItemUpdateManyWithoutTrackNestedInput
 }
 
 export type TrackUncheckedUpdateWithoutTranscodesInput = {
@@ -1341,6 +1552,7 @@ export type TrackUncheckedUpdateWithoutTranscodesInput = {
   lyricsHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  planItems?: Prisma.PlanItemUncheckedUpdateManyWithoutTrackNestedInput
 }
 
 
@@ -1350,10 +1562,12 @@ export type TrackUncheckedUpdateWithoutTranscodesInput = {
 
 export type TrackCountOutputType = {
   transcodes: number
+  planItems: number
 }
 
 export type TrackCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   transcodes?: boolean | TrackCountOutputTypeCountTranscodesArgs
+  planItems?: boolean | TrackCountOutputTypeCountPlanItemsArgs
 }
 
 /**
@@ -1371,6 +1585,13 @@ export type TrackCountOutputTypeDefaultArgs<ExtArgs extends runtime.Types.Extens
  */
 export type TrackCountOutputTypeCountTranscodesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   where?: Prisma.TranscodeCacheWhereInput
+}
+
+/**
+ * TrackCountOutputType without action
+ */
+export type TrackCountOutputTypeCountPlanItemsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.PlanItemWhereInput
 }
 
 
@@ -1413,6 +1634,7 @@ export type TrackSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = 
   createdAt?: boolean
   updatedAt?: boolean
   transcodes?: boolean | Prisma.Track$transcodesArgs<ExtArgs>
+  planItems?: boolean | Prisma.Track$planItemsArgs<ExtArgs>
   _count?: boolean | Prisma.TrackCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["track"]>
 
@@ -1539,6 +1761,7 @@ export type TrackSelectScalar = {
 export type TrackOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "path" | "dirPath" | "filename" | "fileSize" | "mtimeMs" | "container" | "durationMs" | "bitrateKbps" | "sampleRate" | "bitDepth" | "channels" | "title" | "titleOverride" | "artist" | "artistOverride" | "album" | "albumOverride" | "albumArtist" | "albumArtistOverride" | "trackNo" | "trackNoOverride" | "discNo" | "discNoOverride" | "year" | "yearOverride" | "genre" | "genreOverride" | "metadataEditedAt" | "tagsJson" | "artworkKind" | "artworkMime" | "artworkHash" | "lyricsKind" | "lyricsHash" | "createdAt" | "updatedAt", ExtArgs["result"]["track"]>
 export type TrackInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   transcodes?: boolean | Prisma.Track$transcodesArgs<ExtArgs>
+  planItems?: boolean | Prisma.Track$planItemsArgs<ExtArgs>
   _count?: boolean | Prisma.TrackCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type TrackIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {}
@@ -1548,6 +1771,7 @@ export type $TrackPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs 
   name: "Track"
   objects: {
     transcodes: Prisma.$TranscodeCachePayload<ExtArgs>[]
+    planItems: Prisma.$PlanItemPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
@@ -1982,6 +2206,7 @@ readonly fields: TrackFieldRefs;
 export interface Prisma__TrackClient<T, Null = never, ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
   readonly [Symbol.toStringTag]: "PrismaPromise"
   transcodes<T extends Prisma.Track$transcodesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Track$transcodesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$TranscodeCachePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  planItems<T extends Prisma.Track$planItemsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Track$planItemsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$PlanItemPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -2460,6 +2685,30 @@ export type Track$transcodesArgs<ExtArgs extends runtime.Types.Extensions.Intern
   take?: number
   skip?: number
   distinct?: Prisma.TranscodeCacheScalarFieldEnum | Prisma.TranscodeCacheScalarFieldEnum[]
+}
+
+/**
+ * Track.planItems
+ */
+export type Track$planItemsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the PlanItem
+   */
+  select?: Prisma.PlanItemSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the PlanItem
+   */
+  omit?: Prisma.PlanItemOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.PlanItemInclude<ExtArgs> | null
+  where?: Prisma.PlanItemWhereInput
+  orderBy?: Prisma.PlanItemOrderByWithRelationInput | Prisma.PlanItemOrderByWithRelationInput[]
+  cursor?: Prisma.PlanItemWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.PlanItemScalarFieldEnum | Prisma.PlanItemScalarFieldEnum[]
 }
 
 /**

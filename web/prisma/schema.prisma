@@ -27,6 +27,7 @@ model User {
   accounts      Account[]
 
   role          UserRole  @default(user)
+  plans         Plan[]
 
   @@unique([email])
   @@map("user")
@@ -148,12 +149,59 @@ model Track {
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
   transcodes         TranscodeCache[]
+  planItems          PlanItem[]
 
   @@index([dirPath], map: "idx_tracks_dir_path")
   @@index([album, albumArtist], map: "idx_tracks_album")
   @@index([artist], map: "idx_tracks_artist")
   @@index([updatedAt], map: "idx_tracks_updated_at")
   @@map("tracks")
+}
+
+model Plan {
+  id                 String     @id
+  createdById        String
+  createdBy          User       @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  type               String
+  scopeJson          String
+  paramsJson         String
+  previewSummaryJson String?
+  warningsJson       String?
+  status             String
+  executionJobId     String?
+  previewedAt        DateTime?
+  confirmedAt        DateTime?
+  startedAt          DateTime?
+  completedAt        DateTime?
+  errorJson          String?
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
+  items              PlanItem[]
+
+  @@index([createdById, createdAt], map: "idx_plans_created_by")
+  @@index([status, updatedAt], map: "idx_plans_status_updated_at")
+  @@map("plans")
+}
+
+model PlanItem {
+  id          String   @id
+  planId      String
+  plan        Plan     @relation(fields: [planId], references: [id], onDelete: Cascade)
+  kind        String
+  trackId     String?
+  track       Track?   @relation(fields: [trackId], references: [id], onDelete: SetNull)
+  fromPath    String?
+  toPath      String?
+  tagDiffJson String?
+  warningsJson String?
+  status      String
+  errorJson   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([planId, status], map: "idx_plan_items_plan_status")
+  @@index([trackId], map: "idx_plan_items_track_id")
+  @@map("plan_items")
 }
 
 model TranscodeCache {

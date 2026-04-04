@@ -20,6 +20,7 @@ import {
   HardDriveDownloadIcon,
   LayoutDashboardIcon,
   MenuIcon,
+  RouteIcon,
   SlidersHorizontalIcon,
 } from "lucide-react";
 
@@ -32,6 +33,7 @@ type NavItem = {
 const NAV_ITEMS: NavItem[] = [
   { title: "概览", href: "/admin", icon: LayoutDashboardIcon },
   { title: "Jobs", href: "/admin/jobs", icon: BriefcaseIcon },
+  { title: "Plans", href: "/admin/plans", icon: RouteIcon },
   { title: "音乐库", href: "/admin/library", icon: FolderIcon },
   { title: "缓存", href: "/admin/cache", icon: HardDriveDownloadIcon },
   { title: "设置", href: "/admin/settings", icon: SlidersHorizontalIcon },

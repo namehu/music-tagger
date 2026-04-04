@@ -58,6 +58,8 @@ export const ModelName = {
   AdminSettings: 'AdminSettings',
   Job: 'Job',
   Track: 'Track',
+  Plan: 'Plan',
+  PlanItem: 'PlanItem',
   TranscodeCache: 'TranscodeCache',
   PlaybackResolveEvent: 'PlaybackResolveEvent'
 } as const
@@ -204,6 +206,46 @@ export const TrackScalarFieldEnum = {
 } as const
 
 export type TrackScalarFieldEnum = (typeof TrackScalarFieldEnum)[keyof typeof TrackScalarFieldEnum]
+
+
+export const PlanScalarFieldEnum = {
+  id: 'id',
+  createdById: 'createdById',
+  type: 'type',
+  scopeJson: 'scopeJson',
+  paramsJson: 'paramsJson',
+  previewSummaryJson: 'previewSummaryJson',
+  warningsJson: 'warningsJson',
+  status: 'status',
+  executionJobId: 'executionJobId',
+  previewedAt: 'previewedAt',
+  confirmedAt: 'confirmedAt',
+  startedAt: 'startedAt',
+  completedAt: 'completedAt',
+  errorJson: 'errorJson',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type PlanScalarFieldEnum = (typeof PlanScalarFieldEnum)[keyof typeof PlanScalarFieldEnum]
+
+
+export const PlanItemScalarFieldEnum = {
+  id: 'id',
+  planId: 'planId',
+  kind: 'kind',
+  trackId: 'trackId',
+  fromPath: 'fromPath',
+  toPath: 'toPath',
+  tagDiffJson: 'tagDiffJson',
+  warningsJson: 'warningsJson',
+  status: 'status',
+  errorJson: 'errorJson',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type PlanItemScalarFieldEnum = (typeof PlanItemScalarFieldEnum)[keyof typeof PlanItemScalarFieldEnum]
 
 
 export const TranscodeCacheScalarFieldEnum = {

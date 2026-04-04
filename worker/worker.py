@@ -11,6 +11,7 @@ from typing import Optional
 # 因此使用同目录导入（避免要求 worker/ 作为带 __init__.py 的包）。
 from jobs import claim_next_job, heartbeat, mark_done, mark_failed, update_progress
 from jobs import cancel_duplicate_pending_jobs, mark_cancelled, should_continue
+from plan_executor import execute_plan
 from scanner import scan_full
 from transcoder import JobCancelled, transcode_prepare
 
@@ -156,6 +157,16 @@ def _handle_job(
                 conn,
                 payload,
                 cache_root=cache_root,
+                on_progress=lambda progress: update_progress(conn, job_id, worker_id, progress),
+                should_continue=lambda: should_continue(conn, job_id, worker_id),
+            )
+            mark_done(conn, job_id, worker_id)
+            return
+
+        if job_type == "plan_execute":
+            execute_plan(
+                conn,
+                payload,
                 on_progress=lambda progress: update_progress(conn, job_id, worker_id, progress),
                 should_continue=lambda: should_continue(conn, job_id, worker_id),
             )

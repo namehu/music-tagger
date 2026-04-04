@@ -11,6 +11,7 @@ export type ParsedJobPayload = {
   profile?: string;
   sourcePath?: string;
   sourceMtimeMs?: number;
+  planId?: string;
 };
 
 export function parseJobPayload(payloadJson: string | null | undefined): ParsedJobPayload | null {
@@ -46,6 +47,10 @@ export function getJobDisplayName(jobType: string, payloadJson: string | null | 
     return "转码缓存准备";
   }
 
+  if (jobType === "plan_execute") {
+    return payload?.planId ? `执行 Plan: ${payload.planId}` : "执行 Plan";
+  }
+
   return jobType;
 }
 
@@ -60,6 +65,10 @@ export function getJobScopeText(jobType: string, payloadJson: string | null | un
     const profile = payload?.profile ? `档位 ${payload.profile}` : "转码任务";
     const sourcePath = payload?.sourcePath ?? null;
     return sourcePath ? `${profile} · ${sourcePath}` : profile;
+  }
+
+  if (jobType === "plan_execute") {
+    return payload?.planId ? `Plan ${payload.planId}` : payload?.jobKey ?? "Plan 执行任务";
   }
 
   return payload?.jobKey ?? "无附加信息";
