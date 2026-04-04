@@ -54,6 +54,7 @@
 
 ## 关键文档
 
+- Agent 快速切入指南：[`AGENT.md`](./AGENT.md)
 - 系统架构说明：[`docs/architecture.md`](./docs/architecture.md)
 - 当前系统基线：[`docs/baseline/product-baseline.md`](./docs/baseline/product-baseline.md)
 - 当前能力矩阵：[`docs/baseline/module-baseline-current-capabilities.md`](./docs/baseline/module-baseline-current-capabilities.md)
