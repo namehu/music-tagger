@@ -21,6 +21,7 @@
 - 首次管理员初始化
 - better-auth 登录与角色控制
 - 登录后用户区入口：`/dashboard`、`/library`、`/playlists`、`/ignored-tracks`
+- 用户首页聚合：继续收听、最近播放、最近更新歌单、最近更新曲目
 - `scan_full` 后台任务
 - SQLite 曲库索引与 FTS 搜索
 - 全局原始音频播放
@@ -73,6 +74,7 @@ flowchart LR
   - 渲染用户区与管理区 UI
   - 通过 better-auth 处理登录态
   - 通过 tRPC 提供业务控制面
+  - 通过 `library.dashboard` 聚合用户首页数据
   - 通过 Prisma 直接读写 SQLite
   - 通过 Route Handler 输出支持 `Range` 的音频流
 - Worker：

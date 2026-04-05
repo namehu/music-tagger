@@ -17,6 +17,7 @@ test("getPlaybackModeLabel formats all supported modes", () => {
 test("getPlaybackQueueLabel formats known queue sources", () => {
   assert.equal(getPlaybackQueueLabel("user-library"), "当前队列：音乐库");
   assert.equal(getPlaybackQueueLabel("admin-library"), "当前队列：管理曲库");
+  assert.equal(getPlaybackQueueLabel("dashboard:recent-plays"), "当前队列：最近播放");
   assert.equal(getPlaybackQueueLabel("playlist:123"), "当前队列：歌单");
   assert.equal(getPlaybackQueueLabel(null), "未绑定播放队列");
 });

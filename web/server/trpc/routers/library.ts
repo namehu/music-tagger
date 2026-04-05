@@ -7,6 +7,7 @@ import {
   getTranscodeCancellationCategoryLabel,
   getTranscodeFailureCategoryLabel,
 } from "@/lib/transcode-failure";
+import { selectRecentUniqueTrackPlays } from "@/lib/library-dashboard";
 import { doesCacheFileExist, removeCacheFile } from "@/lib/transcode-cache";
 import { TRACK_VISIBILITY_SURFACES } from "@/lib/ignored-tracks";
 
@@ -56,71 +57,233 @@ const libraryStatsInputSchema = z
   })
   .optional();
 
+function buildUserVisibleTrackWhere(userId: string, extraWhere?: Prisma.TrackWhereInput): Prisma.TrackWhereInput {
+  return {
+    ...extraWhere,
+    globalIgnoredEntry: {
+      is: null,
+    },
+    userIgnoredEntries: {
+      none: {
+        userId,
+      },
+    },
+  };
+}
+
+function serializeDashboardTrack(input: {
+  id: string;
+  filename: string;
+  title: string | null;
+  titleOverride: string | null;
+  artist: string | null;
+  artistOverride: string | null;
+  album: string | null;
+  albumOverride: string | null;
+  updatedAt: Date;
+}) {
+  return {
+    id: input.id,
+    title: input.titleOverride ?? input.title ?? input.filename,
+    artist: input.artistOverride ?? input.artist ?? "未知艺人",
+    album: input.albumOverride ?? input.album ?? null,
+    updatedAt: input.updatedAt,
+  };
+}
+
+async function getLibraryStatsForSurface(input: {
+  ctx: Parameters<Parameters<typeof protectedProcedure.query>[0]>[0]["ctx"];
+  userId: string;
+  surface: (typeof TRACK_VISIBILITY_SURFACES)[number];
+}) {
+  const ignoreJoinClause =
+    input.surface === "admin"
+      ? Prisma.sql`
+          LEFT JOIN "global_ignored_tracks" AS git
+            ON git."trackId" = t."id"
+        `
+      : Prisma.sql`
+          LEFT JOIN "global_ignored_tracks" AS git
+            ON git."trackId" = t."id"
+          LEFT JOIN "user_ignored_tracks" AS uit
+            ON uit."trackId" = t."id"
+           AND uit."userId" = ${input.userId}
+        `;
+  const visibilityFilter =
+    input.surface === "admin"
+      ? Prisma.sql`AND git."id" IS NULL`
+      : Prisma.sql`AND git."id" IS NULL AND uit."id" IS NULL`;
+
+  const [tracksRow, albumsRow, artistsRow] = await Promise.all([
+    input.ctx.prisma.$queryRaw<Array<{ count: number }>>(Prisma.sql`
+      SELECT COUNT(*) AS "count"
+      FROM "tracks" AS t
+      ${ignoreJoinClause}
+      WHERE 1 = 1
+        ${visibilityFilter}
+    `),
+    input.ctx.prisma.$queryRaw<Array<{ count: number }>>(Prisma.sql`
+      SELECT COUNT(*) AS "count"
+      FROM (
+        SELECT DISTINCT
+          COALESCE(t."albumOverride", t."album") AS "album",
+          COALESCE(t."albumArtistOverride", t."albumArtist") AS "albumArtist"
+        FROM "tracks" AS t
+        ${ignoreJoinClause}
+        WHERE COALESCE(t."albumOverride", t."album") IS NOT NULL
+          AND COALESCE(t."albumOverride", t."album") != ''
+          ${visibilityFilter}
+      )
+    `),
+    input.ctx.prisma.$queryRaw<Array<{ count: number }>>(Prisma.sql`
+      SELECT COUNT(*) AS "count"
+      FROM (
+        SELECT DISTINCT COALESCE(t."artistOverride", t."artist") AS "artist"
+        FROM "tracks" AS t
+        ${ignoreJoinClause}
+        WHERE COALESCE(t."artistOverride", t."artist") IS NOT NULL
+          AND COALESCE(t."artistOverride", t."artist") != ''
+          ${visibilityFilter}
+      )
+    `),
+  ]);
+
+  return {
+    tracks: toSafeNumber(tracksRow[0]?.count),
+    albums: toSafeNumber(albumsRow[0]?.count),
+    artists: toSafeNumber(artistsRow[0]?.count),
+  };
+}
+
 export const libraryRouter = router({
+  dashboard: protectedProcedure.query(async ({ ctx }) => {
+    const userId = ctx.session?.user?.id;
+    if (!userId) {
+      throw new Error("需要登录");
+    }
+
+    const [stats, recentEvents, recentPlaylists, recentTracks] = await Promise.all([
+      getLibraryStatsForSurface({ ctx, userId, surface: "user" }),
+      ctx.prisma.playbackResolveEvent.findMany({
+        where: {
+          trackId: {
+            not: null,
+          },
+        },
+        orderBy: [
+          { createdAt: "desc" },
+          { id: "desc" },
+        ],
+        take: 60,
+        select: {
+          trackId: true,
+          createdAt: true,
+        },
+      }),
+      ctx.prisma.playlist.findMany({
+        where: { userId },
+        orderBy: [
+          { updatedAt: "desc" },
+          { createdAt: "desc" },
+        ],
+        take: 5,
+        select: {
+          id: true,
+          name: true,
+          updatedAt: true,
+          _count: {
+            select: {
+              items: true,
+            },
+          },
+        },
+      }),
+      ctx.prisma.track.findMany({
+        where: buildUserVisibleTrackWhere(userId),
+        orderBy: [
+          { updatedAt: "desc" },
+          { id: "desc" },
+        ],
+        take: 6,
+        select: {
+          id: true,
+          filename: true,
+          title: true,
+          titleOverride: true,
+          artist: true,
+          artistOverride: true,
+          album: true,
+          albumOverride: true,
+          updatedAt: true,
+        },
+      }),
+    ]);
+
+    const recentUniquePlays = selectRecentUniqueTrackPlays(recentEvents, 18);
+    const recentPlayTracks = await ctx.prisma.track.findMany({
+      where: buildUserVisibleTrackWhere(userId, {
+        id: {
+          in: recentUniquePlays.map((entry) => entry.trackId),
+        },
+      }),
+      select: {
+        id: true,
+        filename: true,
+        title: true,
+        titleOverride: true,
+        artist: true,
+        artistOverride: true,
+      },
+    });
+    const recentPlayTrackMap = new Map(
+      recentPlayTracks.map((track) => [
+        track.id,
+        {
+          trackId: track.id,
+          title: track.titleOverride ?? track.title ?? track.filename,
+          artist: track.artistOverride ?? track.artist ?? "未知艺人",
+        },
+      ]),
+    );
+    const recentPlays = recentUniquePlays
+      .map((entry) => {
+        const track = recentPlayTrackMap.get(entry.trackId);
+        if (!track) {
+          return null;
+        }
+
+        return {
+          ...track,
+          playedAt: entry.playedAt,
+        };
+      })
+      .filter((entry) => entry !== null)
+      .slice(0, 6);
+
+    return {
+      stats,
+      recentPlays,
+      recentPlaylists: recentPlaylists.map((playlist) => ({
+        id: playlist.id,
+        name: playlist.name,
+        itemCount: playlist._count.items,
+        updatedAt: playlist.updatedAt,
+      })),
+      recentTracks: recentTracks.map(serializeDashboardTrack),
+    };
+  }),
+
   stats: protectedProcedure.input(libraryStatsInputSchema).query(async ({ ctx, input }) => {
     const userId = ctx.session?.user?.id;
     if (!userId) {
       throw new Error("需要登录");
     }
 
-    const surface = input?.surface ?? "user";
-    const ignoreJoinClause =
-      surface === "admin"
-        ? Prisma.sql`
-            LEFT JOIN "global_ignored_tracks" AS git
-              ON git."trackId" = t."id"
-          `
-        : Prisma.sql`
-            LEFT JOIN "global_ignored_tracks" AS git
-              ON git."trackId" = t."id"
-            LEFT JOIN "user_ignored_tracks" AS uit
-              ON uit."trackId" = t."id"
-             AND uit."userId" = ${userId}
-          `;
-    const visibilityFilter =
-      surface === "admin"
-        ? Prisma.sql`AND git."id" IS NULL`
-        : Prisma.sql`AND git."id" IS NULL AND uit."id" IS NULL`;
-
-    const [tracksRow, albumsRow, artistsRow] = await Promise.all([
-      ctx.prisma.$queryRaw<Array<{ count: number }>>(Prisma.sql`
-        SELECT COUNT(*) AS "count"
-        FROM "tracks" AS t
-        ${ignoreJoinClause}
-        WHERE 1 = 1
-          ${visibilityFilter}
-      `),
-      ctx.prisma.$queryRaw<Array<{ count: number }>>(Prisma.sql`
-        SELECT COUNT(*) AS "count"
-        FROM (
-          SELECT DISTINCT
-            COALESCE(t."albumOverride", t."album") AS "album",
-            COALESCE(t."albumArtistOverride", t."albumArtist") AS "albumArtist"
-          FROM "tracks" AS t
-          ${ignoreJoinClause}
-          WHERE COALESCE(t."albumOverride", t."album") IS NOT NULL
-            AND COALESCE(t."albumOverride", t."album") != ''
-            ${visibilityFilter}
-        )
-      `),
-      ctx.prisma.$queryRaw<Array<{ count: number }>>(Prisma.sql`
-        SELECT COUNT(*) AS "count"
-        FROM (
-          SELECT DISTINCT COALESCE(t."artistOverride", t."artist") AS "artist"
-          FROM "tracks" AS t
-          ${ignoreJoinClause}
-          WHERE COALESCE(t."artistOverride", t."artist") IS NOT NULL
-            AND COALESCE(t."artistOverride", t."artist") != ''
-            ${visibilityFilter}
-        )
-      `),
-    ]);
-
-    return {
-      tracks: toSafeNumber(tracksRow[0]?.count),
-      albums: toSafeNumber(albumsRow[0]?.count),
-      artists: toSafeNumber(artistsRow[0]?.count),
-    };
+    return getLibraryStatsForSurface({
+      ctx,
+      userId,
+      surface: input?.surface ?? "user",
+    });
   }),
 
   cacheOverview: adminProcedure.query(async ({ ctx }) => {

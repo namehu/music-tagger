@@ -49,12 +49,13 @@ export function GlobalPlayer() {
   const setMuted = usePlaybackStore((state) => state.setMuted);
   const clearPendingResumeTime = usePlaybackStore((state) => state.clearPendingResumeTime);
   const setPlaybackMode = usePlaybackStore((state) => state.setPlaybackMode);
-  const audioRef = React.useRef<HTMLAudioElement | null>(null);
-
-  React.useEffect(() => {
-    bindAudioElement(audioRef.current);
-    return () => bindAudioElement(null);
-  }, [bindAudioElement]);
+  const attachAudioElement = React.useCallback(
+    (audio: HTMLAudioElement | null) => {
+      // audio 标签在 resolve 成功后才会真正挂载，使用 callback ref 才能把最新 DOM 节点同步进 store。
+      bindAudioElement(audio);
+    },
+    [bindAudioElement],
+  );
 
   const restoreMessage = getPlaybackRestoreMessage({
     hydrationStatus,
@@ -167,7 +168,7 @@ export function GlobalPlayer() {
         {activePlayback ? (
           <audio
             key={activePlayback.url}
-            ref={audioRef}
+            ref={attachAudioElement}
             src={activePlayback.url}
             controls
             autoPlay={autoPlayOnReady}

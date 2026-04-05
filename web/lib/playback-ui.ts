@@ -35,6 +35,10 @@ export function getPlaybackQueueLabel(queueSourceKey: string | null) {
     return "当前队列：管理曲库";
   }
 
+  if (queueSourceKey === "dashboard:recent-plays") {
+    return "当前队列：最近播放";
+  }
+
   if (queueSourceKey.startsWith("playlist:")) {
     return "当前队列：歌单";
   }

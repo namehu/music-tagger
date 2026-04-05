@@ -4,6 +4,7 @@
 
 - 首次初始化管理员账号
 - 登录后进入用户音乐区：`/dashboard`、`/library`、`/playlists`、`/ignored-tracks`
+- 用户首页支持继续收听、最近播放、最近更新歌单和最近更新曲目
 - 触发与查看 `scan_full` 后台任务
 - 扫描本地音乐目录并写入 SQLite 索引
 - 在 Web 控制台浏览最小音乐库统计、曲目列表与全文搜索
@@ -84,11 +85,12 @@ pnpm prisma:studio
 
 1. 打开 `/setup` 创建首个管理员。
 2. 进入 `/admin` 或 `/admin/jobs` 触发 `scan_full`。
-3. 进入 `/library` 验证普通用户侧的浏览、播放与“我的忽略”链路。
-4. 进入 `/playlists` 创建个人歌单，并在歌单详情页加入曲目。
-5. 在底部全局播放器切换顺序 / 随机 / 单曲循环，刷新页面可恢复为暂停状态。
-6. 进入 `/ignored-tracks` 查看和解除自己的忽略曲目。
-7. 如需管理任务与策略，管理员可从右上角菜单进入 `/admin`。
-8. 在 `/admin/library`、`/admin/ignored-tracks`、`/admin/plans`、`/admin/cache`、`/admin/settings` 完成管理操作。
+3. 进入 `/dashboard` 查看继续收听、最近播放和最近更新歌单。
+4. 进入 `/library` 验证普通用户侧的浏览、播放与“我的忽略”链路。
+5. 进入 `/playlists` 创建个人歌单，并在歌单详情页加入曲目。
+6. 在底部全局播放器切换顺序 / 随机 / 单曲循环，刷新页面可恢复为暂停状态。
+7. 进入 `/ignored-tracks` 查看和解除自己的忽略曲目。
+8. 如需管理任务与策略，管理员可从右上角菜单进入 `/admin`。
+9. 在 `/admin/library`、`/admin/ignored-tracks`、`/admin/plans`、`/admin/cache`、`/admin/settings` 完成管理操作。
 
 更多细节见 [`web/README.md`](./web/README.md) 和 [`worker/README.md`](./worker/README.md)。

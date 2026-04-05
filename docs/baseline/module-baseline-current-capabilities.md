@@ -29,7 +29,7 @@ source_refs:
 | --- | --- | --- | --- | --- |
 | Setup / Auth | implemented | `/setup` `/sign-in` | `setup` router, better-auth models | 首个管理员初始化已落地 |
 | Jobs Queue | implemented | `/admin` `/admin/jobs` | `Job`, `jobs` router, `worker.py` | 已支持 scan 与转码任务 |
-| User Dashboard | partial | `/dashboard` | `library`, `playlists`, playback components | 当前是轻量入口页，不是完整首页模块 |
+| User Dashboard | implemented | `/dashboard` | `library.dashboard`, `playback` components, `PlaybackResolveEvent` | 已支持继续收听、最近播放、最近更新歌单和最近更新曲目 |
 | Library Browse | implemented | `/library` `/admin/library` | `tracks.list`, `library.stats`, `Track` | 用户区与管理区共享浏览/播放层 |
 | Metadata Override Editing | partial | `/admin/library` | `tracks.updateMetadata`, `Track` override fields | 仅支持数据库 override，不写回源文件 |
 | Playback Resolve | implemented | 全局播放器 | `playback.resolve`, `playback.getPreparationStatus`, `/api/stream/[trackId]` | 已支持原始与 `mp3_192`，并支持刷新后重新动态签发 |
