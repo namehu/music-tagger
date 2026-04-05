@@ -439,7 +439,7 @@ def execute_plan(
     if plan is None:
         raise RuntimeError("Plan 不存在")
 
-    if plan["type"] != "rename":
+    if plan["type"] not in {"rename", "tag_write"}:
         raise RuntimeError(f"Unsupported plan type: {plan['type']}")
 
     items = conn.execute(

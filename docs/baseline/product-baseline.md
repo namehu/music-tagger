@@ -76,6 +76,7 @@ source_refs:
 - 已支持 preview、confirm、execute 主链路
 - 已支持 `plan_execute` job 与 worker 执行器
 - 已支持 Plan 列表页与详情页
+- 已支持在详情页直接看到确认/执行条件与执行项状态摘要
 
 当前限制：
 

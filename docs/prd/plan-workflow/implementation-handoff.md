@@ -38,7 +38,7 @@
 1. 已在 Prisma schema 中引入 `Plan` 与 `PlanItem`，并补 migration。
 2. 已落 `plans` router 的读写与状态流转。
 3. 已实现 `/admin/plans` 与 `/admin/plans/[planId]` 的最小页面。
-4. 已在 worker 中引入 `plan_execute` dispatcher 和 executor。
+4. 已在 worker 中引入 `plan_execute` dispatcher 和 executor，并确认 `rename / tag_write` 都能进入执行分发。
 5. 当前保留跳转到 `/admin/jobs` 的人工排障入口；按 `planId` 深度联动作为后续增强。
 
 ## 4. v1 范围控制
@@ -55,7 +55,7 @@
   - 创建 draft plan
   - preview 成功生成 items
   - confirm 后状态冻结
-  - execute 后生成 `plan_execute` job 并进入 `done`
+  - `rename / tag_write` execute 后都能生成 `plan_execute` job 并进入 `done`
 - 权限失败：
   - 普通用户无法访问页面
   - 普通用户无法调用 `plans.*`
@@ -64,6 +64,7 @@
   - execute 阶段单个 item 失败
   - 重复 execute 不重复入队
 - 回归范围：
+  - `/admin/plans/[planId]` 的按钮禁用原因和动作提示
   - 现有 `/admin/library` 编辑功能
   - 现有 jobs 页面轮询
   - worker 对 `scan_full` 与 `transcode_prepare` 的既有处理

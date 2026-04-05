@@ -7,9 +7,13 @@ import { toast } from "sonner";
 
 import { trpc } from "@/app/_trpc/provider";
 import {
+  getPlanActionState,
+  getPlanExecutionCounts,
+  getPlanExecutionHint,
   getPlanStatusLabel,
   getPlanTypeLabel,
   type PlanItemStatus,
+  type PlanStatus,
 } from "@/lib/plans";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -122,6 +126,33 @@ export default function AdminPlanDetailPage() {
   const plan = planQuery.data;
   const items = itemsQuery.data ?? [];
   const planBadge = statusBadge(plan?.status ?? "draft");
+  const executionCounts = getPlanExecutionCounts(items.map((item) => item.status as PlanItemStatus));
+  const currentPlanStatus = (plan?.status ?? "draft") as PlanStatus;
+  const actionState = getPlanActionState({
+    status: currentPlanStatus,
+    previewedAt: plan?.previewedAt ?? null,
+    previewSummary:
+      plan?.previewSummary ?? {
+        sourceTrackCount: 0,
+        itemCount: 0,
+        warningCount: 0,
+        blockingCount: 0,
+      },
+    executionJobStatus: plan?.executionJob?.status ?? null,
+  });
+  const executionHint = getPlanExecutionHint({
+    status: currentPlanStatus,
+    previewSummary:
+      plan?.previewSummary ?? {
+        sourceTrackCount: 0,
+        itemCount: 0,
+        warningCount: 0,
+        blockingCount: 0,
+      },
+    executionJobStatus: plan?.executionJob?.status ?? null,
+    actionState,
+    counts: executionCounts,
+  });
 
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
@@ -141,22 +172,22 @@ export default function AdminPlanDetailPage() {
             type="button"
             variant="outline"
             onClick={() => previewPlan.mutate({ planId })}
-            disabled={!planId || previewPlan.isPending || plan?.status !== "draft"}
+            disabled={!planId || previewPlan.isPending || !actionState.canPreview}
           >
-            {previewPlan.isPending ? "生成中…" : "生成预览"}
+            {previewPlan.isPending ? "生成中…" : plan?.previewedAt ? "刷新预览" : "生成预览"}
           </Button>
           <Button
             type="button"
             variant="outline"
             onClick={() => confirmPlan.mutate({ planId })}
-            disabled={!planId || confirmPlan.isPending || plan?.status !== "draft"}
+            disabled={!planId || confirmPlan.isPending || !actionState.canConfirm}
           >
             {confirmPlan.isPending ? "确认中…" : "确认 Plan"}
           </Button>
           <Button
             type="button"
             onClick={() => executePlan.mutate({ planId })}
-            disabled={!planId || executePlan.isPending || (plan?.status !== "confirmed" && plan?.status !== "running")}
+            disabled={!planId || executePlan.isPending || !actionState.canExecute}
           >
             {executePlan.isPending ? "提交中…" : "执行 Plan"}
           </Button>
@@ -234,6 +265,20 @@ export default function AdminPlanDetailPage() {
               </div>
             </div>
 
+            <div className="rounded-lg border bg-muted/20 px-3 py-3 text-sm">
+              <div className="font-medium">当前动作提示</div>
+              <div className="mt-1 text-muted-foreground">{executionHint}</div>
+              <div className="mt-3 flex flex-wrap gap-2 text-xs text-muted-foreground">
+                <Badge variant="outline">pending {executionCounts.pending}</Badge>
+                <Badge variant="outline">running {executionCounts.running}</Badge>
+                <Badge variant="outline">done {executionCounts.done}</Badge>
+                <Badge variant={executionCounts.failed > 0 ? "destructive" : "outline"}>
+                  failed {executionCounts.failed}
+                </Badge>
+                <Badge variant="outline">skipped {executionCounts.skipped}</Badge>
+              </div>
+            </div>
+
             {plan?.warnings?.length ? (
               <div className="space-y-2">
                 <div className="text-sm font-medium">全局警告</div>
@@ -257,6 +302,18 @@ export default function AdminPlanDetailPage() {
             {plan?.errorMessage ? (
               <div className="rounded-lg border border-destructive/20 bg-destructive/5 px-3 py-2 text-sm">
                 {plan.errorMessage}
+              </div>
+            ) : null}
+
+            {!actionState.canConfirm && actionState.confirmReason ? (
+              <div className="rounded-lg border border-muted-foreground/20 bg-muted/20 px-3 py-2 text-sm text-muted-foreground">
+                确认条件：{actionState.confirmReason}
+              </div>
+            ) : null}
+
+            {!actionState.canExecute && actionState.executeReason ? (
+              <div className="rounded-lg border border-muted-foreground/20 bg-muted/20 px-3 py-2 text-sm text-muted-foreground">
+                执行条件：{actionState.executeReason}
               </div>
             ) : null}
 

@@ -238,3 +238,109 @@ export function getPlanStatusLabel(status: string) {
   if (status === "cancelled") return "cancelled";
   return status;
 }
+
+export type PlanActionState = {
+  canPreview: boolean;
+  previewReason: string | null;
+  canConfirm: boolean;
+  confirmReason: string | null;
+  canExecute: boolean;
+  executeReason: string | null;
+};
+
+export type PlanExecutionCounts = Record<PlanItemStatus, number> & {
+  total: number;
+};
+
+export function getPlanActionState(input: {
+  status: PlanStatus;
+  previewedAt: string | Date | null;
+  previewSummary: PlanPreviewSummary;
+  executionJobStatus: string | null;
+}): PlanActionState {
+  const canPreview = input.status === "draft";
+  const previewReason = canPreview ? null : "只有 draft 状态的 Plan 才能重新生成预览";
+
+  let confirmReason: string | null = null;
+  if (input.status !== "draft") {
+    confirmReason = "只有 draft 状态的 Plan 才能确认";
+  } else if (!input.previewedAt) {
+    confirmReason = "请先生成预览，再确认 Plan";
+  } else if (input.previewSummary.itemCount <= 0) {
+    confirmReason = "当前预览没有可执行项，不能确认";
+  } else if (input.previewSummary.blockingCount > 0) {
+    confirmReason = "当前预览包含阻断性警告，不能确认";
+  }
+
+  let executeReason: string | null = null;
+  if (input.executionJobStatus === "pending" || input.executionJobStatus === "running") {
+    executeReason = "当前已有进行中的执行任务";
+  } else if (input.status !== "confirmed") {
+    executeReason =
+      input.status === "running" ? "当前计划正在执行中" : "先确认 Plan，才能提交执行";
+  }
+
+  return {
+    canPreview,
+    previewReason,
+    canConfirm: confirmReason == null,
+    confirmReason,
+    canExecute: executeReason == null,
+    executeReason,
+  };
+}
+
+export function getPlanExecutionCounts(statuses: PlanItemStatus[]): PlanExecutionCounts {
+  const counts: PlanExecutionCounts = {
+    pending: 0,
+    running: 0,
+    done: 0,
+    failed: 0,
+    skipped: 0,
+    total: statuses.length,
+  };
+
+  for (const status of statuses) {
+    counts[status] += 1;
+  }
+
+  return counts;
+}
+
+export function getPlanExecutionHint(input: {
+  status: PlanStatus;
+  previewSummary: PlanPreviewSummary;
+  executionJobStatus: string | null;
+  actionState: PlanActionState;
+  counts: PlanExecutionCounts;
+}) {
+  if (input.status === "draft" && input.previewSummary.itemCount <= 0) {
+    return "先生成预览，确认本次计划会产生哪些变更。";
+  }
+
+  if (input.status === "draft" && input.previewSummary.blockingCount > 0) {
+    return "先处理阻断性警告，再确认 Plan。";
+  }
+
+  if (input.status === "confirmed") {
+    return "预览已经冻结，可以把这次计划提交给 worker 执行。";
+  }
+
+  if (input.executionJobStatus === "pending" || input.executionJobStatus === "running") {
+    return "执行任务仍在进行中，页面会自动刷新最新状态。";
+  }
+
+  if (input.status === "failed" || input.counts.failed > 0) {
+    return "执行已结束，但仍有失败项；先检查错误信息和 Jobs 日志。";
+  }
+
+  if (input.status === "done") {
+    return "本次计划已执行完成，可以继续创建下一批整理任务。";
+  }
+
+  if (!input.actionState.canExecute && input.actionState.executeReason) {
+    return input.actionState.executeReason;
+  }
+
+  return "当前计划会先预览、再确认、最后进入后台执行。";
+}
