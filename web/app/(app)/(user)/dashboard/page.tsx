@@ -20,7 +20,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import { usePlaybackStore } from "@/store/playback-store";
+import { usePlaybackSession, usePlaybackStore } from "@/store/playback-store";
 
 const DASHBOARD_RECENT_PLAYS_SOURCE_KEY = "dashboard:recent-plays";
 
@@ -35,10 +35,10 @@ function formatDateTime(value: string | Date | null | undefined) {
 
 export default function UserDashboardPage() {
   const dashboardQuery = trpc.library.dashboard.useQuery();
-  const activeTrackId = usePlaybackStore((state) => state.activeTrackId);
-  const pendingTrackId = usePlaybackStore((state) => state.pendingTrackId);
-  const isAudioPlaying = usePlaybackStore((state) => state.isAudioPlaying);
-  const queueSourceKey = usePlaybackStore((state) => state.queueSourceKey);
+  const activeTrackId = usePlaybackSession("user", (state) => state.activeTrackId);
+  const pendingTrackId = usePlaybackSession("user", (state) => state.pendingTrackId);
+  const isAudioPlaying = usePlaybackSession("user", (state) => state.isAudioPlaying);
+  const queueSourceKey = usePlaybackSession("user", (state) => state.queueSourceKey);
   const replaceQueueFromUserIntent = usePlaybackStore((state) => state.replaceQueueFromUserIntent);
   const requestPlayTrack = usePlaybackStore((state) => state.requestPlayTrack);
   const toggleTrack = usePlaybackStore((state) => state.toggleTrack);
@@ -115,6 +115,7 @@ export default function UserDashboardPage() {
 
       <div className="grid gap-4 xl:grid-cols-[1.25fr_0.75fr]">
         <CurrentPlaybackSummary
+          sessionKind="user"
           className="h-full"
           title="继续收听"
           description="当前播放和恢复状态会在这里集中显示，刷新后也会尽量回到你上次停下的位置。"
@@ -206,20 +207,20 @@ export default function UserDashboardPage() {
                       size="sm"
                       onClick={() => {
                         if (queueSourceKey !== DASHBOARD_RECENT_PLAYS_SOURCE_KEY) {
-                          replaceQueueFromUserIntent({
+                          replaceQueueFromUserIntent("user", {
                             tracks: recentPlayQueue,
                             sourceKey: DASHBOARD_RECENT_PLAYS_SOURCE_KEY,
                           });
-                          requestPlayTrack(playbackTrack);
+                          requestPlayTrack("user", playbackTrack);
                           return;
                         }
 
                         if (isActiveTrack) {
-                          toggleTrack(playbackTrack);
+                          toggleTrack("user", playbackTrack);
                           return;
                         }
 
-                        requestPlayTrack(playbackTrack);
+                        requestPlayTrack("user", playbackTrack);
                       }}
                     >
                       {isPendingTrack ? (

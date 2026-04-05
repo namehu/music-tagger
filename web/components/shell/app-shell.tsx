@@ -26,7 +26,7 @@ export function AppShell({
       <div className="flex min-h-full flex-col md:pl-64">
         <Topbar shellKind={shellKind} viewer={viewer} />
         <main className={cn("flex-1 p-4 md:p-6", className)}>{children}</main>
-        <GlobalPlayer />
+        <GlobalPlayer sessionKind={shellKind === "admin" ? "admin" : "user"} />
       </div>
     </div>
   );

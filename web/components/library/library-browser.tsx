@@ -14,7 +14,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { getPlaybackQueueLabel } from "@/lib/playback-ui";
 import { getTrackEditSummary } from "@/lib/track-edits";
 import { cn } from "@/lib/utils";
-import { usePlaybackStore, type PlaybackQueueTrack } from "@/store/playback-store";
+import {
+  usePlaybackSession,
+  usePlaybackStore,
+  type PlaybackQueueTrack,
+  type PlaybackSessionKind,
+} from "@/store/playback-store";
 
 type TrackOrder = "recent" | "title" | "artist";
 type EditedFilter = "all" | "edited" | "unedited";
@@ -45,6 +50,7 @@ function renderCell(primary: string | null | undefined, fallback: string) {
 
 export function LibraryBrowser({ mode }: { mode: LibraryBrowserMode }) {
   const isAdminMode = mode === "admin";
+  const sessionKind: PlaybackSessionKind = isAdminMode ? "admin" : "user";
   const utils = trpc.useUtils();
   const [search, setSearch] = React.useState("");
   const [order, setOrder] = React.useState<TrackOrder>("recent");
@@ -52,12 +58,12 @@ export function LibraryBrowser({ mode }: { mode: LibraryBrowserMode }) {
   const [editingTrackId, setEditingTrackId] = React.useState<string | null>(null);
   const deferredSearch = React.useDeferredValue(search);
   const query = deferredSearch.trim();
-  const activeTrackId = usePlaybackStore((state) => state.activeTrackId);
-  const pendingTrackId = usePlaybackStore((state) => state.pendingTrackId);
-  const isAudioPlaying = usePlaybackStore((state) => state.isAudioPlaying);
-  const isPreparing = usePlaybackStore((state) => state.isPreparing);
-  const queueSourceKey = usePlaybackStore((state) => state.queueSourceKey);
-  const hydrationStatus = usePlaybackStore((state) => state.hydrationStatus);
+  const activeTrackId = usePlaybackSession(sessionKind, (state) => state.activeTrackId);
+  const pendingTrackId = usePlaybackSession(sessionKind, (state) => state.pendingTrackId);
+  const isAudioPlaying = usePlaybackSession(sessionKind, (state) => state.isAudioPlaying);
+  const isPreparing = usePlaybackSession(sessionKind, (state) => state.isPreparing);
+  const queueSourceKey = usePlaybackSession(sessionKind, (state) => state.queueSourceKey);
+  const hydrationStatus = usePlaybackSession(sessionKind, (state) => state.hydrationStatus);
   const setQueue = usePlaybackStore((state) => state.setQueue);
   const replaceQueueFromUserIntent = usePlaybackStore((state) => state.replaceQueueFromUserIntent);
   const requestPlayTrack = usePlaybackStore((state) => state.requestPlayTrack);
@@ -113,14 +119,14 @@ export function LibraryBrowser({ mode }: { mode: LibraryBrowserMode }) {
       })),
     [currentTracks],
   );
-  const sourceKey = isAdminMode ? "admin-library" : "user-library";
+  const sourceKey = isAdminMode ? "admin:library" : "user-library";
 
   React.useEffect(() => {
-    setQueue({
+    setQueue(sessionKind, {
       tracks: playbackQueueTracks,
       sourceKey,
     });
-  }, [playbackQueueTracks, setQueue, sourceKey]);
+  }, [playbackQueueTracks, sessionKind, setQueue, sourceKey]);
 
   React.useEffect(() => {
     if (statsQuery.error) {
@@ -207,7 +213,7 @@ export function LibraryBrowser({ mode }: { mode: LibraryBrowserMode }) {
         <CardContent className="space-y-4 pt-4">
           <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
             <Badge variant="outline">{query.length > 0 ? `搜索: ${query}` : "全部曲目"}</Badge>
-            <Badge variant="outline">全局播放器</Badge>
+            <Badge variant="outline">{isAdminMode ? "管理试听队列" : "用户播放队列"}</Badge>
             <Badge variant={queueSourceKey === sourceKey ? "secondary" : "outline"}>
               {queueSourceKey === sourceKey ? "当前队列来自这个列表" : getPlaybackQueueLabel(queueSourceKey)}
             </Badge>
@@ -301,20 +307,20 @@ export function LibraryBrowser({ mode }: { mode: LibraryBrowserMode }) {
                           size="icon-sm"
                           onClick={() => {
                             if (queueSourceKey !== sourceKey) {
-                              replaceQueueFromUserIntent({
+                              replaceQueueFromUserIntent(sessionKind, {
                                 tracks: playbackQueueTracks,
                                 sourceKey,
                               });
-                              requestPlayTrack(playbackTrack);
+                              requestPlayTrack(sessionKind, playbackTrack);
                               return;
                             }
 
                             if (activeTrackId === track.id) {
-                              toggleTrack(playbackTrack);
+                              toggleTrack(sessionKind, playbackTrack);
                               return;
                             }
 
-                            requestPlayTrack(playbackTrack);
+                            requestPlayTrack(sessionKind, playbackTrack);
                           }}
                           aria-label={`播放 ${renderCell(track.title, track.filename)}`}
                         >

@@ -19,6 +19,7 @@ import {
   type PlaybackQueueTrack,
 } from "../lib/playback-state.ts";
 
+export type PlaybackSessionKind = "user" | "admin";
 export type PlaybackProfile = "original" | "mp3_192";
 export type PlaybackSourceKind = "original" | "transcode_cache";
 export type QueueReplaceReason = "initial_page_sync" | "user_intent";
@@ -37,7 +38,7 @@ type ResolveRequest = {
   resumeTimeSec: number | null;
 };
 
-type PersistedPlaybackState = {
+type PersistedPlaybackSessionState = {
   queue: PlaybackQueueTrack[];
   queueSourceKey: string | null;
   displayTrack: PlaybackQueueTrack | null;
@@ -49,7 +50,11 @@ type PersistedPlaybackState = {
   muted: boolean;
 };
 
-type PlaybackStoreState = PersistedPlaybackState & {
+type PersistedPlaybackStoreState = {
+  userSession: PersistedPlaybackSessionState;
+};
+
+type PlaybackSessionState = PersistedPlaybackSessionState & {
   activePlayback: ActivePlayback | null;
   pendingTrackId: string | null;
   preparingJobId: string | null;
@@ -64,39 +69,10 @@ type PlaybackStoreState = PersistedPlaybackState & {
   autoPlayOnReady: boolean;
   audioElement: HTMLAudioElement | null;
   requestSeq: number;
-  bindAudioElement: (audio: HTMLAudioElement | null) => void;
-  completeHydration: () => void;
-  restoreFromPersistedSession: () => void;
-  setQueue: (input: { tracks: PlaybackQueueTrack[]; sourceKey: string }) => void;
-  replaceQueueFromUserIntent: (input: { tracks: PlaybackQueueTrack[]; sourceKey: string }) => void;
-  setPlaybackMode: (mode: PlaybackMode) => void;
-  requestPlayTrack: (
-    track: PlaybackQueueTrack,
-    options?: {
-      profile?: PlaybackProfile;
-      autoPlay?: boolean;
-      resumeTimeSec?: number | null;
-      pushShuffleHistory?: boolean;
-    },
-  ) => void;
-  writeResolvePreparing: (input: { seq: number; jobId: string }) => void;
-  writeResolvedPlayback: (input: { seq: number; url: string }) => void;
-  handleResolveFailure: (input: { seq: number; message: string; clearSession?: boolean }) => void;
-  retryPreparingRequest: () => void;
-  handlePreparingFailure: (message: string) => void;
-  toggleTrack: (track: PlaybackQueueTrack) => void;
-  playPrevious: () => void;
-  playNext: () => void;
-  handleTrackEnded: () => void;
-  setPlaybackError: (message: string | null) => void;
-  setIsAudioPlaying: (value: boolean) => void;
-  syncProgressSnapshot: (currentTimeSec: number, force?: boolean) => void;
-  setVolume: (value: number) => void;
-  setMuted: (value: boolean) => void;
-  clearPendingResumeTime: () => void;
+  durationSec: number;
 };
 
-type PlaybackStoreComputed = {
+type PlaybackSessionComputed = {
   currentTrack: PlaybackQueueTrack | null;
   activeTrackId: string | null;
   activeTrackIndex: number;
@@ -108,10 +84,74 @@ type PlaybackStoreComputed = {
   isCurrentTrackInQueue: boolean;
 };
 
+type PlaybackStoreState = {
+  sessions: Record<PlaybackSessionKind, PlaybackSessionState>;
+  bindAudioElement: (sessionKind: PlaybackSessionKind, audio: HTMLAudioElement | null) => void;
+  completeHydration: (sessionKind: PlaybackSessionKind) => void;
+  restoreFromPersistedSession: (sessionKind: PlaybackSessionKind) => void;
+  setQueue: (
+    sessionKind: PlaybackSessionKind,
+    input: { tracks: PlaybackQueueTrack[]; sourceKey: string },
+  ) => void;
+  replaceQueueFromUserIntent: (
+    sessionKind: PlaybackSessionKind,
+    input: { tracks: PlaybackQueueTrack[]; sourceKey: string },
+  ) => void;
+  setPlaybackMode: (sessionKind: PlaybackSessionKind, mode: PlaybackMode) => void;
+  requestPlayTrack: (
+    sessionKind: PlaybackSessionKind,
+    track: PlaybackQueueTrack,
+    options?: {
+      profile?: PlaybackProfile;
+      autoPlay?: boolean;
+      resumeTimeSec?: number | null;
+      pushShuffleHistory?: boolean;
+    },
+  ) => void;
+  writeResolvePreparing: (
+    sessionKind: PlaybackSessionKind,
+    input: { seq: number; jobId: string },
+  ) => void;
+  writeResolvedPlayback: (
+    sessionKind: PlaybackSessionKind,
+    input: { seq: number; url: string },
+  ) => void;
+  handleResolveFailure: (
+    sessionKind: PlaybackSessionKind,
+    input: { seq: number; message: string; clearSession?: boolean },
+  ) => void;
+  retryPreparingRequest: (sessionKind: PlaybackSessionKind) => void;
+  handlePreparingFailure: (sessionKind: PlaybackSessionKind, message: string) => void;
+  toggleTrack: (sessionKind: PlaybackSessionKind, track: PlaybackQueueTrack) => void;
+  playPrevious: (sessionKind: PlaybackSessionKind) => void;
+  playNext: (sessionKind: PlaybackSessionKind) => void;
+  handleTrackEnded: (sessionKind: PlaybackSessionKind) => void;
+  stopSession: (sessionKind: PlaybackSessionKind) => void;
+  pauseSession: (sessionKind: PlaybackSessionKind) => void;
+  pauseOtherSessionOnStart: (sessionKind: PlaybackSessionKind) => void;
+  setPlaybackError: (sessionKind: PlaybackSessionKind, message: string | null) => void;
+  setIsAudioPlaying: (sessionKind: PlaybackSessionKind, value: boolean) => void;
+  syncProgressSnapshot: (
+    sessionKind: PlaybackSessionKind,
+    currentTimeSec: number,
+    force?: boolean,
+  ) => void;
+  setDurationSec: (sessionKind: PlaybackSessionKind, value: number) => void;
+  setVolume: (sessionKind: PlaybackSessionKind, value: number) => void;
+  setMuted: (sessionKind: PlaybackSessionKind, value: boolean) => void;
+  clearPendingResumeTime: (sessionKind: PlaybackSessionKind) => void;
+};
+
+type PlaybackStoreComputed = {
+  sessionComputed: Record<PlaybackSessionKind, PlaybackSessionComputed>;
+};
+
+export type PlaybackSessionSnapshot = PlaybackSessionState & PlaybackSessionComputed;
 export type PlaybackStore = PlaybackStoreState & PlaybackStoreComputed;
 
-const PLAYBACK_STORAGE_KEY = "music-tagger:playback-session:v1";
+const PLAYBACK_STORAGE_KEY = "music-tagger:playback-session:v2";
 const PROGRESS_PERSIST_INTERVAL_SEC = 2;
+const SESSION_KINDS: PlaybackSessionKind[] = ["user", "admin"];
 
 const noopStorage: StateStorage = {
   getItem: () => null,
@@ -128,6 +168,14 @@ function clampVolume(value: number) {
 }
 
 function normalizeResumeTime(value: number | null | undefined) {
+  if (typeof value !== "number" || !Number.isFinite(value) || value < 0) {
+    return 0;
+  }
+
+  return value;
+}
+
+function normalizeDuration(value: number | null | undefined) {
   if (typeof value !== "number" || !Number.isFinite(value) || value < 0) {
     return 0;
   }
@@ -155,65 +203,8 @@ function getAudioErrorMessage(audio: HTMLAudioElement | null) {
   }
 }
 
-function computePlaybackState(state: PlaybackStoreState): PlaybackStoreComputed {
-  const currentTrack = getCurrentTrackFromState(state);
-  const activeTrackId = currentTrack?.id ?? null;
-  const activeTrackIndex = getQueueTrackIndex(state.queue, activeTrackId);
-  const orderedPreviousTrack = getOrderedPreviousTrack(state.queue, activeTrackId);
-  const orderedNextTrack = getOrderedNextTrack(state.queue, activeTrackId);
-  const isCurrentTrackInQueue = activeTrackIndex >= 0;
-
+function createInitialSessionState(sessionKind: PlaybackSessionKind): PlaybackSessionState {
   return {
-    currentTrack,
-    activeTrackId,
-    activeTrackIndex,
-    previousTrack: state.playbackMode === "shuffle" ? getShufflePreviousTrack(state.shuffleHistory) : orderedPreviousTrack,
-    nextTrack: state.playbackMode === "shuffle" ? null : orderedNextTrack,
-    canPlayPrevious:
-      state.playbackMode === "shuffle" ? state.shuffleHistory.length > 0 : Boolean(orderedPreviousTrack),
-    canPlayNext:
-      !isCurrentTrackInQueue
-        ? false
-        : state.playbackMode === "shuffle"
-          ? state.queue.length > 1
-          : Boolean(orderedNextTrack),
-    isPreparing: Boolean(state.preparingJobId),
-    isCurrentTrackInQueue,
-  };
-}
-
-function getCurrentTrackFromState(state: PlaybackStoreState) {
-  return state.displayTrack ?? (state.activePlayback ? state.activePlayback : null);
-}
-
-function getActiveTrackIdFromState(state: PlaybackStoreState) {
-  return getCurrentTrackFromState(state)?.id ?? null;
-}
-
-function isCurrentTrackInQueueFromState(state: PlaybackStoreState) {
-  return getQueueTrackIndex(state.queue, getActiveTrackIdFromState(state)) >= 0;
-}
-
-function getBrowserStorage() {
-  return typeof window !== "undefined" ? window.localStorage : noopStorage;
-}
-
-function buildPersistedState(state: PlaybackStore): PersistedPlaybackState {
-  return {
-    queue: state.queue,
-    queueSourceKey: state.queueSourceKey,
-    displayTrack: state.displayTrack,
-    currentProfile: state.currentProfile,
-    playbackMode: state.playbackMode,
-    shuffleHistory: state.shuffleHistory,
-    resumeTimeSec: state.resumeTimeSec,
-    volume: state.volume,
-    muted: state.muted,
-  };
-}
-
-export function createPlaybackStoreApi(storage?: StateStorage, random = Math.random) {
-  const baseCreator = ((set, get) => ({
     queue: [],
     queueSourceKey: null,
     displayTrack: null,
@@ -230,188 +221,365 @@ export function createPlaybackStoreApi(storage?: StateStorage, random = Math.ran
     currentSourceKind: null,
     isAudioPlaying: false,
     playbackError: null,
-    hydrationStatus: "rehydrating",
+    hydrationStatus: sessionKind === "user" ? "rehydrating" : "ready",
     resumeLock: false,
     resolveRequest: null,
     pendingResumeTimeSec: null,
     autoPlayOnReady: false,
     audioElement: null,
     requestSeq: 0,
-    bindAudioElement: (audio) => {
-      set({
-        audioElement: audio,
-      });
+    durationSec: 0,
+  };
+}
+
+function getCurrentTrackFromSession(session: PlaybackSessionState) {
+  return session.displayTrack ?? (session.activePlayback ? session.activePlayback : null);
+}
+
+function getActiveTrackIdFromSession(session: PlaybackSessionState) {
+  return getCurrentTrackFromSession(session)?.id ?? null;
+}
+
+function isCurrentTrackInQueueFromSession(session: PlaybackSessionState) {
+  return getQueueTrackIndex(session.queue, getActiveTrackIdFromSession(session)) >= 0;
+}
+
+function computeSessionState(
+  session: PlaybackSessionState,
+  sessionKind: PlaybackSessionKind,
+): PlaybackSessionComputed {
+  const currentTrack = getCurrentTrackFromSession(session);
+  const activeTrackId = currentTrack?.id ?? null;
+  const activeTrackIndex = getQueueTrackIndex(session.queue, activeTrackId);
+  const orderedPreviousTrack = getOrderedPreviousTrack(session.queue, activeTrackId);
+  const orderedNextTrack = getOrderedNextTrack(session.queue, activeTrackId);
+  const isCurrentTrackInQueue = activeTrackIndex >= 0;
+  const usesShuffle = sessionKind === "user" && session.playbackMode === "shuffle";
+
+  return {
+    currentTrack,
+    activeTrackId,
+    activeTrackIndex,
+    previousTrack: usesShuffle ? getShufflePreviousTrack(session.shuffleHistory) : orderedPreviousTrack,
+    nextTrack: usesShuffle ? null : orderedNextTrack,
+    canPlayPrevious: usesShuffle ? session.shuffleHistory.length > 0 : Boolean(orderedPreviousTrack),
+    canPlayNext:
+      !isCurrentTrackInQueue
+        ? false
+        : usesShuffle
+          ? session.queue.length > 1
+          : Boolean(orderedNextTrack),
+    isPreparing: Boolean(session.preparingJobId),
+    isCurrentTrackInQueue,
+  };
+}
+
+function computePlaybackState(state: PlaybackStoreState): PlaybackStoreComputed {
+  return {
+    sessionComputed: {
+      user: computeSessionState(state.sessions.user, "user"),
+      admin: computeSessionState(state.sessions.admin, "admin"),
+    },
+  };
+}
+
+function getBrowserStorage() {
+  return typeof window !== "undefined" ? window.localStorage : noopStorage;
+}
+
+function buildPersistedSessionState(session: PlaybackSessionState): PersistedPlaybackSessionState {
+  return {
+    queue: session.queue,
+    queueSourceKey: session.queueSourceKey,
+    displayTrack: session.displayTrack,
+    currentProfile: session.currentProfile,
+    playbackMode: session.playbackMode,
+    shuffleHistory: session.shuffleHistory,
+    resumeTimeSec: session.resumeTimeSec,
+    volume: session.volume,
+    muted: session.muted,
+  };
+}
+
+function buildSessionUpdate(
+  current: PlaybackStoreState,
+  sessionKind: PlaybackSessionKind,
+  partial: Partial<PlaybackSessionState>,
+) {
+  return {
+    sessions: {
+      ...current.sessions,
+      [sessionKind]: {
+        ...current.sessions[sessionKind],
+        ...partial,
+      },
+    },
+  };
+}
+
+function getOtherSessionKind(sessionKind: PlaybackSessionKind): PlaybackSessionKind {
+  return sessionKind === "user" ? "admin" : "user";
+}
+
+function getPlaybackSessionSnapshot(
+  state: PlaybackStore,
+  sessionKind: PlaybackSessionKind,
+): PlaybackSessionSnapshot {
+  return {
+    ...state.sessions[sessionKind],
+    ...state.sessionComputed[sessionKind],
+  };
+}
+
+export function createPlaybackStoreApi(storage?: StateStorage, random = Math.random) {
+  const baseCreator = ((set, get) => ({
+    sessions: {
+      user: createInitialSessionState("user"),
+      admin: createInitialSessionState("admin"),
+    },
+    bindAudioElement: (sessionKind, audio) => {
+      set((current) => buildSessionUpdate(current, sessionKind, { audioElement: audio }));
 
       if (audio) {
-        audio.volume = clampVolume(get().volume);
-        audio.muted = get().muted;
+        const session = get().sessions[sessionKind];
+        audio.volume = clampVolume(session.volume);
+        audio.muted = session.muted;
       }
     },
-    completeHydration: () => {
-      set({
-        hydrationStatus: "ready",
-        resumeLock: false,
-      });
+    completeHydration: (sessionKind) => {
+      set((current) =>
+        buildSessionUpdate(current, sessionKind, {
+          hydrationStatus: "ready",
+          resumeLock: false,
+        }),
+      );
     },
-    restoreFromPersistedSession: () => {
-      const state = get();
-      const currentTrack = getCurrentTrackFromState(state);
-      if (!currentTrack || !state.currentProfile) {
-        state.completeHydration();
+    restoreFromPersistedSession: (sessionKind) => {
+      if (sessionKind !== "user") {
+        get().completeHydration(sessionKind);
+        return;
+      }
+
+      const session = get().sessions.user;
+      const currentTrack = getCurrentTrackFromSession(session);
+      if (!currentTrack || !session.currentProfile) {
+        get().completeHydration("user");
         return;
       }
 
       // 恢复链路需要先锁住被动 queue 同步，避免页面挂载时把 localStorage 里的会话上下文冲掉。
-      set((current) => ({
-        hydrationStatus: "resolving",
-        resumeLock: true,
-        pendingTrackId: currentTrack.id,
-        preparingJobId: null,
-        preparingRequest: null,
-        activePlayback: null,
-        isAudioPlaying: false,
-        playbackError: null,
-        currentSourceKind: toSourceKind(state.currentProfile!),
-        resolveRequest: {
-          seq: current.requestSeq + 1,
-          track: currentTrack,
-          profile: state.currentProfile!,
-          autoPlay: false,
-          resumeTimeSec: state.resumeTimeSec > 0 ? state.resumeTimeSec : null,
-        },
-        requestSeq: current.requestSeq + 1,
-      }));
+      set((current) =>
+        buildSessionUpdate(current, "user", {
+          hydrationStatus: "resolving",
+          resumeLock: true,
+          pendingTrackId: currentTrack.id,
+          preparingJobId: null,
+          preparingRequest: null,
+          activePlayback: null,
+          isAudioPlaying: false,
+          playbackError: null,
+          currentSourceKind: toSourceKind(session.currentProfile!),
+          resolveRequest: {
+            seq: current.sessions.user.requestSeq + 1,
+            track: currentTrack,
+            profile: session.currentProfile!,
+            autoPlay: false,
+            resumeTimeSec: session.resumeTimeSec > 0 ? session.resumeTimeSec : null,
+          },
+          requestSeq: current.sessions.user.requestSeq + 1,
+        }),
+      );
     },
-    setQueue: ({ tracks, sourceKey }) => {
-      const state = get();
+    setQueue: (sessionKind, { tracks, sourceKey }) => {
+      const session = get().sessions[sessionKind];
       if (
         !shouldAcceptPassiveQueueUpdate({
-          hydrationStatus: state.hydrationStatus,
-          resumeLock: state.resumeLock,
-          currentTrackId: getActiveTrackIdFromState(state),
-          currentQueueSourceKey: state.queueSourceKey,
+          hydrationStatus: session.hydrationStatus,
+          resumeLock: session.resumeLock,
+          currentTrackId: getActiveTrackIdFromSession(session),
+          currentQueueSourceKey: session.queueSourceKey,
           nextQueueSourceKey: sourceKey,
         })
       ) {
         return;
       }
 
-      if (state.queueSourceKey === sourceKey && tracksEqual(state.queue, tracks)) {
+      if (session.queueSourceKey === sourceKey && tracksEqual(session.queue, tracks)) {
         return;
       }
 
-      set({
-        queue: tracks,
-        queueSourceKey: sourceKey,
-      });
+      set((current) =>
+        buildSessionUpdate(current, sessionKind, {
+          queue: tracks,
+          queueSourceKey: sourceKey,
+        }),
+      );
     },
-    replaceQueueFromUserIntent: ({ tracks, sourceKey }) => {
-      set({
-        queue: tracks,
-        queueSourceKey: sourceKey,
-        shuffleHistory: [],
-        resumeLock: false,
-        hydrationStatus: "ready",
-      });
+    replaceQueueFromUserIntent: (sessionKind, { tracks, sourceKey }) => {
+      set((current) =>
+        buildSessionUpdate(current, sessionKind, {
+          queue: tracks,
+          queueSourceKey: sourceKey,
+          shuffleHistory: [],
+          resumeLock: false,
+          hydrationStatus: "ready",
+        }),
+      );
     },
-    setPlaybackMode: (mode) => {
-      set({
-        playbackMode: mode,
-      });
+    setPlaybackMode: (sessionKind, mode) => {
+      if (sessionKind !== "user") {
+        return;
+      }
+
+      set((current) =>
+        buildSessionUpdate(current, sessionKind, {
+          playbackMode: mode,
+        }),
+      );
     },
-    requestPlayTrack: (track, options) => {
+    pauseOtherSessionOnStart: (sessionKind) => {
+      const otherSessionKind = getOtherSessionKind(sessionKind);
+      const otherSession = get().sessions[otherSessionKind];
+      const audio = otherSession.audioElement;
+      const nextProgress =
+        audio != null ? normalizeResumeTime(audio.currentTime) : otherSession.resumeTimeSec;
+
+      if (audio && !audio.paused) {
+        audio.pause();
+      }
+
+      set((current) =>
+        buildSessionUpdate(current, otherSessionKind, {
+          isAudioPlaying: false,
+          resumeTimeSec: nextProgress,
+        }),
+      );
+    },
+    requestPlayTrack: (sessionKind, track, options) => {
       const state = get();
+      const session = state.sessions[sessionKind];
       const profile = options?.profile ?? "mp3_192";
-      const currentTrack = getCurrentTrackFromState(state);
+      const currentTrack = getCurrentTrackFromSession(session);
       const activeTrackId = currentTrack?.id ?? null;
+      const usesShuffle = sessionKind === "user" && session.playbackMode === "shuffle";
       const pushShuffleHistory =
-        options?.pushShuffleHistory ?? (state.playbackMode === "shuffle" && activeTrackId !== track.id);
+        options?.pushShuffleHistory ?? (usesShuffle && activeTrackId !== track.id);
       const nextHistory =
         pushShuffleHistory && currentTrack && currentTrack.id !== track.id
-          ? [...state.shuffleHistory, currentTrack]
-          : state.shuffleHistory;
+          ? [...session.shuffleHistory, currentTrack]
+          : session.shuffleHistory;
 
-      state.audioElement?.pause();
+      state.pauseOtherSessionOnStart(sessionKind);
+      session.audioElement?.pause();
 
-      // 手动点播和切歌都会走同一条 resolve 请求链，runtime 只认 request seq，不依赖 React Context。
-      set((current) => ({
-        displayTrack: track,
-        activePlayback: null,
-        pendingTrackId: track.id,
-        preparingJobId: null,
-        preparingRequest: null,
-        currentProfile: profile,
-        currentSourceKind: toSourceKind(profile),
-        isAudioPlaying: false,
-        playbackError: null,
-        resolveRequest: {
-          seq: current.requestSeq + 1,
-          track,
-          profile,
-          autoPlay: options?.autoPlay ?? true,
-          resumeTimeSec: options?.resumeTimeSec ?? null,
-        },
-        requestSeq: current.requestSeq + 1,
-        pendingResumeTimeSec: null,
-        autoPlayOnReady: options?.autoPlay ?? true,
-        shuffleHistory: nextHistory,
-        resumeLock: false,
-        hydrationStatus: "ready",
-      }));
+      // 手动点播和切歌都会走同一条 resolve 请求链；区分 sessionKind 后，admin 试听也不会再覆盖用户会话。
+      set((current) =>
+        buildSessionUpdate(current, sessionKind, {
+          displayTrack: track,
+          activePlayback: null,
+          pendingTrackId: track.id,
+          preparingJobId: null,
+          preparingRequest: null,
+          currentProfile: profile,
+          currentSourceKind: toSourceKind(profile),
+          isAudioPlaying: false,
+          playbackError: null,
+          resolveRequest: {
+            seq: current.sessions[sessionKind].requestSeq + 1,
+            track,
+            profile,
+            autoPlay: options?.autoPlay ?? true,
+            resumeTimeSec: options?.resumeTimeSec ?? null,
+          },
+          requestSeq: current.sessions[sessionKind].requestSeq + 1,
+          pendingResumeTimeSec: null,
+          autoPlayOnReady: options?.autoPlay ?? true,
+          shuffleHistory: sessionKind === "user" ? nextHistory : [],
+          resumeLock: false,
+          hydrationStatus: "ready",
+          durationSec: 0,
+        }),
+      );
     },
-    writeResolvePreparing: ({ seq, jobId }) => {
-      const state = get();
-      const request = state.resolveRequest;
+    writeResolvePreparing: (sessionKind, { seq, jobId }) => {
+      const session = get().sessions[sessionKind];
+      const request = session.resolveRequest;
       if (!request || request.seq !== seq) {
         return;
       }
 
-      set({
-        preparingJobId: jobId,
-        preparingRequest: request,
-        resolveRequest: null,
-      });
+      set((current) =>
+        buildSessionUpdate(current, sessionKind, {
+          preparingJobId: jobId,
+          preparingRequest: request,
+          resolveRequest: null,
+        }),
+      );
     },
-    writeResolvedPlayback: ({ seq, url }) => {
-      const state = get();
-      const request = state.resolveRequest;
+    writeResolvedPlayback: (sessionKind, { seq, url }) => {
+      const session = get().sessions[sessionKind];
+      const request = session.resolveRequest;
       if (!request || request.seq !== seq) {
         return;
       }
 
-      set({
-        activePlayback: {
-          id: request.track.id,
-          title: request.track.title,
-          artist: request.track.artist,
-          url,
-          profile: request.profile,
-          sourceKind: toSourceKind(request.profile),
-        },
-        displayTrack: request.track,
-        pendingTrackId: null,
-        preparingJobId: null,
-        preparingRequest: null,
-        currentProfile: request.profile,
-        currentSourceKind: toSourceKind(request.profile),
-        resolveRequest: null,
-        pendingResumeTimeSec: request.resumeTimeSec,
-        autoPlayOnReady: request.autoPlay,
-        playbackError: null,
-        hydrationStatus: "ready",
-      });
+      set((current) =>
+        buildSessionUpdate(current, sessionKind, {
+          activePlayback: {
+            id: request.track.id,
+            title: request.track.title,
+            artist: request.track.artist,
+            url,
+            profile: request.profile,
+            sourceKind: toSourceKind(request.profile),
+          },
+          displayTrack: request.track,
+          pendingTrackId: null,
+          preparingJobId: null,
+          preparingRequest: null,
+          currentProfile: request.profile,
+          currentSourceKind: toSourceKind(request.profile),
+          resolveRequest: null,
+          pendingResumeTimeSec: request.resumeTimeSec,
+          autoPlayOnReady: request.autoPlay,
+          playbackError: null,
+          hydrationStatus: "ready",
+        }),
+      );
     },
-    handleResolveFailure: ({ seq, message, clearSession = false }) => {
-      const state = get();
-      const activeRequest = state.resolveRequest;
+    handleResolveFailure: (sessionKind, { seq, message, clearSession = false }) => {
+      const session = get().sessions[sessionKind];
+      const activeRequest = session.resolveRequest;
       if (activeRequest && activeRequest.seq !== seq) {
         return;
       }
 
       if (clearSession) {
-        set({
-          displayTrack: null,
-          activePlayback: null,
+        set((current) =>
+          buildSessionUpdate(current, sessionKind, {
+            displayTrack: null,
+            activePlayback: null,
+            pendingTrackId: null,
+            preparingJobId: null,
+            preparingRequest: null,
+            currentProfile: null,
+            currentSourceKind: null,
+            resolveRequest: null,
+            pendingResumeTimeSec: null,
+            autoPlayOnReady: false,
+            resumeTimeSec: 0,
+            playbackError: message,
+            hydrationStatus: "ready",
+            resumeLock: false,
+            isAudioPlaying: false,
+            durationSec: 0,
+          }),
+        );
+        return;
+      }
+
+      set((current) =>
+        buildSessionUpdate(current, sessionKind, {
           pendingTrackId: null,
           preparingJobId: null,
           preparingRequest: null,
@@ -420,154 +588,148 @@ export function createPlaybackStoreApi(storage?: StateStorage, random = Math.ran
           resolveRequest: null,
           pendingResumeTimeSec: null,
           autoPlayOnReady: false,
-          resumeTimeSec: 0,
           playbackError: message,
           hydrationStatus: "ready",
-          resumeLock: false,
-          isAudioPlaying: false,
-        });
-        return;
-      }
-
-      set({
-        pendingTrackId: null,
-        preparingJobId: null,
-        preparingRequest: null,
-        currentProfile: null,
-        currentSourceKind: null,
-        resolveRequest: null,
-        pendingResumeTimeSec: null,
-        autoPlayOnReady: false,
-        playbackError: message,
-        hydrationStatus: "ready",
-      });
+        }),
+      );
     },
-    retryPreparingRequest: () => {
-      const state = get();
-      const request = state.preparingRequest;
+    retryPreparingRequest: (sessionKind) => {
+      const session = get().sessions[sessionKind];
+      const request = session.preparingRequest;
       if (!request) {
         return;
       }
 
-      set((current) => ({
-        preparingJobId: null,
-        preparingRequest: null,
-        resolveRequest: {
-          ...request,
-          seq: current.requestSeq + 1,
-        },
-        requestSeq: current.requestSeq + 1,
-      }));
+      set((current) =>
+        buildSessionUpdate(current, sessionKind, {
+          preparingJobId: null,
+          preparingRequest: null,
+          resolveRequest: {
+            ...request,
+            seq: current.sessions[sessionKind].requestSeq + 1,
+          },
+          requestSeq: current.sessions[sessionKind].requestSeq + 1,
+        }),
+      );
     },
-    handlePreparingFailure: (message) => {
-      const state = get();
-      if (state.resumeLock) {
-        state.handleResolveFailure({
-          seq: state.preparingRequest?.seq ?? state.requestSeq,
+    handlePreparingFailure: (sessionKind, message) => {
+      const session = get().sessions[sessionKind];
+      if (session.resumeLock) {
+        get().handleResolveFailure(sessionKind, {
+          seq: session.preparingRequest?.seq ?? session.requestSeq,
           message,
           clearSession: true,
         });
         return;
       }
 
-      set({
-        pendingTrackId: null,
-        preparingJobId: null,
-        preparingRequest: null,
-        currentProfile: null,
-        currentSourceKind: null,
-        playbackError: message,
-        hydrationStatus: "ready",
-      });
+      set((current) =>
+        buildSessionUpdate(current, sessionKind, {
+          pendingTrackId: null,
+          preparingJobId: null,
+          preparingRequest: null,
+          currentProfile: null,
+          currentSourceKind: null,
+          playbackError: message,
+          hydrationStatus: "ready",
+        }),
+      );
     },
-    toggleTrack: (track) => {
+    toggleTrack: (sessionKind, track) => {
       const state = get();
-      const audio = state.audioElement;
-      const activeTrackId = getActiveTrackIdFromState(state);
+      const session = state.sessions[sessionKind];
+      const audio = session.audioElement;
+      const activeTrackId = getActiveTrackIdFromSession(session);
 
       if (activeTrackId !== track.id) {
-        state.requestPlayTrack(track, { pushShuffleHistory: true });
+        state.requestPlayTrack(sessionKind, track, { pushShuffleHistory: true });
         return;
       }
 
-      if (state.pendingTrackId === track.id || !audio || !state.activePlayback) {
+      if (session.pendingTrackId === track.id || !audio || !session.activePlayback) {
         return;
       }
 
       if (audio.paused) {
+        state.pauseOtherSessionOnStart(sessionKind);
         void audio.play().catch(() => {
-          state.setPlaybackError(getAudioErrorMessage(audio));
+          state.setPlaybackError(sessionKind, getAudioErrorMessage(audio));
         });
         return;
       }
 
       audio.pause();
     },
-    playPrevious: () => {
+    playPrevious: (sessionKind) => {
       const state = get();
-      const activeTrackId = getActiveTrackIdFromState(state);
+      const session = state.sessions[sessionKind];
+      const activeTrackId = getActiveTrackIdFromSession(session);
 
-      if (state.playbackMode === "shuffle") {
-        const previousTrack = getShufflePreviousTrack(state.shuffleHistory);
+      if (sessionKind === "user" && session.playbackMode === "shuffle") {
+        const previousTrack = getShufflePreviousTrack(session.shuffleHistory);
         if (!previousTrack) {
           return;
         }
 
         // shuffle 的上一首依赖真实播放历史，所以回退时要同步弹出历史栈，而不是重新推入当前曲目。
-        set({
-          shuffleHistory: state.shuffleHistory.slice(0, -1),
-        });
-        state.requestPlayTrack(previousTrack, {
+        set((current) =>
+          buildSessionUpdate(current, sessionKind, {
+            shuffleHistory: session.shuffleHistory.slice(0, -1),
+          }),
+        );
+        state.requestPlayTrack(sessionKind, previousTrack, {
           pushShuffleHistory: false,
         });
         return;
       }
 
-      const previousTrack = getOrderedPreviousTrack(state.queue, activeTrackId);
+      const previousTrack = getOrderedPreviousTrack(session.queue, activeTrackId);
       if (previousTrack) {
-        state.requestPlayTrack(previousTrack, {
+        state.requestPlayTrack(sessionKind, previousTrack, {
           pushShuffleHistory: false,
         });
       }
     },
-    playNext: () => {
+    playNext: (sessionKind) => {
       const state = get();
-      const activeTrackId = getActiveTrackIdFromState(state);
-      if (!isCurrentTrackInQueueFromState(state)) {
+      const session = state.sessions[sessionKind];
+      const activeTrackId = getActiveTrackIdFromSession(session);
+      if (!isCurrentTrackInQueueFromSession(session)) {
         return;
       }
 
-      if (state.playbackMode === "shuffle") {
+      if (sessionKind === "user" && session.playbackMode === "shuffle") {
         const nextTrack = pickShuffleNextTrack({
-          queue: state.queue,
+          queue: session.queue,
           trackId: activeTrackId,
           random,
         });
         if (nextTrack) {
-          state.requestPlayTrack(nextTrack, {
+          state.requestPlayTrack(sessionKind, nextTrack, {
             pushShuffleHistory: true,
           });
         }
         return;
       }
 
-      const nextTrack = getOrderedNextTrack(state.queue, activeTrackId);
+      const nextTrack = getOrderedNextTrack(session.queue, activeTrackId);
       if (nextTrack) {
-        state.requestPlayTrack(nextTrack, {
+        state.requestPlayTrack(sessionKind, nextTrack, {
           pushShuffleHistory: false,
         });
       }
     },
-    handleTrackEnded: () => {
+    handleTrackEnded: (sessionKind) => {
       const state = get();
-      const currentTrack = getCurrentTrackFromState(state);
+      const session = state.sessions[sessionKind];
+      const currentTrack = getCurrentTrackFromSession(session);
       if (!currentTrack) {
         return;
       }
 
-      if (state.playbackMode === "repeat_one") {
-        // 单曲循环只影响自然播放结束；手动上一首/下一首仍然走普通切歌逻辑。
-        state.requestPlayTrack(currentTrack, {
+      if (sessionKind === "user" && session.playbackMode === "repeat_one") {
+        // 单曲循环只影响自然播放结束；admin 试听保持线性，不参与用户侧模式语义。
+        state.requestPlayTrack(sessionKind, currentTrack, {
           autoPlay: true,
           resumeTimeSec: 0,
           pushShuffleHistory: false,
@@ -575,87 +737,156 @@ export function createPlaybackStoreApi(storage?: StateStorage, random = Math.ran
         return;
       }
 
-      state.playNext();
+      state.playNext(sessionKind);
     },
-    setPlaybackError: (message) => {
-      set({
-        playbackError: message,
-      });
+    stopSession: (sessionKind) => {
+      const session = get().sessions[sessionKind];
+      const audio = session.audioElement;
+      if (audio) {
+        audio.pause();
+        audio.currentTime = 0;
+      }
+
+      set((current) =>
+        buildSessionUpdate(current, sessionKind, {
+          isAudioPlaying: false,
+          resumeTimeSec: 0,
+          pendingResumeTimeSec: null,
+          autoPlayOnReady: false,
+          durationSec: normalizeDuration(audio?.duration),
+        }),
+      );
     },
-    setIsAudioPlaying: (value) => {
-      set({
-        isAudioPlaying: value,
-      });
+    pauseSession: (sessionKind) => {
+      const session = get().sessions[sessionKind];
+      const audio = session.audioElement;
+      const nextProgress =
+        audio != null ? normalizeResumeTime(audio.currentTime) : session.resumeTimeSec;
+      if (audio && !audio.paused) {
+        audio.pause();
+      }
+
+      set((current) =>
+        buildSessionUpdate(current, sessionKind, {
+          isAudioPlaying: false,
+          resumeTimeSec: nextProgress,
+        }),
+      );
     },
-    syncProgressSnapshot: (currentTimeSec, force = false) => {
+    setPlaybackError: (sessionKind, message) => {
+      set((current) =>
+        buildSessionUpdate(current, sessionKind, {
+          playbackError: message,
+        }),
+      );
+    },
+    setIsAudioPlaying: (sessionKind, value) => {
+      set((current) =>
+        buildSessionUpdate(current, sessionKind, {
+          isAudioPlaying: value,
+        }),
+      );
+    },
+    syncProgressSnapshot: (sessionKind, currentTimeSec, force = false) => {
       const normalized = normalizeResumeTime(currentTimeSec);
-      const state = get();
-      if (!force && Math.abs(state.resumeTimeSec - normalized) < PROGRESS_PERSIST_INTERVAL_SEC) {
+      const session = get().sessions[sessionKind];
+      if (!force && Math.abs(session.resumeTimeSec - normalized) < PROGRESS_PERSIST_INTERVAL_SEC) {
         return;
       }
 
-      set({
-        resumeTimeSec: normalized,
-      });
+      set((current) =>
+        buildSessionUpdate(current, sessionKind, {
+          resumeTimeSec: normalized,
+        }),
+      );
     },
-    setVolume: (value) => {
+    setDurationSec: (sessionKind, value) => {
+      set((current) =>
+        buildSessionUpdate(current, sessionKind, {
+          durationSec: normalizeDuration(value),
+        }),
+      );
+    },
+    setVolume: (sessionKind, value) => {
       const nextVolume = clampVolume(value);
-      const audio = get().audioElement;
+      const audio = get().sessions[sessionKind].audioElement;
       if (audio) {
         audio.volume = nextVolume;
       }
 
-      set({
-        volume: nextVolume,
-      });
+      set((current) =>
+        buildSessionUpdate(current, sessionKind, {
+          volume: nextVolume,
+        }),
+      );
     },
-    setMuted: (value) => {
-      const audio = get().audioElement;
+    setMuted: (sessionKind, value) => {
+      const audio = get().sessions[sessionKind].audioElement;
       if (audio) {
         audio.muted = value;
       }
 
-      set({
-        muted: value,
-      });
+      set((current) =>
+        buildSessionUpdate(current, sessionKind, {
+          muted: value,
+        }),
+      );
     },
-    clearPendingResumeTime: () => {
-      set({
-        pendingResumeTimeSec: null,
-        autoPlayOnReady: true,
-      });
+    clearPendingResumeTime: (sessionKind) => {
+      set((current) =>
+        buildSessionUpdate(current, sessionKind, {
+          pendingResumeTimeSec: null,
+          autoPlayOnReady: true,
+        }),
+      );
     },
-  })) as StateCreator<PlaybackStoreState, [["zustand/persist", PersistedPlaybackState]], [], PlaybackStoreState>;
+  })) as StateCreator<
+    PlaybackStoreState,
+    [["zustand/persist", PersistedPlaybackStoreState]],
+    [],
+    PlaybackStoreState
+  >;
 
   const computedCreator = createComputed<PlaybackStoreState, PlaybackStoreComputed>(computePlaybackState, {
-        keys: [
-          "queue",
-          "displayTrack",
-          "activePlayback",
-          "playbackMode",
-          "shuffleHistory",
-          "preparingJobId",
-          "currentProfile",
-        ],
-      })(baseCreator as never) as unknown as StateCreator<PlaybackStore, [], [], PlaybackStore>;
+    keys: ["sessions"],
+  })(baseCreator as never) as unknown as StateCreator<PlaybackStore, [], [], PlaybackStore>;
 
   return createStore<PlaybackStore>()(
-    persist(
-      computedCreator,
-      {
-        name: PLAYBACK_STORAGE_KEY,
-        storage: createJSONStorage(() => storage ?? getBrowserStorage()),
-        partialize: buildPersistedState,
-        onRehydrateStorage: () => (state) => {
-          if (!state) {
-            return;
-          }
+    persist(computedCreator, {
+      name: PLAYBACK_STORAGE_KEY,
+      storage: createJSONStorage(() => storage ?? getBrowserStorage()),
+      partialize: (state) => ({
+        userSession: buildPersistedSessionState(state.sessions.user),
+      }),
+      merge: (persistedState, currentState) => {
+        const persisted = persistedState as Partial<PersistedPlaybackStoreState>;
+        if (!persisted.userSession) {
+          return currentState;
+        }
 
-          state.bindAudioElement(null);
-          state.restoreFromPersistedSession();
-        },
+        return {
+          ...currentState,
+          sessions: {
+            ...currentState.sessions,
+            user: {
+              ...currentState.sessions.user,
+              ...persisted.userSession,
+            },
+          },
+        };
       },
-    ),
+      onRehydrateStorage: () => (state) => {
+        if (!state) {
+          return;
+        }
+
+        SESSION_KINDS.forEach((sessionKind) => {
+          state.bindAudioElement(sessionKind, null);
+        });
+        state.restoreFromPersistedSession("user");
+        state.completeHydration("admin");
+      },
+    }),
   );
 }
 
@@ -665,8 +896,23 @@ export function usePlaybackStore<T>(selector: (state: PlaybackStore) => T) {
   return useStore(playbackStore, selector);
 }
 
+export function usePlaybackSession<T>(
+  sessionKind: PlaybackSessionKind,
+  selector: (state: PlaybackSessionSnapshot) => T,
+) {
+  return useStore(playbackStore, (state) => selector(getPlaybackSessionSnapshot(state, sessionKind)));
+}
+
 export function getPlaybackStoreState() {
   return playbackStore.getState();
+}
+
+export function getPlaybackSessionState(sessionKind: PlaybackSessionKind) {
+  return getPlaybackSessionSnapshot(playbackStore.getState(), sessionKind);
+}
+
+export function getPlaybackAudioErrorMessage(audio: HTMLAudioElement | null) {
+  return getAudioErrorMessage(audio);
 }
 
 export function getGlobalPlaybackErrorMessage(audio: HTMLAudioElement | null) {

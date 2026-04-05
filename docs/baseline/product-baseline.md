@@ -62,14 +62,17 @@ source_refs:
 - `/api/stream/[trackId]` 已支持 `Range`
 - 已有播放解析事件和缓存命中/未命中记录
 - 前端播放状态已迁到 `zustand` 全局 store
+- 已拆成 `user` 持续播放会话与 `admin` 临时试听会话
 - 已支持把当前浏览器内的队列、曲目、模式、进度、音量持久化到 `localStorage`
 - 已支持刷新后重新动态签发播放 URL，并恢复到暂停状态
+- 已支持播放详情读取接口与普通登录用户可访问的封面读取接口，播放器详情层可显示封面与歌词
 - 已有缓存概览、异常识别、清理与策略配置
 
 当前限制：
 
-- 当前恢复只覆盖单浏览器，不做数据库持久化或多设备同步
+- 当前恢复只覆盖单浏览器的用户侧会话，不做数据库持久化或多设备同步
 - 刷新恢复后默认暂停，不自动续播
+- admin 试听不做持久化恢复，只用于当前管理会话
 
 ### 3.5 Track Editing Sync
 
@@ -133,7 +136,7 @@ source_refs:
 - 已有 Dashboard shell
 - 已有 `/admin`、`/admin/jobs`、`/admin/library`、`/admin/ignored-tracks`、`/admin/cache`、`/admin/settings`
 - 已有 `/admin/plans`、`/admin/plans/[planId]`
-- 已有全局播放器与当前播放摘要
+- 已有 admin 最小试听条与 admin 当前试听摘要
 - 已有用户区 shell：`/dashboard`、`/library`、`/playlists`、`/ignored-tracks`
 - `/admin/jobs` 当前已按“编辑同步”与“扫描/转码/其他任务”分区，编辑同步失败会优先显示结构化结论与建议动作
 
@@ -175,6 +178,7 @@ source_refs:
 - `/api/trpc/[trpc]`
 - `/api/setup/create-admin`
 - `/api/admin/tracks/[trackId]/cover`
+- `/api/tracks/[trackId]/cover`
 - `/api/stream/[trackId]`
 
 其中 `/api/stream/[trackId]` 是当前唯一必须处理 `Range` 的业务流媒体接口，不能被普通 tRPC 调用替代。

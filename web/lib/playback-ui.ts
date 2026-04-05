@@ -31,7 +31,7 @@ export function getPlaybackQueueLabel(queueSourceKey: string | null) {
     return "当前队列：音乐库";
   }
 
-  if (queueSourceKey === "admin-library") {
+  if (queueSourceKey === "admin:library") {
     return "当前队列：管理曲库";
   }
 

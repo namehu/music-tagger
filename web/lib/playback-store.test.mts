@@ -3,7 +3,7 @@ import test from "node:test";
 
 import { createPlaybackStoreApi, type PlaybackQueueTrack } from "../store/playback-store.ts";
 
-const PLAYBACK_STORAGE_KEY = "music-tagger:playback-session:v1";
+const PLAYBACK_STORAGE_KEY = "music-tagger:playback-session:v2";
 
 function createTrack(id: string): PlaybackQueueTrack {
   return {
@@ -42,15 +42,17 @@ function createPersistedSession(input: {
 }) {
   return JSON.stringify({
     state: {
-      queue: input.queue,
-      queueSourceKey: input.queueSourceKey,
-      displayTrack: input.displayTrack,
-      currentProfile: input.currentProfile ?? "mp3_192",
-      playbackMode: input.playbackMode ?? "ordered",
-      shuffleHistory: input.shuffleHistory ?? [],
-      resumeTimeSec: input.resumeTimeSec ?? 42,
-      volume: input.volume ?? 1,
-      muted: input.muted ?? false,
+      userSession: {
+        queue: input.queue,
+        queueSourceKey: input.queueSourceKey,
+        displayTrack: input.displayTrack,
+        currentProfile: input.currentProfile ?? "mp3_192",
+        playbackMode: input.playbackMode ?? "ordered",
+        shuffleHistory: input.shuffleHistory ?? [],
+        resumeTimeSec: input.resumeTimeSec ?? 42,
+        volume: input.volume ?? 1,
+        muted: input.muted ?? false,
+      },
     },
     version: 0,
   });
@@ -63,8 +65,8 @@ function createStoreWithTracks() {
   const second = createTrack("2");
   const third = createTrack("3");
 
-  store.getState().completeHydration();
-  store.getState().replaceQueueFromUserIntent({
+  store.getState().completeHydration("user");
+  store.getState().replaceQueueFromUserIntent("user", {
     tracks: [first, second, third],
     sourceKey: "library",
   });
@@ -75,69 +77,69 @@ function createStoreWithTracks() {
 test("ordered mode keeps linear previous and next behavior", () => {
   const { store, first, second, third } = createStoreWithTracks();
 
-  store.getState().requestPlayTrack(second, { autoPlay: false });
-  store.getState().playPrevious();
-  assert.equal(store.getState().resolveRequest?.track.id, first.id);
+  store.getState().requestPlayTrack("user", second, { autoPlay: false });
+  store.getState().playPrevious("user");
+  assert.equal(store.getState().sessions.user.resolveRequest?.track.id, first.id);
 
-  store.getState().writeResolvedPlayback({
-    seq: store.getState().resolveRequest!.seq,
+  store.getState().writeResolvedPlayback("user", {
+    seq: store.getState().sessions.user.resolveRequest!.seq,
     url: "/stream/1",
   });
-  store.getState().playNext();
-  assert.equal(store.getState().resolveRequest?.track.id, second.id);
+  store.getState().playNext("user");
+  assert.equal(store.getState().sessions.user.resolveRequest?.track.id, second.id);
 
-  store.getState().writeResolvedPlayback({
-    seq: store.getState().resolveRequest!.seq,
+  store.getState().writeResolvedPlayback("user", {
+    seq: store.getState().sessions.user.resolveRequest!.seq,
     url: "/stream/2",
   });
-  store.getState().playNext();
-  assert.equal(store.getState().resolveRequest?.track.id, third.id);
+  store.getState().playNext("user");
+  assert.equal(store.getState().sessions.user.resolveRequest?.track.id, third.id);
 });
 
 test("shuffle mode uses history for previous track", () => {
   const { store, first, second } = createStoreWithTracks();
 
-  store.getState().setPlaybackMode("shuffle");
-  store.getState().requestPlayTrack(first, { autoPlay: false, pushShuffleHistory: false });
-  store.getState().writeResolvedPlayback({
-    seq: store.getState().resolveRequest!.seq,
+  store.getState().setPlaybackMode("user", "shuffle");
+  store.getState().requestPlayTrack("user", first, { autoPlay: false, pushShuffleHistory: false });
+  store.getState().writeResolvedPlayback("user", {
+    seq: store.getState().sessions.user.resolveRequest!.seq,
     url: "/stream/1",
   });
 
-  store.getState().requestPlayTrack(second, { autoPlay: false });
+  store.getState().requestPlayTrack("user", second, { autoPlay: false });
   assert.deepEqual(
-    store.getState().shuffleHistory.map((track) => track.id),
+    store.getState().sessions.user.shuffleHistory.map((track) => track.id),
     [first.id],
   );
 
-  store.getState().playPrevious();
-  assert.equal(store.getState().resolveRequest?.track.id, first.id);
-  assert.deepEqual(store.getState().shuffleHistory, []);
+  store.getState().playPrevious("user");
+  assert.equal(store.getState().sessions.user.resolveRequest?.track.id, first.id);
+  assert.deepEqual(store.getState().sessions.user.shuffleHistory, []);
 });
 
 test("repeat_one only affects natural track end", () => {
   const { store, first, second } = createStoreWithTracks();
 
-  store.getState().requestPlayTrack(first, { autoPlay: false });
-  store.getState().writeResolvedPlayback({
-    seq: store.getState().resolveRequest!.seq,
+  store.getState().requestPlayTrack("user", first, { autoPlay: false });
+  store.getState().writeResolvedPlayback("user", {
+    seq: store.getState().sessions.user.resolveRequest!.seq,
     url: "/stream/1",
   });
-  store.getState().setPlaybackMode("repeat_one");
+  store.getState().setPlaybackMode("user", "repeat_one");
 
-  store.getState().handleTrackEnded();
-  assert.equal(store.getState().resolveRequest?.track.id, first.id);
-  assert.equal(store.getState().resolveRequest?.autoPlay, true);
+  store.getState().handleTrackEnded("user");
+  assert.equal(store.getState().sessions.user.resolveRequest?.track.id, first.id);
+  assert.equal(store.getState().sessions.user.resolveRequest?.autoPlay, true);
 
-  store.getState().writeResolvedPlayback({
-    seq: store.getState().resolveRequest!.seq,
+  store.getState().writeResolvedPlayback("user", {
+    seq: store.getState().sessions.user.resolveRequest!.seq,
     url: "/stream/1b",
   });
-  store.getState().playNext();
-  assert.equal(store.getState().resolveRequest?.track.id, second.id);
+  store.getState().playNext("user");
+  assert.equal(store.getState().sessions.user.resolveRequest?.track.id, second.id);
 });
 
-test("restored sessions ignore passive queue sync until user intent replaces the queue", () => {
+test("restored user sessions ignore passive queue sync until user intent replaces the queue", () => {
   const first = createTrack("1");
   const second = createTrack("2");
   const restoredQueue = [first];
@@ -151,40 +153,40 @@ test("restored sessions ignore passive queue sync until user intent replaces the
   });
   const store = createPlaybackStoreApi(storage, () => 0);
 
-  assert.equal(store.getState().hydrationStatus, "resolving");
-  assert.equal(store.getState().resumeLock, true);
-  assert.equal(store.getState().queueSourceKey, "playlist:restored");
-  assert.equal(store.getState().resolveRequest?.track.id, first.id);
+  assert.equal(store.getState().sessions.user.hydrationStatus, "resolving");
+  assert.equal(store.getState().sessions.user.resumeLock, true);
+  assert.equal(store.getState().sessions.user.queueSourceKey, "playlist:restored");
+  assert.equal(store.getState().sessions.user.resolveRequest?.track.id, first.id);
 
-  store.getState().setQueue({
+  store.getState().setQueue("user", {
     tracks: replacementQueue,
     sourceKey: "library",
   });
-  assert.equal(store.getState().queueSourceKey, "playlist:restored");
-  assert.deepEqual(store.getState().queue.map((track) => track.id), [first.id]);
+  assert.equal(store.getState().sessions.user.queueSourceKey, "playlist:restored");
+  assert.deepEqual(store.getState().sessions.user.queue.map((track) => track.id), [first.id]);
 
-  store.getState().replaceQueueFromUserIntent({
+  store.getState().replaceQueueFromUserIntent("user", {
     tracks: replacementQueue,
     sourceKey: "library",
   });
-  assert.equal(store.getState().resumeLock, false);
-  assert.equal(store.getState().hydrationStatus, "ready");
-  assert.equal(store.getState().queueSourceKey, "library");
-  assert.deepEqual(store.getState().queue.map((track) => track.id), [second.id]);
+  assert.equal(store.getState().sessions.user.resumeLock, false);
+  assert.equal(store.getState().sessions.user.hydrationStatus, "ready");
+  assert.equal(store.getState().sessions.user.queueSourceKey, "library");
+  assert.deepEqual(store.getState().sessions.user.queue.map((track) => track.id), [second.id]);
 });
 
 test("passive queue sync still updates when the source key stays the same", () => {
   const { store, first, second, third } = createStoreWithTracks();
 
-  store.getState().requestPlayTrack(second, { autoPlay: false });
-  store.getState().setQueue({
+  store.getState().requestPlayTrack("user", second, { autoPlay: false });
+  store.getState().setQueue("user", {
     tracks: [first, second, third, createTrack("4")],
     sourceKey: "library",
   });
 
-  assert.equal(store.getState().queueSourceKey, "library");
+  assert.equal(store.getState().sessions.user.queueSourceKey, "library");
   assert.deepEqual(
-    store.getState().queue.map((track) => track.id),
+    store.getState().sessions.user.queue.map((track) => track.id),
     [first.id, second.id, third.id, "4"],
   );
 });
@@ -192,21 +194,71 @@ test("passive queue sync still updates when the source key stays the same", () =
 test("replacing queue from user intent clears shuffle history", () => {
   const { store, first, second, third } = createStoreWithTracks();
 
-  store.getState().setPlaybackMode("shuffle");
-  store.getState().requestPlayTrack(first, { autoPlay: false, pushShuffleHistory: false });
-  store.getState().writeResolvedPlayback({
-    seq: store.getState().resolveRequest!.seq,
+  store.getState().setPlaybackMode("user", "shuffle");
+  store.getState().requestPlayTrack("user", first, { autoPlay: false, pushShuffleHistory: false });
+  store.getState().writeResolvedPlayback("user", {
+    seq: store.getState().sessions.user.resolveRequest!.seq,
     url: "/stream/1",
   });
-  store.getState().requestPlayTrack(second, { autoPlay: false });
+  store.getState().requestPlayTrack("user", second, { autoPlay: false });
 
-  assert.deepEqual(store.getState().shuffleHistory.map((track) => track.id), [first.id]);
+  assert.deepEqual(store.getState().sessions.user.shuffleHistory.map((track) => track.id), [first.id]);
 
-  store.getState().replaceQueueFromUserIntent({
+  store.getState().replaceQueueFromUserIntent("user", {
     tracks: [third],
     sourceKey: "playlist:next",
   });
 
-  assert.deepEqual(store.getState().shuffleHistory, []);
-  assert.equal(store.getState().queueSourceKey, "playlist:next");
+  assert.deepEqual(store.getState().sessions.user.shuffleHistory, []);
+  assert.equal(store.getState().sessions.user.queueSourceKey, "playlist:next");
+});
+
+test("admin playback pauses user audio but preserves user queue and progress", () => {
+  const { store, first, second } = createStoreWithTracks();
+  let pauseCount = 0;
+  const userAudio = {
+    paused: false,
+    currentTime: 96,
+    pause() {
+      pauseCount += 1;
+      this.paused = true;
+    },
+  } as unknown as HTMLAudioElement;
+
+  store.getState().bindAudioElement("user", userAudio);
+  store.getState().setIsAudioPlaying("user", true);
+  store.getState().requestPlayTrack("user", first, { autoPlay: false });
+  store.getState().writeResolvedPlayback("user", {
+    seq: store.getState().sessions.user.resolveRequest!.seq,
+    url: "/stream/user",
+  });
+
+  store.getState().replaceQueueFromUserIntent("admin", {
+    tracks: [second],
+    sourceKey: "admin:library",
+  });
+  store.getState().requestPlayTrack("admin", second, { autoPlay: false });
+
+  assert.equal(pauseCount, 1);
+  assert.equal(store.getState().sessions.user.isAudioPlaying, false);
+  assert.equal(store.getState().sessions.user.resumeTimeSec, 96);
+  assert.equal(store.getState().sessions.user.queueSourceKey, "library");
+  assert.equal(store.getState().sessions.admin.queueSourceKey, "admin:library");
+  assert.equal(store.getState().sessions.admin.resolveRequest?.track.id, second.id);
+});
+
+test("admin session does not participate in restore locks or persisted session rehydrate", () => {
+  const first = createTrack("1");
+  const storage = createMemoryStorage({
+    [PLAYBACK_STORAGE_KEY]: createPersistedSession({
+      queue: [first],
+      queueSourceKey: "playlist:restored",
+      displayTrack: first,
+    }),
+  });
+  const store = createPlaybackStoreApi(storage, () => 0);
+
+  assert.equal(store.getState().sessions.admin.hydrationStatus, "ready");
+  assert.equal(store.getState().sessions.admin.resumeLock, false);
+  assert.equal(store.getState().sessions.admin.queue.length, 0);
 });

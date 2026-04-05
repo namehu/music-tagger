@@ -409,7 +409,7 @@ export default function AdminOverviewPage() {
       </div>
 
       <div className="grid gap-6 xl:grid-cols-[1fr_1fr]">
-        <CurrentPlaybackSummary />
+        <CurrentPlaybackSummary sessionKind="admin" />
 
         <Card>
           <CardHeader className="border-b">

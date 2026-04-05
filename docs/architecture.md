@@ -536,58 +536,50 @@ sequenceDiagram
 
 ### 7.1 当前实现概览
 
-当前播放器仍然挂在 `(app)` 级别的 layout 里，但业务状态已经不再由某个 provider 持有。
+当前播放器仍然挂在 `(app)` 级别的 layout 里，但业务状态已经不再由某个 provider 持有，而且已经拆成 `user` 持续播放会话与 `admin` 临时试听会话。
 
 现在的分层是：
 
-- `playback-store.ts`：用 `zustand` 持有 queue、当前曲目、播放模式、进度、音量、恢复锁等业务状态
-- `playback-runtime.tsx`：承接 `playback.resolve`、`getPreparationStatus`、`audio` 事件与刷新恢复副作用
-- `global-player.tsx`：只负责渲染底部播放器和绑定 `audio` 元素
-- 页面组件：只负责注入 queue 和触发用户主动点播
+- `playback-store.ts`：用 `zustand` 在同一容器里持有 `sessions.user` 与 `sessions.admin`
+- `playback-runtime.tsx`：按会话承接 `playback.resolve`、`getPreparationStatus`、`audio` 事件与刷新恢复副作用
+- `global-player.tsx`：按会话渲染用户侧播放器或 admin 最小试听条，并绑定对应 `audio` 元素
+- 页面组件：只向自己的播放会话注入 queue 和触发点播
 
 ### 7.2 为什么仍然需要全局运行时
 
 这样可以保证：
 
-- 在 `/dashboard`、`/library`、`/playlists`、`/admin/*` 间切页时不停止播放
+- 在用户区 `/dashboard`、`/library`、`/playlists` 间切页时不停止用户侧播放
 - `transcode_prepare` 的轮询不会随页面卸载而丢失
 - 曲库页和歌单页不再自己持有 `<audio>`
-- 刷新后可以从 `localStorage` 恢复播放会话，再重新动态签发 URL
+- admin 试听开始时会暂停用户侧实际发声，但不会覆盖用户歌单与进度
+- 刷新后只恢复用户侧会话，再重新动态签发 URL
 
 ### 7.3 当前前端状态
 
-当前全局播放状态至少包含：
+当前播放状态至少包含：
 
-- `queue`
-- `queueSourceKey`
-- `displayTrack`
-- `activePlayback`
-- `pendingTrackId`
-- `preparingJobId`
-- `playbackMode`
-- `shuffleHistory`
-- `resumeTimeSec`
-- `volume`
-- `muted`
-- `resumeLock`
-- `hydrationStatus`
+- `sessions.user`
+- `sessions.admin`
+- 每个会话各自的 `queue`
+- 每个会话各自的 `displayTrack`
+- 每个会话各自的 `activePlayback`
+- 每个会话各自的 `pendingTrackId`
+- 每个会话各自的 `preparingJobId`
+- 用户会话的 `playbackMode / shuffleHistory / resumeLock / hydrationStatus`
+- 每个会话各自的 `resumeTimeSec / durationSec / volume / muted`
 
 另外通过 computed 统一派生：
 
-- `currentTrack`
-- `activeTrackId`
-- `previousTrack`
-- `nextTrack`
-- `canPlayPrevious`
-- `canPlayNext`
-- `isPreparing`
+- `sessionComputed.user.*`
+- `sessionComputed.admin.*`
+- 每个会话各自的 `currentTrack / activeTrackId / previousTrack / nextTrack / canPlayPrevious / canPlayNext / isPreparing`
 
 ### 7.4 播放模式与恢复策略
 
-- `ordered`：按当前 queue 线性切歌
-- `shuffle`：下一首随机选择，上一首回退真实播放历史
-- `repeat_one`：只在自然播放结束时重播当前曲目
-- `localStorage` 只保存 queue、曲目、模式、进度和音量等可重建状态
+- `user` 会话支持 `ordered / shuffle / repeat_one`
+- `admin` 会话默认保持线性试听，不参与用户侧播放模式
+- `localStorage` 只保存 `user` 会话的 queue、曲目、模式、进度和音量等可重建状态
 - 播放 URL 与 token 不持久化，刷新后必须重新调用 `playback.resolve`
 - 恢复完成后默认暂停，不自动续播
 

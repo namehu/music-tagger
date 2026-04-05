@@ -4,7 +4,11 @@ import React from "react";
 import { toast } from "sonner";
 
 import { trpc } from "@/app/_trpc/provider";
-import { getPlaybackStoreState, usePlaybackStore } from "@/store/playback-store";
+import {
+  getPlaybackStoreState,
+  usePlaybackSession,
+  type PlaybackSessionKind,
+} from "@/store/playback-store";
 
 function getJobErrorMessage(errorJson: string | null | undefined) {
   if (!errorJson) {
@@ -23,11 +27,11 @@ function getJobErrorMessage(errorJson: string | null | undefined) {
   return "转码任务失败，请稍后重试";
 }
 
-export function PlaybackRuntime() {
-  const resolveRequest = usePlaybackStore((state) => state.resolveRequest);
-  const preparingJobId = usePlaybackStore((state) => state.preparingJobId);
-  const preparingRequest = usePlaybackStore((state) => state.preparingRequest);
-  const playbackError = usePlaybackStore((state) => state.playbackError);
+export function PlaybackRuntime({ sessionKind }: { sessionKind: PlaybackSessionKind }) {
+  const resolveRequest = usePlaybackSession(sessionKind, (state) => state.resolveRequest);
+  const preparingJobId = usePlaybackSession(sessionKind, (state) => state.preparingJobId);
+  const preparingRequest = usePlaybackSession(sessionKind, (state) => state.preparingRequest);
+  const playbackError = usePlaybackSession(sessionKind, (state) => state.playbackError);
   const resolvePlayback = trpc.playback.resolve.useMutation();
   const preparingJobQuery = trpc.playback.getPreparationStatus.useQuery(
     {
@@ -71,34 +75,34 @@ export function PlaybackRuntime() {
       },
       {
         onSuccess: (result) => {
-          const latestRequest = getPlaybackStoreState().resolveRequest;
+          const latestRequest = getPlaybackStoreState().sessions[sessionKind].resolveRequest;
           if (!latestRequest || latestRequest.seq !== resolveRequest.seq) {
             return;
           }
 
           if (result.status === "preparing") {
-            state.writeResolvePreparing({
+            state.writeResolvePreparing(sessionKind, {
               seq: resolveRequest.seq,
               jobId: result.jobId,
             });
             return;
           }
 
-          state.writeResolvedPlayback({
+          state.writeResolvedPlayback(sessionKind, {
             seq: resolveRequest.seq,
             url: result.url,
           });
         },
         onError: (error) => {
-          getPlaybackStoreState().handleResolveFailure({
+          getPlaybackStoreState().handleResolveFailure(sessionKind, {
             seq: resolveRequest.seq,
             message: error.message ?? "播放地址解析失败",
-            clearSession: getPlaybackStoreState().resumeLock,
+            clearSession: getPlaybackStoreState().sessions[sessionKind].resumeLock,
           });
         },
       },
     );
-  }, [resolvePlayback, resolveRequest]);
+  }, [resolvePlayback, resolveRequest, sessionKind]);
 
   React.useEffect(() => {
     if (resolveRequest) {
@@ -119,14 +123,17 @@ export function PlaybackRuntime() {
     }
 
     if (currentJob.status === "done") {
-      getPlaybackStoreState().retryPreparingRequest();
+      getPlaybackStoreState().retryPreparingRequest(sessionKind);
       return;
     }
 
     if (currentJob.status === "failed" || currentJob.status === "cancelled") {
-      getPlaybackStoreState().handlePreparingFailure(getJobErrorMessage(currentJob.errorJson));
+      getPlaybackStoreState().handlePreparingFailure(
+        sessionKind,
+        getJobErrorMessage(currentJob.errorJson),
+      );
     }
-  }, [preparingJobId, preparingJobQuery.data, preparingRequest]);
+  }, [preparingJobId, preparingJobQuery.data, preparingRequest, sessionKind]);
 
   React.useEffect(() => {
     if (!preparingJobId || !preparingJobQuery.error) {
@@ -134,9 +141,10 @@ export function PlaybackRuntime() {
     }
 
     getPlaybackStoreState().handlePreparingFailure(
+      sessionKind,
       preparingJobQuery.error.message ?? "转码任务状态查询失败",
     );
-  }, [preparingJobId, preparingJobQuery.error]);
+  }, [preparingJobId, preparingJobQuery.error, sessionKind]);
 
   React.useEffect(() => {
     if (!playbackError || playbackError === lastToastedErrorRef.current) {
@@ -150,17 +158,17 @@ export function PlaybackRuntime() {
   React.useEffect(() => {
     function handlePageHide() {
       const state = getPlaybackStoreState();
-      const audio = state.audioElement;
+      const audio = state.sessions[sessionKind].audioElement;
       if (!audio) {
         return;
       }
 
-      state.syncProgressSnapshot(audio.currentTime, true);
+      state.syncProgressSnapshot(sessionKind, audio.currentTime, true);
     }
 
     window.addEventListener("pagehide", handlePageHide);
     return () => window.removeEventListener("pagehide", handlePageHide);
-  }, []);
+  }, [sessionKind]);
 
   return null;
 }

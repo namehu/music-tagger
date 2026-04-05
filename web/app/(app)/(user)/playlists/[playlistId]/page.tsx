@@ -12,7 +12,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { getPlaybackModeLabel, getPlaybackQueueLabel } from "@/lib/playback-ui";
-import { usePlaybackStore, type PlaybackQueueTrack } from "@/store/playback-store";
+import { usePlaybackSession, usePlaybackStore, type PlaybackQueueTrack } from "@/store/playback-store";
 
 function renderText(value: string | null | undefined, fallback: string) {
   return value && value.trim().length > 0 ? value : fallback;
@@ -24,13 +24,13 @@ export default function PlaylistDetailPage() {
   const utils = trpc.useUtils();
   const [search, setSearch] = React.useState("");
   const deferredSearch = React.useDeferredValue(search);
-  const activeTrackId = usePlaybackStore((state) => state.activeTrackId);
-  const pendingTrackId = usePlaybackStore((state) => state.pendingTrackId);
-  const isAudioPlaying = usePlaybackStore((state) => state.isAudioPlaying);
-  const isPreparing = usePlaybackStore((state) => state.isPreparing);
-  const playbackMode = usePlaybackStore((state) => state.playbackMode);
-  const queueSourceKey = usePlaybackStore((state) => state.queueSourceKey);
-  const hydrationStatus = usePlaybackStore((state) => state.hydrationStatus);
+  const activeTrackId = usePlaybackSession("user", (state) => state.activeTrackId);
+  const pendingTrackId = usePlaybackSession("user", (state) => state.pendingTrackId);
+  const isAudioPlaying = usePlaybackSession("user", (state) => state.isAudioPlaying);
+  const isPreparing = usePlaybackSession("user", (state) => state.isPreparing);
+  const playbackMode = usePlaybackSession("user", (state) => state.playbackMode);
+  const queueSourceKey = usePlaybackSession("user", (state) => state.queueSourceKey);
+  const hydrationStatus = usePlaybackSession("user", (state) => state.hydrationStatus);
   const setQueue = usePlaybackStore((state) => state.setQueue);
   const replaceQueueFromUserIntent = usePlaybackStore((state) => state.replaceQueueFromUserIntent);
   const requestPlayTrack = usePlaybackStore((state) => state.requestPlayTrack);
@@ -90,7 +90,7 @@ export default function PlaylistDetailPage() {
 
   React.useEffect(() => {
     if (playlistTracks.length > 0) {
-      setQueue({
+      setQueue("user", {
         tracks: playlistTracks,
         sourceKey,
       });
@@ -149,20 +149,20 @@ export default function PlaylistDetailPage() {
                             size="icon-sm"
                             onClick={() => {
                               if (queueSourceKey !== sourceKey) {
-                                replaceQueueFromUserIntent({
+                                replaceQueueFromUserIntent("user", {
                                   tracks: playlistTracks,
                                   sourceKey,
                                 });
-                                requestPlayTrack(playbackTrack);
+                                requestPlayTrack("user", playbackTrack);
                                 return;
                               }
 
                               if (activeTrackId === item.track.id) {
-                                toggleTrack(playbackTrack);
+                                toggleTrack("user", playbackTrack);
                                 return;
                               }
 
-                              requestPlayTrack(playbackTrack);
+                              requestPlayTrack("user", playbackTrack);
                             }}
                           >
                             {isPendingTrack ? (

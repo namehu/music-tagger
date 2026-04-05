@@ -11,6 +11,7 @@ import {
   resolvePlaybackCachePath,
   resolveTrackSourcePath,
 } from "@/lib/playback";
+import { getTrackDisplaySummary } from "@/lib/track-edits";
 
 import { parseJobPayload } from "@/lib/jobs";
 
@@ -26,6 +27,10 @@ const resolvePlaybackInputSchema = z.object({
 
 const preparationStatusInputSchema = z.object({
   jobId: z.string().min(1),
+});
+
+const trackMediaInputSchema = z.object({
+  trackId: z.string().min(1),
 });
 
 function buildTranscodeJobKey(trackId: string, profile: string, sourceMtimeMs: bigint) {
@@ -77,6 +82,90 @@ async function recordPlaybackResolveEvent(input: {
 }
 
 export const playbackRouter = router({
+  getTrackMedia: protectedProcedure.input(trackMediaInputSchema).query(async ({ ctx, input }) => {
+    const track = await ctx.prisma.track.findUnique({
+      where: { id: input.trackId },
+      select: {
+        id: true,
+        filename: true,
+        title: true,
+        artist: true,
+        album: true,
+        albumArtist: true,
+        trackNo: true,
+        discNo: true,
+        year: true,
+        genre: true,
+        updatedAt: true,
+        observedArtworkAssetPath: true,
+        observedLyricsText: true,
+        metadataEdit: {
+          select: {
+            title: true,
+            artist: true,
+            album: true,
+            albumArtist: true,
+            trackNo: true,
+            discNo: true,
+            year: true,
+            genre: true,
+          },
+        },
+        lyricsEdit: {
+          select: {
+            lyricsText: true,
+            updatedAt: true,
+          },
+        },
+        coverEdit: {
+          select: {
+            assetPath: true,
+            updatedAt: true,
+          },
+        },
+      },
+    });
+
+    if (!track) {
+      throw new TRPCError({ code: "NOT_FOUND", message: "曲目不存在" });
+    }
+
+    const display = getTrackDisplaySummary({
+      filename: track.filename,
+      title: track.title,
+      artist: track.artist,
+      album: track.album,
+      albumArtist: track.albumArtist,
+      trackNo: track.trackNo,
+      discNo: track.discNo,
+      year: track.year,
+      genre: track.genre,
+      metadataEdit: track.metadataEdit,
+    });
+    const lyricsSource =
+      track.lyricsEdit != null ? "edit" : track.observedLyricsText ? "scan" : "none";
+    const coverSource =
+      track.coverEdit != null ? "edit" : track.observedArtworkAssetPath ? "scan" : "none";
+    const coverTimestamp = track.coverEdit?.updatedAt?.getTime() ?? track.updatedAt.getTime();
+
+    return {
+      trackId: track.id,
+      display: {
+        title: display.title,
+        artist: display.artist,
+        album: display.album,
+        albumArtist: display.albumArtist,
+      },
+      coverUrl:
+        coverSource !== "none" ? `/api/tracks/${track.id}/cover?ts=${coverTimestamp}` : null,
+      lyricsText: track.lyricsEdit?.lyricsText ?? track.observedLyricsText ?? null,
+      mediaSourceSummary: {
+        cover: coverSource,
+        lyrics: lyricsSource,
+      },
+    };
+  }),
+
   getPreparationStatus: protectedProcedure
     .input(preparationStatusInputSchema)
     .query(async ({ ctx, input }) => {
