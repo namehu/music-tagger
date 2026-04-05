@@ -13,10 +13,10 @@
  * 🟢 You can import this file directly.
  */
 
-import * as Prisma from './internal/prismaNamespaceBrowser'
+import * as Prisma from './internal/prismaNamespaceBrowser.ts'
 export { Prisma }
-export * as $Enums from './enums'
-export * from './enums';
+export * as $Enums from './enums.ts'
+export * from './enums.ts';
 /**
  * Model User
  * 
@@ -52,6 +52,21 @@ export type Job = Prisma.JobModel
  * 
  */
 export type Track = Prisma.TrackModel
+/**
+ * Model TrackMetadataEdit
+ * 
+ */
+export type TrackMetadataEdit = Prisma.TrackMetadataEditModel
+/**
+ * Model TrackLyricsEdit
+ * 
+ */
+export type TrackLyricsEdit = Prisma.TrackLyricsEditModel
+/**
+ * Model TrackCoverEdit
+ * 
+ */
+export type TrackCoverEdit = Prisma.TrackCoverEditModel
 /**
  * Model UserIgnoredTrack
  * 

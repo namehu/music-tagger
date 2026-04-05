@@ -12,6 +12,7 @@ export type ParsedJobPayload = {
   sourcePath?: string;
   sourceMtimeMs?: number;
   planId?: string;
+  domain?: "metadata" | "lyrics" | "cover";
 };
 
 export function parseJobPayload(payloadJson: string | null | undefined): ParsedJobPayload | null {
@@ -51,6 +52,18 @@ export function getJobDisplayName(jobType: string, payloadJson: string | null | 
     return payload?.planId ? `执行 Plan: ${payload.planId}` : "执行 Plan";
   }
 
+  if (jobType === "track_edit_sync") {
+    const domainLabel =
+      payload?.domain === "metadata"
+        ? "元数据"
+        : payload?.domain === "lyrics"
+          ? "歌词"
+          : payload?.domain === "cover"
+            ? "封面"
+            : "曲目编辑";
+    return payload?.trackId ? `${domainLabel}同步: ${payload.trackId}` : `${domainLabel}同步`;
+  }
+
   return jobType;
 }
 
@@ -69,6 +82,18 @@ export function getJobScopeText(jobType: string, payloadJson: string | null | un
 
   if (jobType === "plan_execute") {
     return payload?.planId ? `Plan ${payload.planId}` : payload?.jobKey ?? "Plan 执行任务";
+  }
+
+  if (jobType === "track_edit_sync") {
+    const domainLabel =
+      payload?.domain === "metadata"
+        ? "元数据"
+        : payload?.domain === "lyrics"
+          ? "歌词"
+          : payload?.domain === "cover"
+            ? "封面"
+            : "编辑";
+    return payload?.trackId ? `${domainLabel} · ${payload.trackId}` : payload?.jobKey ?? "曲目编辑同步";
   }
 
   return payload?.jobKey ?? "无附加信息";

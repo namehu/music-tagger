@@ -4,6 +4,7 @@ import { z } from "zod";
 import { Prisma } from "@/generated/prisma/client";
 
 import { canCurrentUserUnignoreTrack, resolveTrackIgnoreSource } from "@/lib/ignored-tracks";
+import { getTrackDisplaySummary } from "@/lib/track-edits";
 
 import { protectedProcedure, router } from "../trpc";
 
@@ -91,18 +92,31 @@ function toPlaylistTrack(track: {
   id: string;
   filename: string;
   title: string | null;
-  titleOverride: string | null;
   artist: string | null;
-  artistOverride: string | null;
   album: string | null;
-  albumOverride: string | null;
+  albumArtist: string | null;
+  trackNo: number | null;
+  discNo: number | null;
+  year: number | null;
+  genre: string | null;
+  metadataEdit: {
+    title: string | null;
+    artist: string | null;
+    album: string | null;
+    albumArtist: string | null;
+    trackNo: number | null;
+    discNo: number | null;
+    year: number | null;
+    genre: string | null;
+  } | null;
   path: string;
 }) {
+  const display = getTrackDisplaySummary(track);
   return {
     id: track.id,
-    title: track.titleOverride ?? track.title ?? track.filename,
-    artist: track.artistOverride ?? track.artist ?? "未知艺人",
-    album: track.albumOverride ?? track.album ?? null,
+    title: display.title,
+    artist: display.artist,
+    album: display.album,
     path: track.path,
     fallbackTitle: track.filename,
   };
@@ -166,11 +180,25 @@ export const playlistsRouter = router({
             id: true,
             filename: true,
             title: true,
-            titleOverride: true,
             artist: true,
-            artistOverride: true,
             album: true,
-            albumOverride: true,
+            albumArtist: true,
+            trackNo: true,
+            discNo: true,
+            year: true,
+            genre: true,
+            metadataEdit: {
+              select: {
+                title: true,
+                artist: true,
+                album: true,
+                albumArtist: true,
+                trackNo: true,
+                discNo: true,
+                year: true,
+                genre: true,
+              },
+            },
             path: true,
           },
         },

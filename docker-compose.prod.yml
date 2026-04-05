@@ -30,7 +30,8 @@ services:
     volumes:
       - ${DB_DATA_DIR:-data}:/data
       - ${CACHE_DIR:-transcode_cache}:/cache
-      - ${NAS_MUSIC_DIR:?NAS_MUSIC_DIR is required}:/music:ro
+      # track_edit_sync 需要写回源文件，因此 worker 必须对 /music 拥有写权限
+      - ${NAS_MUSIC_DIR:?NAS_MUSIC_DIR is required}:/music
     depends_on:
       - web
     restart: unless-stopped

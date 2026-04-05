@@ -42,16 +42,17 @@ source_refs:
 
 - 后台 job 队列已落在 SQLite `jobs` 表
 - Python worker 轮询并原子 claim job
-- 已支持 `scan_full` 与 `transcode_prepare`
+- 已支持 `scan_full`、`transcode_prepare` 与 `track_edit_sync`
 - 已支持 heartbeat、失败回写、重复转码任务取消、重试和取消接口
 
 ### 3.3 曲库与搜索
 
-- `tracks` 表已保存曲目基础技术信息和部分元数据
-- 已支持元数据 override 字段
+- `tracks` 表已保存曲目基础技术信息和扫描观察值
+- `scan_full` 当前也会提取已有嵌入歌词正文与封面观察资产
+- 已新增 `TrackMetadataEdit`、`TrackLyricsEdit`、`TrackCoverEdit` 作为编辑真值层
 - 用户区 `/library` 已支持全文搜索、排序与播放
-- 管理区 `/admin/library` 已支持全文搜索、排序、单曲编辑、批量编辑
-- 已落地 FTS 搜索路径与普通 LIKE 降级路径
+- 管理区 `/admin/library` 已支持全文搜索、排序与单曲编辑
+- 列表展示和搜索当前都以最新编辑值为准
 
 ### 3.4 播放与转码缓存
 
@@ -70,21 +71,32 @@ source_refs:
 - 当前恢复只覆盖单浏览器，不做数据库持久化或多设备同步
 - 刷新恢复后默认暂停，不自动续播
 
-### 3.5 Plan Workflow
+### 3.5 Track Editing Sync
 
-- 已支持 `rename` / `move` / `tag_write` 类型 Plan 的创建
-- 已支持 preview、confirm、execute 主链路
-- 已支持 `plan_execute` job 与 worker 执行器
-- 已支持 Plan 列表页与详情页
-- 已支持在详情页直接看到确认/执行条件与执行项状态摘要
+- 已支持管理员在 `/admin/library` 打开单曲编辑面板
+- 已支持元数据、歌词、封面先写数据库，再异步写回音频文件
+- 已支持 `track_edit_sync` job 与 worker 执行器
+- 已支持编辑域级同步状态：`pending / syncing / synced / failed`
+- 已支持封面资产通过 `/api/admin/tracks/[trackId]/cover` 落到应用资产目录
+- 已支持在没有 edit 真值时，从扫描观察值回显已有歌词和封面
 
 当前限制：
 
-- `tag_write` 只覆盖基础文本/数字标签字段
-- `tag_write` 当前仅支持常见格式，依赖 worker 环境安装 `mutagen`
-- 封面、歌词、delete 等动作尚未进入 Plan 执行器
+- 当前只开放管理员单曲编辑，不恢复批量编辑
+- 歌词与封面写回当前优先支持常见嵌入格式，仍依赖 worker 环境安装 `mutagen`
+- 编辑真值与扫描观察值已解耦，`scan_full` 不再覆盖 edit 真值；没有 edit 真值时，编辑面板会回退显示扫描到的歌词与封面
 
-### 3.6 Playlist
+### 3.6 Plan Workflow
+
+- 已保留 `Plan` / `PlanItem`、`plan_execute` worker 执行器与 `/admin/plans` 历史页
+- `/admin/plans` 与 `/admin/plans/[planId]` 当前只承担历史记录查看
+
+当前限制：
+
+- Plan 模块当前不再承担日常元数据、歌词、封面编辑主线
+- 更高阶的文件整理动作还没有新的主流程定义
+
+### 3.7 Playlist
 
 - 已支持个人歌单 `Playlist` / `PlaylistItem`
 - 已支持 `/playlists` 列表页与 `/playlists/[playlistId]` 详情页
@@ -96,7 +108,7 @@ source_refs:
 - 暂不支持拖拽排序
 - 暂不支持共享、公开链接或协作歌单
 
-### 3.7 Ignored Tracks
+### 3.8 Ignored Tracks
 
 - 已支持双层忽略曲目：
   - 用户侧“我的忽略”
@@ -115,7 +127,7 @@ source_refs:
 - v1 不提供普通曲库内的“显示已忽略曲目”切换器
 - 用户不能解除全局忽略，只能由管理员在管理区解除
 
-### 3.8 管理台 UI
+### 3.9 管理台 UI
 
 - 已有 Dashboard shell
 - 已有 `/admin`、`/admin/jobs`、`/admin/library`、`/admin/ignored-tracks`、`/admin/cache`、`/admin/settings`
@@ -126,7 +138,7 @@ source_refs:
 ## 4. 部分实现能力
 
 - Dashboard 首页：用户区 `/dashboard` 已经产品化为“继续收听 + 最近使用”的用户首页，但管理区 `/admin` 仍然是偏运维概览的 partial 模块
-- 元数据维护：已支持 override 编辑，但还没有进入完整的 Plan 驱动整理链路
+- 文件整理动作：Plan 历史仍在，但新的轻量文件整理主流程还没有重新定义
 - 当前播放摘要：已支持模式与恢复摘要，但仍未扩展到账号级同步或持久队列模块
 
 ## 5. 未实现能力
@@ -134,7 +146,7 @@ source_refs:
 以下能力仅存在于历史需求材料或长期规划中，当前代码未形成完整主线：
 
 - 扫描增量策略的独立产品化界面
-- 封面、歌词、delete 等更高阶 Plan 类型
+- 更高阶的文件整理动作主流程
 
 ## 6. 当前 public interfaces
 
@@ -150,6 +162,7 @@ source_refs:
 - `plans`
 - `settings`
 - `setup`
+- `trackEdits`
 - `tracks`
 
 这些 router 已经构成前后端的事实契约，未来 PRD 若要修改相关行为，必须在模块文档中明确声明影响范围。
@@ -159,6 +172,7 @@ source_refs:
 - `/api/auth/[...all]`
 - `/api/trpc/[trpc]`
 - `/api/setup/create-admin`
+- `/api/admin/tracks/[trackId]/cover`
 - `/api/stream/[trackId]`
 
 其中 `/api/stream/[trackId]` 是当前唯一必须处理 `Range` 的业务流媒体接口，不能被普通 tRPC 调用替代。
@@ -173,6 +187,9 @@ source_refs:
 - `PlanItem`
 - `Playlist`
 - `PlaylistItem`
+- `TrackMetadataEdit`
+- `TrackLyricsEdit`
+- `TrackCoverEdit`
 - `UserIgnoredTrack`
 - `GlobalIgnoredTrack`
 - `Track`

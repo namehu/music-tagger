@@ -13,6 +13,7 @@ from jobs import claim_next_job, heartbeat, mark_done, mark_failed, update_progr
 from jobs import cancel_duplicate_pending_jobs, mark_cancelled, should_continue
 from plan_executor import execute_plan
 from scanner import scan_full
+from track_edit_sync import execute_track_edit_sync
 from transcoder import JobCancelled, transcode_prepare
 
 
@@ -165,6 +166,16 @@ def _handle_job(
 
         if job_type == "plan_execute":
             execute_plan(
+                conn,
+                payload,
+                on_progress=lambda progress: update_progress(conn, job_id, worker_id, progress),
+                should_continue=lambda: should_continue(conn, job_id, worker_id),
+            )
+            mark_done(conn, job_id, worker_id)
+            return
+
+        if job_type == "track_edit_sync":
+            execute_track_edit_sync(
                 conn,
                 payload,
                 on_progress=lambda progress: update_progress(conn, job_id, worker_id, progress),

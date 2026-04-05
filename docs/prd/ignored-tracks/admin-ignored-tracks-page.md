@@ -39,7 +39,7 @@ source_refs:
 | 字段名称 (中/英) | 数据类型 | 必填/选填 | 业务规则/约束 | 默认值 |
 | --- | --- | --- | --- | --- |
 | 选择框 `selectedTrackIds` | string[] | 选填 | 仅保存当前列表可见项 | 空数组 |
-| 标题 `track.title` | string | 必显 | 优先显示 override 后标题 | 无 |
+| 标题 `track.title` | string | 必显 | 优先显示最新编辑值 | 无 |
 | 艺人 `track.artist` | string | 必显 | 无值时显示“未知艺人” | 无 |
 | 专辑 `track.album` | string | 选显 | 无值显示 `-` | 空 |
 | 设置人 `createdBy.name` | string | 必显 | 展示设置全局忽略的管理员 | 无 |

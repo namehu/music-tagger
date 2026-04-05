@@ -14,5 +14,5 @@ services:
       - ./worker:/app/worker
       - ./web:/workspace/web
       - ${LOCAL_CACHE_DIR:-./.cache/transcode_cache}:/cache
-      - ${LOCAL_MUSIC_DIR:?LOCAL_MUSIC_DIR is required}:/music:ro
+      - ${LOCAL_MUSIC_DIR:?LOCAL_MUSIC_DIR is required}:/music
     restart: unless-stopped

@@ -47,6 +47,44 @@ async function resetJobForRetry(
     });
   }
 
+  if (job.type === "track_edit_sync" && payload?.trackId && payload.domain) {
+    const now = new Date();
+    if (payload.domain === "metadata") {
+      await ctx.prisma.trackMetadataEdit.updateMany({
+        where: { trackId: payload.trackId },
+        data: {
+          syncStatus: "pending",
+          syncErrorJson: null,
+          syncRequestedAt: now,
+          syncStartedAt: null,
+          syncFinishedAt: null,
+        },
+      });
+    } else if (payload.domain === "lyrics") {
+      await ctx.prisma.trackLyricsEdit.updateMany({
+        where: { trackId: payload.trackId },
+        data: {
+          syncStatus: "pending",
+          syncErrorJson: null,
+          syncRequestedAt: now,
+          syncStartedAt: null,
+          syncFinishedAt: null,
+        },
+      });
+    } else if (payload.domain === "cover") {
+      await ctx.prisma.trackCoverEdit.updateMany({
+        where: { trackId: payload.trackId },
+        data: {
+          syncStatus: "pending",
+          syncErrorJson: null,
+          syncRequestedAt: now,
+          syncStartedAt: null,
+          syncFinishedAt: null,
+        },
+      });
+    }
+  }
+
   await ctx.prisma.job.update({
     where: { id: job.id },
     data: {
@@ -88,6 +126,35 @@ async function cancelJob(
         errorJson,
       },
     });
+  }
+
+  if (job.type === "track_edit_sync" && payload?.trackId && payload.domain) {
+    const errorJson = buildJobStateErrorJson(options.reason, "JobCancelled");
+    if (payload.domain === "metadata") {
+      await ctx.prisma.trackMetadataEdit.updateMany({
+        where: { trackId: payload.trackId },
+        data: {
+          syncStatus: "failed",
+          syncErrorJson: errorJson,
+        },
+      });
+    } else if (payload.domain === "lyrics") {
+      await ctx.prisma.trackLyricsEdit.updateMany({
+        where: { trackId: payload.trackId },
+        data: {
+          syncStatus: "failed",
+          syncErrorJson: errorJson,
+        },
+      });
+    } else if (payload.domain === "cover") {
+      await ctx.prisma.trackCoverEdit.updateMany({
+        where: { trackId: payload.trackId },
+        data: {
+          syncStatus: "failed",
+          syncErrorJson: errorJson,
+        },
+      });
+    }
   }
 
   await ctx.prisma.job.update({

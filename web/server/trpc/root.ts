@@ -6,6 +6,7 @@ import { playlistsRouter } from "./routers/playlists";
 import { plansRouter } from "./routers/plans";
 import { settingsRouter } from "./routers/settings";
 import { setupRouter } from "./routers/setup";
+import { trackEditsRouter } from "./routers/trackEdits";
 import { tracksRouter } from "./routers/tracks";
 import { router } from "./trpc";
 
@@ -18,6 +19,7 @@ export const appRouter = router({
   plans: plansRouter,
   settings: settingsRouter,
   setup: setupRouter,
+  trackEdits: trackEditsRouter,
   tracks: tracksRouter,
 });
 

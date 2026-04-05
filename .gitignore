@@ -40,3 +40,4 @@ __pycache__/
 
 
 web/next-env.d.ts
+web/storage

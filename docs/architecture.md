@@ -23,19 +23,19 @@
 - 登录后用户区入口：`/dashboard`、`/library`、`/playlists`、`/ignored-tracks`
 - 用户首页聚合：继续收听、最近播放、最近更新歌单、最近更新曲目
 - `scan_full` 后台任务
-- SQLite 曲库索引与 FTS 搜索
+- SQLite 曲库索引与搜索
 - 全局原始音频播放
 - `mp3_192` 转码缓存播放
 - `zustand` 全局播放状态、顺序 / 随机 / 单曲循环模式
 - 浏览器本地播放会话恢复（刷新后默认暂停）
 - 个人歌单 CRUD、加歌、移歌与按保存顺序点播
 - 双层忽略曲目：用户“我的忽略”与管理员“全局忽略”
-- `rename` / `move` / `tag_write` 类型的 Plan 预览、确认与后台执行
+- 管理员单曲编辑：元数据、歌词、封面先写数据库，再异步回写文件
 - 转码观测、缓存容量治理与后台策略配置
 
 当前尚未完成：
 
-- 封面、歌词、delete 等其他类型的 Plan 工作流
+- 更高阶的文件整理动作主流程
 
 ## 2. 架构总览
 
@@ -46,7 +46,7 @@ flowchart LR
   Browser[Browser<br/>Admin/User UI]
   Web[Next.js 16 Web<br/>App Router + tRPC + Prisma]
   Auth[better-auth]
-  DB[(SQLite<br/>jobs / tracks / playlists / playlist_items<br/>user_ignored_tracks / global_ignored_tracks<br/>plans / plan_items / transcode_cache)]
+  DB[(SQLite<br/>jobs / tracks / track_*_edits / playlists / playlist_items<br/>user_ignored_tracks / global_ignored_tracks<br/>plans / plan_items / transcode_cache)]
   Worker[Python Worker]
   FF[ffmpeg / ffprobe]
   Music[(NAS Music Dir<br/>/music)]
@@ -75,14 +75,16 @@ flowchart LR
   - 通过 better-auth 处理登录态
   - 通过 tRPC 提供业务控制面
   - 通过 `library.dashboard` 聚合用户首页数据
+  - 通过 `trackEdits` router 与 `/api/admin/tracks/[trackId]/cover` 处理 DB-first 编辑
   - 通过 Prisma 直接读写 SQLite
   - 通过 Route Handler 输出支持 `Range` 的音频流
 - Worker：
   - 轮询 `jobs`
   - 执行 `scan_full`
   - 执行 `transcode_prepare`
+  - 执行 `track_edit_sync`
   - 执行 `plan_execute`
-  - 回写 `jobs`、`tracks`、`plans`、`plan_items`、`transcode_cache`
+  - 回写 `jobs`、编辑同步状态、`plans`、`plan_items`、`transcode_cache`
 - SQLite：
   - 作为当前唯一业务数据库
   - 保存认证数据、任务队列、曲库索引、歌单数据、忽略曲目关系、Plan 数据与转码缓存索引
@@ -111,7 +113,9 @@ flowchart LR
 - `worker.py`：主循环、SQLite 重连、job dispatch
 - `jobs.py`：job claim / heartbeat / progress / done / failed
 - `scanner.py`：全量扫描与 `tracks` 写入
-- `plan_executor.py`：Plan 执行器，当前支持 `rename`、`move` 与基础 `tag_write`
+- `scanner.py`：全量扫描与 `tracks` 写入，同时提取已有嵌入歌词 / 封面观察值
+- `plan_executor.py`：Plan 执行器，保留历史 `rename`、`move` 与基础 `tag_write`
+- `track_edit_sync.py`：DB-first 曲目编辑异步写回执行器
 - `transcoder.py`：`mp3_192` 转码、原子写入缓存、`transcode_cache` 回写
 
 ## 4. 关键数据表
@@ -123,7 +127,7 @@ flowchart LR
 关键字段：
 
 - `id`
-- `type`：当前已有 `scan_full`、`transcode_prepare`、`plan_execute`
+- `type`：当前已有 `scan_full`、`transcode_prepare`、`track_edit_sync`、`plan_execute`
 - `status`：`pending | running | done | failed`
 - `payloadJson`
 - `progress`
@@ -146,7 +150,26 @@ flowchart LR
 - `title / artist / album`
 - `updatedAt`
 
-### 4.3 `plans`
+### 4.3 `track_metadata_edits` / `track_lyrics_edits` / `track_cover_edits`
+
+保存管理员编辑真值与同步状态。
+
+关键字段：
+
+- `trackId`
+- 元数据字段或歌词正文 / 封面资产指针
+- `syncStatus`
+- `syncErrorJson`
+- `syncRequestedAt / syncStartedAt / syncFinishedAt`
+
+业务规则：
+
+- Web 保存后先写 edit 表，前端立即以 edit 真值显示
+- worker 再通过 `track_edit_sync` 异步回写物理音频文件
+- `scan_full` 只更新扫描观察值，不覆盖 edit 真值
+- `scan_full` 会把已有嵌入歌词正文和封面资产同步到观察值，编辑面板在没有 edit 真值时回退展示这些扫描值
+
+### 4.4 `plans`
 
 保存整理计划的顶层元数据。
 
@@ -154,7 +177,7 @@ flowchart LR
 
 - `id`
 - `createdById`
-- `type`：当前已支持 `rename`、`tag_write`
+- `type`：历史记录里当前可见 `rename`、`tag_write`、`move`
 - `scopeJson`
 - `paramsJson`
 - `previewSummaryJson`
@@ -162,7 +185,7 @@ flowchart LR
 - `status`
 - `executionJobId`
 
-### 4.4 `playlists` / `playlist_items`
+### 4.5 `playlists` / `playlist_items`
 
 保存用户个人歌单与歌单内曲目顺序。
 
@@ -171,7 +194,7 @@ flowchart LR
 - `playlists.id / userId / name`
 - `playlist_items.id / playlistId / trackId / position`
 
-### 4.5 `user_ignored_tracks` / `global_ignored_tracks`
+### 4.6 `user_ignored_tracks` / `global_ignored_tracks`
 
 保存双层忽略关系。
 
@@ -188,7 +211,7 @@ flowchart LR
 - 用户区默认过滤 `global + mine`
 - 管理区默认过滤 `global`
 
-### 4.6 `plan_items`
+### 4.7 `plan_items`
 
 保存 Plan 拆分后的单项执行记录。
 
@@ -204,7 +227,7 @@ flowchart LR
 - `status`
 - `errorJson`
 
-### 4.7 `transcode_cache`
+### 4.8 `transcode_cache`
 
 保存转码缓存的数据库索引，不直接存音频内容。
 
@@ -230,7 +253,7 @@ flowchart LR
 - 源文件 `mtimeMs` 变化后，旧缓存自然失效，新版本重新生成
 - `lastAccessedAt` 用于区分冷缓存与近期命中缓存，支撑容量治理
 
-### 4.8 `admin_settings`
+### 4.9 `admin_settings`
 
 当前除了初始化锁状态，也承载轻量后台策略配置。
 
@@ -348,6 +371,10 @@ sequenceDiagram
   - 看曲库规模、最近扫描、缓存健康、转码命中率
 - `/admin/library`
   - 看搜索结果、播放链路与曲目列表
+  - 基于当前选中曲目直接发起 `rename / move / tag_write`
+  - 在页内先看即时 preview，再直接提交执行
+- `/admin/plans`
+  - 回看已提交的执行历史与详情
 - `/admin/cache`
   - 看 `failed / stale / orphan` 明细
   - 执行失效清理、失败清理、冷缓存清理、预算裁剪、按曲目清理
@@ -360,6 +387,12 @@ sequenceDiagram
 - 排障
 - 策略配置
 - 人工清理
+
+同时，整理动作当前也形成了一条轻量闭环：
+
+- 发起入口在 `/admin/library`
+- 执行历史在 `/admin/plans`
+- 实际后台执行仍复用 `plan_execute` worker 链路
 
 ## 6.3 曲库浏览与搜索链路
 

@@ -63,14 +63,15 @@ pnpm prisma:studio
 - 顺序 / 随机 / 单曲循环三种播放模式
 - `zustand` 全局播放状态与浏览器本地恢复
 - 个人歌单与双层忽略曲目
-- `rename` / `tag_write` 类型的 Plan 工作流
+- 管理员单曲编辑：元数据、歌词、封面先写数据库，再由 `track_edit_sync` 异步回写文件；没有 edit 真值时会回退显示 `scan_full` 提取到的已有歌词和封面
+- `/api/admin/tracks/[trackId]/cover` 封面上传与预览接口
 - 转码缓存命中观测、失败分类、容量治理与按曲目清理
 - 冷缓存阈值、容量预算、单次清理上限的后台配置
 
 暂未支持：
 
 - 多设备播放会话同步
-- 封面、歌词、move、delete 等更高阶 Plan 类型
+- 更高阶的文件整理动作主流程
 
 ## 推荐使用顺序
 
@@ -78,7 +79,8 @@ pnpm prisma:studio
 2. 在 `/library` 验证用户曲库搜索、播放与刷新恢复链路。
 3. 在 `/playlists` 创建歌单，并在歌单详情页验证歌单上下文点播。
 4. 在 `/ignored-tracks` 和 `/admin/ignored-tracks` 验证双层忽略。
-5. 在 `/admin/cache` 与 `/admin/settings` 查看缓存治理和策略配置。
+5. 在 `/admin/library` 验证元数据、歌词、封面“立即写 DB + 异步回写文件”的单曲编辑链路。
+6. 在 `/admin/cache` 与 `/admin/settings` 查看缓存治理和策略配置。
 
 ## Docker 运行
 

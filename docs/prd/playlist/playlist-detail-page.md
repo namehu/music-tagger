@@ -39,7 +39,7 @@ source_refs:
 | --- | --- | --- | --- | --- |
 | 歌单项 ID `itemId` | string | 必显 | 用于移除操作 | 无 |
 | 顺序 `position` | integer | 必显 | 前端展示为从 1 开始 | `0` |
-| 曲目标题 `title` | string | 必显 | 优先显示 override 后标题 | 无 |
+| 曲目标题 `title` | string | 必显 | 优先显示最新编辑值 | 无 |
 | 艺人 `artist` | string | 必显 | 无值时显示占位 | 无 |
 | 专辑 `album` | string | 选显 | 无值时显示占位 | 空 |
 

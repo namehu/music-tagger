@@ -16,10 +16,10 @@
  */
 
 import * as runtime from "@prisma/client/runtime/client"
-import type * as Prisma from "../models"
-import { type PrismaClient } from "./class"
+import type * as Prisma from "../models.ts"
+import { type PrismaClient } from "./class.ts"
 
-export type * from '../models'
+export type * from '../models.ts'
 
 export type DMMF = typeof runtime.DMMF
 
@@ -391,6 +391,9 @@ export const ModelName = {
   AdminSettings: 'AdminSettings',
   Job: 'Job',
   Track: 'Track',
+  TrackMetadataEdit: 'TrackMetadataEdit',
+  TrackLyricsEdit: 'TrackLyricsEdit',
+  TrackCoverEdit: 'TrackCoverEdit',
   UserIgnoredTrack: 'UserIgnoredTrack',
   GlobalIgnoredTrack: 'GlobalIgnoredTrack',
   Playlist: 'Playlist',
@@ -414,7 +417,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "user" | "session" | "account" | "verification" | "adminSettings" | "job" | "track" | "userIgnoredTrack" | "globalIgnoredTrack" | "playlist" | "playlistItem" | "plan" | "planItem" | "transcodeCache" | "playbackResolveEvent"
+    modelProps: "user" | "session" | "account" | "verification" | "adminSettings" | "job" | "track" | "trackMetadataEdit" | "trackLyricsEdit" | "trackCoverEdit" | "userIgnoredTrack" | "globalIgnoredTrack" | "playlist" | "playlistItem" | "plan" | "planItem" | "transcodeCache" | "playbackResolveEvent"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -933,6 +936,228 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         count: {
           args: Prisma.TrackCountArgs<ExtArgs>
           result: runtime.Types.Utils.Optional<Prisma.TrackCountAggregateOutputType> | number
+        }
+      }
+    }
+    TrackMetadataEdit: {
+      payload: Prisma.$TrackMetadataEditPayload<ExtArgs>
+      fields: Prisma.TrackMetadataEditFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.TrackMetadataEditFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$TrackMetadataEditPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.TrackMetadataEditFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$TrackMetadataEditPayload>
+        }
+        findFirst: {
+          args: Prisma.TrackMetadataEditFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$TrackMetadataEditPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.TrackMetadataEditFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$TrackMetadataEditPayload>
+        }
+        findMany: {
+          args: Prisma.TrackMetadataEditFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$TrackMetadataEditPayload>[]
+        }
+        create: {
+          args: Prisma.TrackMetadataEditCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$TrackMetadataEditPayload>
+        }
+        createMany: {
+          args: Prisma.TrackMetadataEditCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.TrackMetadataEditCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$TrackMetadataEditPayload>[]
+        }
+        delete: {
+          args: Prisma.TrackMetadataEditDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$TrackMetadataEditPayload>
+        }
+        update: {
+          args: Prisma.TrackMetadataEditUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$TrackMetadataEditPayload>
+        }
+        deleteMany: {
+          args: Prisma.TrackMetadataEditDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.TrackMetadataEditUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.TrackMetadataEditUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$TrackMetadataEditPayload>[]
+        }
+        upsert: {
+          args: Prisma.TrackMetadataEditUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$TrackMetadataEditPayload>
+        }
+        aggregate: {
+          args: Prisma.TrackMetadataEditAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateTrackMetadataEdit>
+        }
+        groupBy: {
+          args: Prisma.TrackMetadataEditGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.TrackMetadataEditGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.TrackMetadataEditCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.TrackMetadataEditCountAggregateOutputType> | number
+        }
+      }
+    }
+    TrackLyricsEdit: {
+      payload: Prisma.$TrackLyricsEditPayload<ExtArgs>
+      fields: Prisma.TrackLyricsEditFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.TrackLyricsEditFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$TrackLyricsEditPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.TrackLyricsEditFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$TrackLyricsEditPayload>
+        }
+        findFirst: {
+          args: Prisma.TrackLyricsEditFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$TrackLyricsEditPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.TrackLyricsEditFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$TrackLyricsEditPayload>
+        }
+        findMany: {
+          args: Prisma.TrackLyricsEditFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$TrackLyricsEditPayload>[]
+        }
+        create: {
+          args: Prisma.TrackLyricsEditCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$TrackLyricsEditPayload>
+        }
+        createMany: {
+          args: Prisma.TrackLyricsEditCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.TrackLyricsEditCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$TrackLyricsEditPayload>[]
+        }
+        delete: {
+          args: Prisma.TrackLyricsEditDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$TrackLyricsEditPayload>
+        }
+        update: {
+          args: Prisma.TrackLyricsEditUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$TrackLyricsEditPayload>
+        }
+        deleteMany: {
+          args: Prisma.TrackLyricsEditDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.TrackLyricsEditUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.TrackLyricsEditUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$TrackLyricsEditPayload>[]
+        }
+        upsert: {
+          args: Prisma.TrackLyricsEditUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$TrackLyricsEditPayload>
+        }
+        aggregate: {
+          args: Prisma.TrackLyricsEditAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateTrackLyricsEdit>
+        }
+        groupBy: {
+          args: Prisma.TrackLyricsEditGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.TrackLyricsEditGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.TrackLyricsEditCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.TrackLyricsEditCountAggregateOutputType> | number
+        }
+      }
+    }
+    TrackCoverEdit: {
+      payload: Prisma.$TrackCoverEditPayload<ExtArgs>
+      fields: Prisma.TrackCoverEditFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.TrackCoverEditFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$TrackCoverEditPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.TrackCoverEditFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$TrackCoverEditPayload>
+        }
+        findFirst: {
+          args: Prisma.TrackCoverEditFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$TrackCoverEditPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.TrackCoverEditFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$TrackCoverEditPayload>
+        }
+        findMany: {
+          args: Prisma.TrackCoverEditFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$TrackCoverEditPayload>[]
+        }
+        create: {
+          args: Prisma.TrackCoverEditCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$TrackCoverEditPayload>
+        }
+        createMany: {
+          args: Prisma.TrackCoverEditCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.TrackCoverEditCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$TrackCoverEditPayload>[]
+        }
+        delete: {
+          args: Prisma.TrackCoverEditDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$TrackCoverEditPayload>
+        }
+        update: {
+          args: Prisma.TrackCoverEditUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$TrackCoverEditPayload>
+        }
+        deleteMany: {
+          args: Prisma.TrackCoverEditDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.TrackCoverEditUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.TrackCoverEditUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$TrackCoverEditPayload>[]
+        }
+        upsert: {
+          args: Prisma.TrackCoverEditUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$TrackCoverEditPayload>
+        }
+        aggregate: {
+          args: Prisma.TrackCoverEditAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateTrackCoverEdit>
+        }
+        groupBy: {
+          args: Prisma.TrackCoverEditGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.TrackCoverEditGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.TrackCoverEditCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.TrackCoverEditCountAggregateOutputType> | number
         }
       }
     }
@@ -1686,13 +1911,74 @@ export const TrackScalarFieldEnum = {
   artworkKind: 'artworkKind',
   artworkMime: 'artworkMime',
   artworkHash: 'artworkHash',
+  observedArtworkAssetPath: 'observedArtworkAssetPath',
   lyricsKind: 'lyricsKind',
   lyricsHash: 'lyricsHash',
+  observedLyricsText: 'observedLyricsText',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 } as const
 
 export type TrackScalarFieldEnum = (typeof TrackScalarFieldEnum)[keyof typeof TrackScalarFieldEnum]
+
+
+export const TrackMetadataEditScalarFieldEnum = {
+  id: 'id',
+  trackId: 'trackId',
+  title: 'title',
+  artist: 'artist',
+  album: 'album',
+  albumArtist: 'albumArtist',
+  trackNo: 'trackNo',
+  discNo: 'discNo',
+  year: 'year',
+  genre: 'genre',
+  syncStatus: 'syncStatus',
+  syncErrorJson: 'syncErrorJson',
+  syncRequestedAt: 'syncRequestedAt',
+  syncStartedAt: 'syncStartedAt',
+  syncFinishedAt: 'syncFinishedAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type TrackMetadataEditScalarFieldEnum = (typeof TrackMetadataEditScalarFieldEnum)[keyof typeof TrackMetadataEditScalarFieldEnum]
+
+
+export const TrackLyricsEditScalarFieldEnum = {
+  id: 'id',
+  trackId: 'trackId',
+  lyricsText: 'lyricsText',
+  format: 'format',
+  syncStatus: 'syncStatus',
+  syncErrorJson: 'syncErrorJson',
+  syncRequestedAt: 'syncRequestedAt',
+  syncStartedAt: 'syncStartedAt',
+  syncFinishedAt: 'syncFinishedAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type TrackLyricsEditScalarFieldEnum = (typeof TrackLyricsEditScalarFieldEnum)[keyof typeof TrackLyricsEditScalarFieldEnum]
+
+
+export const TrackCoverEditScalarFieldEnum = {
+  id: 'id',
+  trackId: 'trackId',
+  assetPath: 'assetPath',
+  mimeType: 'mimeType',
+  fileSize: 'fileSize',
+  hash: 'hash',
+  syncStatus: 'syncStatus',
+  syncErrorJson: 'syncErrorJson',
+  syncRequestedAt: 'syncRequestedAt',
+  syncStartedAt: 'syncStartedAt',
+  syncFinishedAt: 'syncFinishedAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type TrackCoverEditScalarFieldEnum = (typeof TrackCoverEditScalarFieldEnum)[keyof typeof TrackCoverEditScalarFieldEnum]
 
 
 export const UserIgnoredTrackScalarFieldEnum = {
@@ -1980,6 +2266,9 @@ export type GlobalOmitConfig = {
   adminSettings?: Prisma.AdminSettingsOmit
   job?: Prisma.JobOmit
   track?: Prisma.TrackOmit
+  trackMetadataEdit?: Prisma.TrackMetadataEditOmit
+  trackLyricsEdit?: Prisma.TrackLyricsEditOmit
+  trackCoverEdit?: Prisma.TrackCoverEditOmit
   userIgnoredTrack?: Prisma.UserIgnoredTrackOmit
   globalIgnoredTrack?: Prisma.GlobalIgnoredTrackOmit
   playlist?: Prisma.PlaylistOmit

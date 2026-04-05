@@ -42,17 +42,17 @@
 - better-auth 登录与基础角色控制
 - SQLite `jobs` 队列 + Python worker
 - `scan_full`
-- 曲库浏览、全文搜索、metadata override 编辑
+- 用户区：`/dashboard`、`/library`、`/playlists`、`/ignored-tracks`
+- 歌单、用户级忽略曲目、播放模式、用户首页
+- 管理员单曲编辑：元数据 / 歌词 / 封面先写 DB，再异步回写文件
 - 原始播放与 `mp3_192` 转码缓存播放
 - 缓存治理与后台策略配置
-- `rename` / 基础 `tag_write` 的 Plan preview / confirm / execute
+- `/admin/plans` 历史记录页与保留中的 Plan 执行兼容层
 
 当前未完成主线：
 
-- 歌单
-- 用户级忽略曲目
-- 播放模式
-- 更高阶 Plan 类型：封面、歌词、move、delete
+- 多设备播放会话同步
+- 更高阶的文件整理动作主流程
 
 ## 4. 代码结构速览
 
@@ -111,8 +111,8 @@
 - 不要新增第二份“架构设计稿”或“大而全需求稿”。
 - 新功能优先沉淀到模块级 PRD，而不是往 README 里塞需求。
 - `/api/stream/[trackId]` 是当前唯一必须保留的流媒体例外接口，不要随意改成普通 tRPC。
-- Plan 模块当前只把 `rename` 和基础 `tag_write` 视为已落地能力。
-- `/admin/library` 的 override 编辑仍然存在；任何 metadata 相关改动都要考虑它与 Plan 的边界。
+- `/admin/library` 当前以 `trackEdits` + `track_edit_sync` 为编辑主线，不再走 override/Plan 式元数据编辑。
+- Plan 模块当前主要保留历史记录读取与兼容执行器；不要再把它当成日常编辑入口。
 
 ## 7. 常用入口
 
@@ -127,7 +127,6 @@
 文档入口：
 
 - `docs/prd/README.md`
-- `docs/prd/plan-workflow/summary.md`
 - `docs/archive/README.md`
 
 ## 8. 验证命令

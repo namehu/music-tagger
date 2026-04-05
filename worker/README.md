@@ -46,7 +46,7 @@ INSERT INTO "jobs" (
 );
 ```
 
-worker 领取后会调用 `scan_full`，遍历 `MUSIC_ROOT` 下支持的音频文件，并把基础元数据与技术信息写入（或更新）`tracks` 表。
+worker 领取后会调用 `scan_full`，遍历 `MUSIC_ROOT` 下支持的音频文件，并把基础元数据、已有嵌入歌词与封面观察值写入（或更新）`tracks` 表。
 
 当前 worker 已支持两类任务：
 

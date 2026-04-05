@@ -17,8 +17,8 @@
 
 import * as runtime from "@prisma/client/runtime/index-browser"
 
-export type * from '../models'
-export type * from './prismaNamespace'
+export type * from '../models.ts'
+export type * from './prismaNamespace.ts'
 
 export const Decimal = runtime.Decimal
 
@@ -58,6 +58,9 @@ export const ModelName = {
   AdminSettings: 'AdminSettings',
   Job: 'Job',
   Track: 'Track',
+  TrackMetadataEdit: 'TrackMetadataEdit',
+  TrackLyricsEdit: 'TrackLyricsEdit',
+  TrackCoverEdit: 'TrackCoverEdit',
   UserIgnoredTrack: 'UserIgnoredTrack',
   GlobalIgnoredTrack: 'GlobalIgnoredTrack',
   Playlist: 'Playlist',
@@ -203,13 +206,74 @@ export const TrackScalarFieldEnum = {
   artworkKind: 'artworkKind',
   artworkMime: 'artworkMime',
   artworkHash: 'artworkHash',
+  observedArtworkAssetPath: 'observedArtworkAssetPath',
   lyricsKind: 'lyricsKind',
   lyricsHash: 'lyricsHash',
+  observedLyricsText: 'observedLyricsText',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 } as const
 
 export type TrackScalarFieldEnum = (typeof TrackScalarFieldEnum)[keyof typeof TrackScalarFieldEnum]
+
+
+export const TrackMetadataEditScalarFieldEnum = {
+  id: 'id',
+  trackId: 'trackId',
+  title: 'title',
+  artist: 'artist',
+  album: 'album',
+  albumArtist: 'albumArtist',
+  trackNo: 'trackNo',
+  discNo: 'discNo',
+  year: 'year',
+  genre: 'genre',
+  syncStatus: 'syncStatus',
+  syncErrorJson: 'syncErrorJson',
+  syncRequestedAt: 'syncRequestedAt',
+  syncStartedAt: 'syncStartedAt',
+  syncFinishedAt: 'syncFinishedAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type TrackMetadataEditScalarFieldEnum = (typeof TrackMetadataEditScalarFieldEnum)[keyof typeof TrackMetadataEditScalarFieldEnum]
+
+
+export const TrackLyricsEditScalarFieldEnum = {
+  id: 'id',
+  trackId: 'trackId',
+  lyricsText: 'lyricsText',
+  format: 'format',
+  syncStatus: 'syncStatus',
+  syncErrorJson: 'syncErrorJson',
+  syncRequestedAt: 'syncRequestedAt',
+  syncStartedAt: 'syncStartedAt',
+  syncFinishedAt: 'syncFinishedAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type TrackLyricsEditScalarFieldEnum = (typeof TrackLyricsEditScalarFieldEnum)[keyof typeof TrackLyricsEditScalarFieldEnum]
+
+
+export const TrackCoverEditScalarFieldEnum = {
+  id: 'id',
+  trackId: 'trackId',
+  assetPath: 'assetPath',
+  mimeType: 'mimeType',
+  fileSize: 'fileSize',
+  hash: 'hash',
+  syncStatus: 'syncStatus',
+  syncErrorJson: 'syncErrorJson',
+  syncRequestedAt: 'syncRequestedAt',
+  syncStartedAt: 'syncStartedAt',
+  syncFinishedAt: 'syncFinishedAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type TrackCoverEditScalarFieldEnum = (typeof TrackCoverEditScalarFieldEnum)[keyof typeof TrackCoverEditScalarFieldEnum]
 
 
 export const UserIgnoredTrackScalarFieldEnum = {

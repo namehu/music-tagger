@@ -8,6 +8,7 @@ import {
   getTranscodeFailureCategoryLabel,
 } from "@/lib/transcode-failure";
 import { selectRecentUniqueTrackPlays } from "@/lib/library-dashboard";
+import { getTrackDisplaySummary } from "@/lib/track-edits";
 import { doesCacheFileExist, removeCacheFile } from "@/lib/transcode-cache";
 import { TRACK_VISIBILITY_SURFACES } from "@/lib/ignored-tracks";
 
@@ -71,26 +72,6 @@ function buildUserVisibleTrackWhere(userId: string, extraWhere?: Prisma.TrackWhe
   };
 }
 
-function serializeDashboardTrack(input: {
-  id: string;
-  filename: string;
-  title: string | null;
-  titleOverride: string | null;
-  artist: string | null;
-  artistOverride: string | null;
-  album: string | null;
-  albumOverride: string | null;
-  updatedAt: Date;
-}) {
-  return {
-    id: input.id,
-    title: input.titleOverride ?? input.title ?? input.filename,
-    artist: input.artistOverride ?? input.artist ?? "未知艺人",
-    album: input.albumOverride ?? input.album ?? null,
-    updatedAt: input.updatedAt,
-  };
-}
-
 async function getLibraryStatsForSurface(input: {
   ctx: Parameters<Parameters<typeof protectedProcedure.query>[0]>[0]["ctx"];
   userId: string;
@@ -123,26 +104,30 @@ async function getLibraryStatsForSurface(input: {
         ${visibilityFilter}
     `),
     input.ctx.prisma.$queryRaw<Array<{ count: number }>>(Prisma.sql`
-      SELECT COUNT(*) AS "count"
+        SELECT COUNT(*) AS "count"
       FROM (
         SELECT DISTINCT
-          COALESCE(t."albumOverride", t."album") AS "album",
-          COALESCE(t."albumArtistOverride", t."albumArtist") AS "albumArtist"
+          CASE WHEN tme."id" IS NOT NULL THEN tme."album" ELSE t."album" END AS "album",
+          CASE WHEN tme."id" IS NOT NULL THEN tme."albumArtist" ELSE t."albumArtist" END AS "albumArtist"
         FROM "tracks" AS t
+        LEFT JOIN "track_metadata_edits" AS tme
+          ON tme."trackId" = t."id"
         ${ignoreJoinClause}
-        WHERE COALESCE(t."albumOverride", t."album") IS NOT NULL
-          AND COALESCE(t."albumOverride", t."album") != ''
+        WHERE CASE WHEN tme."id" IS NOT NULL THEN tme."album" ELSE t."album" END IS NOT NULL
+          AND CASE WHEN tme."id" IS NOT NULL THEN tme."album" ELSE t."album" END != ''
           ${visibilityFilter}
       )
     `),
     input.ctx.prisma.$queryRaw<Array<{ count: number }>>(Prisma.sql`
       SELECT COUNT(*) AS "count"
       FROM (
-        SELECT DISTINCT COALESCE(t."artistOverride", t."artist") AS "artist"
+        SELECT DISTINCT CASE WHEN tme."id" IS NOT NULL THEN tme."artist" ELSE t."artist" END AS "artist"
         FROM "tracks" AS t
+        LEFT JOIN "track_metadata_edits" AS tme
+          ON tme."trackId" = t."id"
         ${ignoreJoinClause}
-        WHERE COALESCE(t."artistOverride", t."artist") IS NOT NULL
-          AND COALESCE(t."artistOverride", t."artist") != ''
+        WHERE CASE WHEN tme."id" IS NOT NULL THEN tme."artist" ELSE t."artist" END IS NOT NULL
+          AND CASE WHEN tme."id" IS NOT NULL THEN tme."artist" ELSE t."artist" END != ''
           ${visibilityFilter}
       )
     `),
@@ -209,12 +194,26 @@ export const libraryRouter = router({
           id: true,
           filename: true,
           title: true,
-          titleOverride: true,
           artist: true,
-          artistOverride: true,
           album: true,
-          albumOverride: true,
+          albumArtist: true,
+          trackNo: true,
+          discNo: true,
+          year: true,
+          genre: true,
           updatedAt: true,
+          metadataEdit: {
+            select: {
+              title: true,
+              artist: true,
+              album: true,
+              albumArtist: true,
+              trackNo: true,
+              discNo: true,
+              year: true,
+              genre: true,
+            },
+          },
         },
       }),
     ]);
@@ -230,19 +229,38 @@ export const libraryRouter = router({
         id: true,
         filename: true,
         title: true,
-        titleOverride: true,
         artist: true,
-        artistOverride: true,
+        album: true,
+        albumArtist: true,
+        trackNo: true,
+        discNo: true,
+        year: true,
+        genre: true,
+        metadataEdit: {
+          select: {
+            title: true,
+            artist: true,
+            album: true,
+            albumArtist: true,
+            trackNo: true,
+            discNo: true,
+            year: true,
+            genre: true,
+          },
+        },
       },
     });
     const recentPlayTrackMap = new Map(
       recentPlayTracks.map((track) => [
         track.id,
-        {
-          trackId: track.id,
-          title: track.titleOverride ?? track.title ?? track.filename,
-          artist: track.artistOverride ?? track.artist ?? "未知艺人",
-        },
+        (() => {
+          const display = getTrackDisplaySummary(track);
+          return {
+            trackId: track.id,
+            title: display.title,
+            artist: display.artist,
+          };
+        })(),
       ]),
     );
     const recentPlays = recentUniquePlays
@@ -269,7 +287,16 @@ export const libraryRouter = router({
         itemCount: playlist._count.items,
         updatedAt: playlist.updatedAt,
       })),
-      recentTracks: recentTracks.map(serializeDashboardTrack),
+      recentTracks: recentTracks.map((track) => {
+        const display = getTrackDisplaySummary(track);
+        return {
+          id: track.id,
+          title: display.title,
+          artist: display.artist,
+          album: display.album,
+          updatedAt: track.updatedAt,
+        };
+      }),
     };
   }),
 

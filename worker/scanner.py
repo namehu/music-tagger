@@ -1,3 +1,4 @@
+import hashlib
 import json
 import os
 import sqlite3
@@ -6,6 +7,8 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable
+
+from track_edit_assets import build_track_cover_asset_key, resolve_track_edit_asset_path
 
 
 def _utc_now_sqlite() -> str:
@@ -130,6 +133,156 @@ def _probe_audio_file(path: Path) -> dict[str, Any]:
     }
 
 
+def _coerce_text(value: Any) -> str | None:
+    if value is None:
+        return None
+    if isinstance(value, (list, tuple)):
+        parts = [part for item in value if (part := _coerce_text(item))]
+        return "\n".join(parts) if parts else None
+    text = str(value).strip()
+    return text or None
+
+
+def _detect_image_mime(image_bytes: bytes, declared_mime: str | None = None) -> str | None:
+    normalized_mime = declared_mime.lower().strip() if declared_mime else None
+    if normalized_mime in {"image/jpeg", "image/png"}:
+        return normalized_mime
+    if image_bytes.startswith(b"\x89PNG\r\n\x1a\n"):
+        return "image/png"
+    if image_bytes.startswith(b"\xff\xd8\xff"):
+        return "image/jpeg"
+    return normalized_mime
+
+
+def _cover_extension_for_mime(mime_type: str | None) -> str:
+    if mime_type == "image/png":
+        return ".png"
+    return ".jpg"
+
+
+def _extract_embedded_media(path: Path) -> dict[str, Any]:
+    result = {
+        "lyrics_text": None,
+        "lyrics_kind": None,
+        "lyrics_hash": None,
+        "artwork_bytes": None,
+        "artwork_kind": None,
+        "artwork_mime": None,
+        "artwork_hash": None,
+    }
+
+    try:
+        from mutagen import File as MutagenFile  # type: ignore
+    except ModuleNotFoundError:
+        return result
+
+    media = MutagenFile(str(path), easy=False)
+    if media is None:
+        return result
+
+    suffix = path.suffix.lower()
+    lyrics_text: str | None = None
+    artwork_bytes: bytes | None = None
+    artwork_mime: str | None = None
+
+    if suffix == ".mp3":
+        tags = getattr(media, "tags", None)
+        if tags is not None and hasattr(tags, "getall"):
+            lyrics_frames = tags.getall("USLT")
+            lyrics_parts = []
+            for frame in lyrics_frames:
+                if text := _coerce_text(getattr(frame, "text", None)):
+                    lyrics_parts.append(text)
+            if lyrics_parts:
+                lyrics_text = "\n\n".join(lyrics_parts)
+
+            for frame in tags.getall("APIC"):
+                data = getattr(frame, "data", None)
+                if data:
+                    artwork_bytes = bytes(data)
+                    artwork_mime = _detect_image_mime(artwork_bytes, getattr(frame, "mime", None))
+                    break
+    elif suffix == ".flac":
+        for key in ("LYRICS", "UNSYNCEDLYRICS", "LYRIC", "UNSYNCED LYRICS"):
+            if text := _coerce_text(media.get(key) or media.get(key.lower())):
+                lyrics_text = text
+                break
+
+        pictures = getattr(media, "pictures", None) or []
+        if pictures:
+            picture = pictures[0]
+            data = getattr(picture, "data", None)
+            if data:
+                artwork_bytes = bytes(data)
+                artwork_mime = _detect_image_mime(artwork_bytes, getattr(picture, "mime", None))
+    elif suffix in {".m4a", ".mp4", ".alac"}:
+        tags = getattr(media, "tags", None) or {}
+        lyrics_text = _coerce_text(tags.get("\xa9lyr"))
+        covers = tags.get("covr") or []
+        if covers:
+            artwork_bytes = bytes(covers[0])
+            image_format = getattr(covers[0], "imageformat", None)
+            artwork_mime = "image/png" if image_format == 14 else "image/jpeg" if image_format == 13 else None
+            artwork_mime = _detect_image_mime(artwork_bytes, artwork_mime)
+    else:
+        tags = getattr(media, "tags", None) or {}
+        for key in ("lyrics", "LYRICS", "unsyncedlyrics", "UNSYNCEDLYRICS"):
+            if text := _coerce_text(tags.get(key)):
+                lyrics_text = text
+                break
+
+    if lyrics_text:
+        result["lyrics_text"] = lyrics_text
+        result["lyrics_kind"] = "embedded"
+        result["lyrics_hash"] = hashlib.sha256(lyrics_text.encode("utf-8")).hexdigest()
+
+    if artwork_bytes:
+        result["artwork_bytes"] = artwork_bytes
+        result["artwork_kind"] = "embedded"
+        result["artwork_mime"] = artwork_mime
+        result["artwork_hash"] = hashlib.sha256(artwork_bytes).hexdigest()
+
+    return result
+
+
+def _sync_observed_cover_asset(
+    track_id: str,
+    artwork_bytes: bytes | None,
+    artwork_mime: str | None,
+    previous_asset_path: str | None,
+) -> str | None:
+    previous_asset = resolve_track_edit_asset_path(previous_asset_path)
+
+    if not artwork_bytes:
+        if previous_asset and previous_asset.exists():
+            previous_asset.unlink(missing_ok=True)
+        return None
+
+    asset_key = build_track_cover_asset_key(track_id, _cover_extension_for_mime(artwork_mime), basename="observed-cover")
+    asset_path = resolve_track_edit_asset_path(asset_key)
+    if asset_path is None:
+        return None
+
+    asset_path.parent.mkdir(parents=True, exist_ok=True)
+    asset_path.write_bytes(artwork_bytes)
+
+    if previous_asset and previous_asset != asset_path and previous_asset.exists():
+        previous_asset.unlink(missing_ok=True)
+
+    return asset_key
+
+
+def _lookup_existing_track(conn: sqlite3.Connection, path: Path) -> sqlite3.Row | None:
+    return conn.execute(
+        """
+        SELECT "id", "observedArtworkAssetPath"
+        FROM "tracks"
+        WHERE "path" = ?
+        """,
+        (str(path),),
+    ).fetchone()
+
+
 def _upsert_track(conn: sqlite3.Connection, track: dict[str, Any]) -> None:
     now = _utc_now_sqlite()
     conn.execute(
@@ -139,9 +292,11 @@ def _upsert_track(conn: sqlite3.Connection, track: dict[str, Any]) -> None:
           "fileSize","mtimeMs","container","durationMs",
           "bitrateKbps","sampleRate","bitDepth","channels",
           "title","artist","album","albumArtist","trackNo","discNo","year","genre","tagsJson",
+          "artworkKind","artworkMime","artworkHash","observedArtworkAssetPath",
+          "lyricsKind","lyricsHash","observedLyricsText",
           "updatedAt"
         )
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         ON CONFLICT("path") DO UPDATE SET
           "dirPath" = excluded."dirPath",
           "filename" = excluded."filename",
@@ -162,6 +317,13 @@ def _upsert_track(conn: sqlite3.Connection, track: dict[str, Any]) -> None:
           "year" = excluded."year",
           "genre" = excluded."genre",
           "tagsJson" = excluded."tagsJson",
+          "artworkKind" = excluded."artworkKind",
+          "artworkMime" = excluded."artworkMime",
+          "artworkHash" = excluded."artworkHash",
+          "observedArtworkAssetPath" = excluded."observedArtworkAssetPath",
+          "lyricsKind" = excluded."lyricsKind",
+          "lyricsHash" = excluded."lyricsHash",
+          "observedLyricsText" = excluded."observedLyricsText",
           "updatedAt" = excluded."updatedAt"
         """,
         (
@@ -186,6 +348,13 @@ def _upsert_track(conn: sqlite3.Connection, track: dict[str, Any]) -> None:
             track["year"],
             track["genre"],
             track["tagsJson"],
+            track["artworkKind"],
+            track["artworkMime"],
+            track["artworkHash"],
+            track["observedArtworkAssetPath"],
+            track["lyricsKind"],
+            track["lyricsHash"],
+            track["observedLyricsText"],
             now,
         ),
     )
@@ -196,33 +365,38 @@ def _cleanup_stale_tracks(conn: sqlite3.Connection, root: Path, seen_paths: set[
     root_prefix = f"{root_path}{os.sep}"
     rows = conn.execute(
         """
-        SELECT "path"
+        SELECT "path", "observedArtworkAssetPath"
         FROM "tracks"
         WHERE "path" = ? OR "path" LIKE ?
         """,
         (root_path, f"{root_prefix}%"),
     ).fetchall()
 
-    stale_paths = [row["path"] for row in rows if row["path"] not in seen_paths]
-    if not stale_paths:
+    stale_rows = [row for row in rows if row["path"] not in seen_paths]
+    if not stale_rows:
         return 0
+
+    for row in stale_rows:
+        asset_path = resolve_track_edit_asset_path(row["observedArtworkAssetPath"])
+        if asset_path and asset_path.exists():
+            asset_path.unlink(missing_ok=True)
 
     conn.executemany(
         """
         DELETE FROM "tracks"
         WHERE "path" = ?
         """,
-        ((path,) for path in stale_paths),
+        ((row["path"],) for row in stale_rows),
     )
     conn.commit()
-    return len(stale_paths)
+    return len(stale_rows)
 
 
-def _build_track_record(path: Path) -> dict[str, Any]:
+def _build_track_record(path: Path, track_id: str, embedded_media: dict[str, Any], observed_artwork_asset_path: str | None) -> dict[str, Any]:
     stat = path.stat()
     probe = _probe_audio_file(path)
     return {
-        "id": uuid.uuid4().hex,
+        "id": track_id,
         "path": str(path),
         "dirPath": str(path.parent),
         "filename": path.name,
@@ -243,6 +417,13 @@ def _build_track_record(path: Path) -> dict[str, Any]:
         "year": probe["year"],
         "genre": probe["genre"],
         "tagsJson": probe["tags_json"],
+        "artworkKind": embedded_media["artwork_kind"],
+        "artworkMime": embedded_media["artwork_mime"],
+        "artworkHash": embedded_media["artwork_hash"],
+        "observedArtworkAssetPath": observed_artwork_asset_path,
+        "lyricsKind": embedded_media["lyrics_kind"],
+        "lyricsHash": embedded_media["lyrics_hash"],
+        "observedLyricsText": embedded_media["lyrics_text"],
     }
 
 
@@ -257,6 +438,7 @@ def scan_full(
 
     - 递归遍历支持的音频文件扩展名
     - 使用 ffprobe 填充最小技术信息与常见标签
+    - 提取已有的嵌入歌词和封面，更新 tracks 观察值
     - 清理扫描根目录下已经不存在的陈旧 tracks 记录
     """
     root = Path(music_root).expanduser().resolve()
@@ -265,6 +447,7 @@ def scan_full(
     if not root.is_dir():
         raise RuntimeError(f"MUSIC_ROOT is not a directory: {root}")
 
+    conn.row_factory = sqlite3.Row
     audio_files = _iter_audio_files(root)
     total = len(audio_files)
     seen_paths: set[str] = set()
@@ -276,7 +459,18 @@ def scan_full(
 
     for index, path in enumerate(audio_files, start=1):
         try:
-            track = _build_track_record(path)
+            existing_track = _lookup_existing_track(conn, path)
+            track_id = existing_track["id"] if existing_track is not None else uuid.uuid4().hex
+            embedded_media = _extract_embedded_media(path)
+
+            observed_artwork_asset_path = _sync_observed_cover_asset(
+                track_id,
+                embedded_media["artwork_bytes"],
+                embedded_media["artwork_mime"],
+                existing_track["observedArtworkAssetPath"] if existing_track is not None else None,
+            )
+
+            track = _build_track_record(path, track_id, embedded_media, observed_artwork_asset_path)
             _upsert_track(conn, track)
             conn.commit()
             seen_paths.add(track["path"])

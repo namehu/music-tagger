@@ -147,8 +147,10 @@ model Track {
   artworkKind        String?
   artworkMime        String?
   artworkHash        String?
+  observedArtworkAssetPath String?
   lyricsKind         String?
   lyricsHash         String?
+  observedLyricsText String?
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
   transcodes         TranscodeCache[]
@@ -156,12 +158,77 @@ model Track {
   playlistItems      PlaylistItem[]
   userIgnoredEntries UserIgnoredTrack[]
   globalIgnoredEntry GlobalIgnoredTrack?
+  metadataEdit       TrackMetadataEdit?
+  lyricsEdit         TrackLyricsEdit?
+  coverEdit          TrackCoverEdit?
 
   @@index([dirPath], map: "idx_tracks_dir_path")
   @@index([album, albumArtist], map: "idx_tracks_album")
   @@index([artist], map: "idx_tracks_artist")
   @@index([updatedAt], map: "idx_tracks_updated_at")
   @@map("tracks")
+}
+
+model TrackMetadataEdit {
+  id             String   @id
+  trackId        String   @unique
+  track          Track    @relation(fields: [trackId], references: [id], onDelete: Cascade)
+  title          String?
+  artist         String?
+  album          String?
+  albumArtist    String?
+  trackNo        Int?
+  discNo         Int?
+  year           Int?
+  genre          String?
+  syncStatus     String   @default("pending")
+  syncErrorJson  String?
+  syncRequestedAt DateTime?
+  syncStartedAt  DateTime?
+  syncFinishedAt DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([syncStatus, updatedAt], map: "idx_track_metadata_edits_status_updated_at")
+  @@map("track_metadata_edits")
+}
+
+model TrackLyricsEdit {
+  id             String   @id
+  trackId        String   @unique
+  track          Track    @relation(fields: [trackId], references: [id], onDelete: Cascade)
+  lyricsText     String?
+  format         String   @default("plain")
+  syncStatus     String   @default("pending")
+  syncErrorJson  String?
+  syncRequestedAt DateTime?
+  syncStartedAt  DateTime?
+  syncFinishedAt DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([syncStatus, updatedAt], map: "idx_track_lyrics_edits_status_updated_at")
+  @@map("track_lyrics_edits")
+}
+
+model TrackCoverEdit {
+  id             String   @id
+  trackId        String   @unique
+  track          Track    @relation(fields: [trackId], references: [id], onDelete: Cascade)
+  assetPath      String?
+  mimeType       String?
+  fileSize       Int?
+  hash           String?
+  syncStatus     String   @default("pending")
+  syncErrorJson  String?
+  syncRequestedAt DateTime?
+  syncStartedAt  DateTime?
+  syncFinishedAt DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([syncStatus, updatedAt], map: "idx_track_cover_edits_status_updated_at")
+  @@map("track_cover_edits")
 }
 
 model UserIgnoredTrack {

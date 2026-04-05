@@ -55,7 +55,7 @@ source_refs:
 | 字段名称 (中/英) | 数据类型 | 必填/选填 | 业务规则/约束 | 默认值 |
 | --- | --- | --- | --- | --- |
 | 曲目 ID `trackId` | string | 必显 | 用于播放 | 无 |
-| 标题 `title` | string | 必显 | 优先使用 override 标题 | 无 |
+| 标题 `title` | string | 必显 | 优先使用最新编辑值 | 无 |
 | 艺人 `artist` | string | 必显 | 无值时显示“未知艺人” | 无 |
 | 最近播放时间 `playedAt` | datetime | 必显 | 展示最近一次点播时间 | 无 |
 
