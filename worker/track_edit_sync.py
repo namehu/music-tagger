@@ -68,6 +68,23 @@ def _set_domain_status(
     conn.commit()
 
 
+def _refresh_track_file_snapshot(conn: sqlite3.Connection, track_id: str, source_path: Path) -> None:
+    stat = source_path.stat()
+    now = _utc_now_sqlite()
+    conn.execute(
+        """
+        UPDATE "tracks"
+        SET
+          "fileSize" = ?,
+          "mtimeMs" = ?,
+          "updatedAt" = ?
+        WHERE "id" = ?
+        """,
+        (int(stat.st_size), int(stat.st_mtime_ns // 1_000_000), now, track_id),
+    )
+    conn.commit()
+
+
 def _get_mutagen_easy_file(path: Path):
     try:
         from mutagen import File as MutagenFile  # type: ignore
@@ -346,6 +363,7 @@ def _sync_metadata(conn: sqlite3.Connection, track_id: str) -> None:
     observed_metadata = _metadata_from_track_row(track)
     target_metadata = _metadata_from_edit_row(edit) or observed_metadata
     _write_tag_values(source_path, _build_tag_diff(target_metadata))
+    _refresh_track_file_snapshot(conn, track_id, source_path)
 
     if edit is not None:
         if _same_metadata(target_metadata, observed_metadata):
@@ -380,6 +398,7 @@ def _sync_lyrics(conn: sqlite3.Connection, track_id: str) -> None:
 
     lyrics_text = edit["lyricsText"]
     _write_embedded_lyrics(source_path, lyrics_text)
+    _refresh_track_file_snapshot(conn, track_id, source_path)
     now = _utc_now_sqlite()
     lyrics_hash = hashlib.sha256(lyrics_text.encode("utf-8")).hexdigest() if lyrics_text else None
     conn.execute(
@@ -420,6 +439,7 @@ def _sync_cover(conn: sqlite3.Connection, track_id: str) -> None:
         raise RuntimeError(f"封面资产不存在: {edit['assetPath']}")
 
     _write_embedded_cover(source_path, edit)
+    _refresh_track_file_snapshot(conn, track_id, source_path)
     now = _utc_now_sqlite()
     conn.execute(
         """

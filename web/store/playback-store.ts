@@ -338,7 +338,43 @@ export function createPlaybackStoreApi(storage?: StateStorage, random = Math.ran
       admin: createInitialSessionState("admin"),
     },
     bindAudioElement: (sessionKind, audio) => {
-      set((current) => buildSessionUpdate(current, sessionKind, { audioElement: audio }));
+      const session = get().sessions[sessionKind];
+      const previousAudio = session.audioElement;
+      if (!audio) {
+        // keyed audio 切换时，旧节点的 ref(null) 可能晚于新节点挂载触发；
+        // 此时会话已经拿到了新的 activePlayback，不能再让旧节点把新引用和新进度冲掉。
+        if (session.activePlayback) {
+          return;
+        }
+
+        const currentTime = previousAudio
+          ? normalizeResumeTime(previousAudio.currentTime)
+          : session.resumeTimeSec;
+        if (previousAudio && !previousAudio.paused) {
+          previousAudio.pause();
+        }
+
+        set((current) =>
+          buildSessionUpdate(current, sessionKind, {
+            audioElement: null,
+            isAudioPlaying: false,
+            resumeTimeSec: currentTime > 0 ? currentTime : current.sessions[sessionKind].resumeTimeSec,
+          }),
+        );
+        return;
+      }
+
+      if (previousAudio && previousAudio !== audio) {
+        previousAudio.pause();
+        set((current) =>
+          buildSessionUpdate(current, sessionKind, {
+            audioElement: audio,
+            isAudioPlaying: false,
+          }),
+        );
+      } else {
+        set((current) => buildSessionUpdate(current, sessionKind, { audioElement: audio }));
+      }
 
       if (audio) {
         const session = get().sessions[sessionKind];
@@ -459,6 +495,7 @@ export function createPlaybackStoreApi(storage?: StateStorage, random = Math.ran
       const state = get();
       const session = state.sessions[sessionKind];
       const profile = options?.profile ?? "mp3_192";
+      const nextResumeTime = normalizeResumeTime(options?.resumeTimeSec);
       const currentTrack = getCurrentTrackFromSession(session);
       const activeTrackId = currentTrack?.id ?? null;
       const usesShuffle = sessionKind === "user" && session.playbackMode === "shuffle";
@@ -489,7 +526,7 @@ export function createPlaybackStoreApi(storage?: StateStorage, random = Math.ran
             track,
             profile,
             autoPlay: options?.autoPlay ?? true,
-            resumeTimeSec: options?.resumeTimeSec ?? null,
+            resumeTimeSec: nextResumeTime > 0 ? nextResumeTime : null,
           },
           requestSeq: current.sessions[sessionKind].requestSeq + 1,
           pendingResumeTimeSec: null,
@@ -497,6 +534,7 @@ export function createPlaybackStoreApi(storage?: StateStorage, random = Math.ran
           shuffleHistory: sessionKind === "user" ? nextHistory : [],
           resumeLock: false,
           hydrationStatus: "ready",
+          resumeTimeSec: nextResumeTime,
           durationSec: 0,
         }),
       );
@@ -542,6 +580,7 @@ export function createPlaybackStoreApi(storage?: StateStorage, random = Math.ran
           resolveRequest: null,
           pendingResumeTimeSec: request.resumeTimeSec,
           autoPlayOnReady: request.autoPlay,
+          resumeTimeSec: normalizeResumeTime(request.resumeTimeSec),
           playbackError: null,
           hydrationStatus: "ready",
         }),

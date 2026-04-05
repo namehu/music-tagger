@@ -1,5 +1,6 @@
 import { TRPCError } from "@trpc/server";
 import { randomUUID } from "crypto";
+import { stat as statFile } from "node:fs/promises";
 import { z } from "zod";
 
 import {
@@ -198,6 +199,7 @@ export const playbackRouter = router({
         id: true,
         path: true,
         filename: true,
+        fileSize: true,
         mtimeMs: true,
       },
     });
@@ -229,7 +231,32 @@ export const playbackRouter = router({
       };
     }
 
-    const sourceMtimeMs = track.mtimeMs;
+    let sourceMtimeMs = track.mtimeMs;
+    const readableSourcePath = await resolveTrackSourcePath(track.path);
+    if (readableSourcePath) {
+      const sourceStat = await statFile(readableSourcePath).catch(() => null);
+      const actualMtimeMs =
+        sourceStat != null ? BigInt(Math.floor(sourceStat.mtimeMs)) : null;
+      const actualFileSize =
+        sourceStat != null && Number.isFinite(sourceStat.size) ? Number(sourceStat.size) : null;
+
+      if (
+        actualMtimeMs != null &&
+        (actualMtimeMs !== track.mtimeMs ||
+          (typeof actualFileSize === "number" && actualFileSize !== track.fileSize))
+      ) {
+        await ctx.prisma.track.update({
+          where: { id: track.id },
+          data: {
+            mtimeMs: actualMtimeMs,
+            fileSize: typeof actualFileSize === "number" ? actualFileSize : track.fileSize,
+          },
+          select: { id: true },
+        });
+        sourceMtimeMs = actualMtimeMs;
+      }
+    }
+
     const cachePath = getPlaybackCachePath({
       trackId: track.id,
       sourceMtimeMs,

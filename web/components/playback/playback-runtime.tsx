@@ -4,6 +4,7 @@ import React from "react";
 import { toast } from "sonner";
 
 import { trpc } from "@/app/_trpc/provider";
+import { classifyTranscodeFailure } from "@/lib/transcode-failure";
 import {
   getPlaybackStoreState,
   usePlaybackSession,
@@ -53,6 +54,7 @@ export function PlaybackRuntime({ sessionKind }: { sessionKind: PlaybackSessionK
   );
   const lastToastedErrorRef = React.useRef<string | null>(null);
   const submittedResolveSeqRef = React.useRef<number | null>(null);
+  const staleSourceRetriedKeyRef = React.useRef<string | null>(null);
 
   React.useEffect(() => {
     if (!resolveRequest) {
@@ -113,6 +115,12 @@ export function PlaybackRuntime({ sessionKind }: { sessionKind: PlaybackSessionK
   }, [resolveRequest]);
 
   React.useEffect(() => {
+    if (!preparingRequest) {
+      staleSourceRetriedKeyRef.current = null;
+    }
+  }, [preparingRequest]);
+
+  React.useEffect(() => {
     if (!preparingJobId || !preparingRequest) {
       return;
     }
@@ -128,6 +136,14 @@ export function PlaybackRuntime({ sessionKind }: { sessionKind: PlaybackSessionK
     }
 
     if (currentJob.status === "failed" || currentJob.status === "cancelled") {
+      const retryKey = `${preparingRequest.track.id}:${preparingRequest.profile}`;
+      const failureCategory = classifyTranscodeFailure(currentJob.errorJson);
+      if (failureCategory === "source_changed" && staleSourceRetriedKeyRef.current !== `retried:${retryKey}`) {
+        staleSourceRetriedKeyRef.current = `retried:${retryKey}`;
+        getPlaybackStoreState().retryPreparingRequest(sessionKind);
+        return;
+      }
+
       getPlaybackStoreState().handlePreparingFailure(
         sessionKind,
         getJobErrorMessage(currentJob.errorJson),

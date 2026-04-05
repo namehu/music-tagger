@@ -262,3 +262,56 @@ test("admin session does not participate in restore locks or persisted session r
   assert.equal(store.getState().sessions.admin.resumeLock, false);
   assert.equal(store.getState().sessions.admin.queue.length, 0);
 });
+
+test("requesting a different track resets visible progress before the next audio is ready", () => {
+  const { store, first, second } = createStoreWithTracks();
+
+  store.getState().requestPlayTrack("user", first, { autoPlay: false, resumeTimeSec: 87 });
+  store.getState().writeResolvedPlayback("user", {
+    seq: store.getState().sessions.user.resolveRequest!.seq,
+    url: "/stream/1",
+  });
+  assert.equal(store.getState().sessions.user.resumeTimeSec, 87);
+
+  store.getState().requestPlayTrack("user", second, { autoPlay: true });
+  assert.equal(store.getState().sessions.user.displayTrack?.id, second.id);
+  assert.equal(store.getState().sessions.user.resumeTimeSec, 0);
+  assert.equal(store.getState().sessions.user.pendingTrackId, second.id);
+});
+
+test("stale audio unbind does not clear the newly attached audio element during track switches", () => {
+  const { store, first, second } = createStoreWithTracks();
+  const oldAudio = {
+    paused: false,
+    currentTime: 41,
+    pause() {
+      this.paused = true;
+    },
+  } as unknown as HTMLAudioElement;
+  const newAudio = {
+    paused: true,
+    currentTime: 0,
+    pause() {
+      this.paused = true;
+    },
+  } as unknown as HTMLAudioElement;
+
+  store.getState().bindAudioElement("user", oldAudio);
+  store.getState().requestPlayTrack("user", first, { autoPlay: false });
+  store.getState().writeResolvedPlayback("user", {
+    seq: store.getState().sessions.user.resolveRequest!.seq,
+    url: "/stream/1",
+  });
+
+  store.getState().requestPlayTrack("user", second, { autoPlay: true });
+  store.getState().writeResolvedPlayback("user", {
+    seq: store.getState().sessions.user.resolveRequest!.seq,
+    url: "/stream/2",
+  });
+  store.getState().bindAudioElement("user", newAudio);
+  store.getState().bindAudioElement("user", null);
+
+  assert.equal(store.getState().sessions.user.audioElement, newAudio);
+  assert.equal(store.getState().sessions.user.displayTrack?.id, second.id);
+  assert.equal(store.getState().sessions.user.resumeTimeSec, 0);
+});
