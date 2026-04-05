@@ -2,7 +2,6 @@
 
 import React from "react";
 import {
-  ChevronDownIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
   InfoIcon,
@@ -16,13 +15,29 @@ import {
 } from "lucide-react";
 
 import { trpc } from "@/app/_trpc/provider";
+import { LyricsPanel } from "@/components/playback/lyrics-panel";
 import { Button } from "@/components/ui/button";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import {
+  Slider,
+  SliderControl,
+  SliderIndicator,
+  SliderThumb,
+  SliderTrack,
+} from "@/components/ui/slider";
 import {
   formatPlaybackTime,
   getPlaybackModeLabel,
   getPlaybackQueueLabel,
   getPlaybackRestoreMessage,
 } from "@/lib/playback-ui";
+import type { TrackLyricsFormat } from "@/lib/lyrics";
 import { cn } from "@/lib/utils";
 import {
   getPlaybackAudioErrorMessage,
@@ -31,26 +46,34 @@ import {
   type PlaybackSessionKind,
 } from "@/store/playback-store";
 
+function getBufferedUntilSec(audio: HTMLAudioElement) {
+  if (audio.buffered.length === 0) {
+    return 0;
+  }
+
+  return audio.buffered.end(audio.buffered.length - 1);
+}
+
 function CoverThumb({
   coverUrl,
   title,
   compact = false,
+  className,
 }: {
   coverUrl: string | null | undefined;
   title: string;
   compact?: boolean;
+  className?: string;
 }) {
   const sizeClass = compact ? "size-12" : "size-14";
 
   if (coverUrl) {
     return (
-      // 这里使用应用内受保护的动态封面路由，并带时间戳 query 做缓存失效；
-      // 交给 next/image 会触发 localPatterns 校验，因此播放器直接渲染普通图片更稳。
       // eslint-disable-next-line @next/next/no-img-element
       <img
         src={coverUrl}
         alt={`${title} 封面`}
-        className={cn(sizeClass, "rounded-xl border object-cover shadow-sm")}
+        className={cn(sizeClass, "rounded-xl border object-cover shadow-sm", className)}
       />
     );
   }
@@ -60,6 +83,7 @@ function CoverThumb({
       className={cn(
         sizeClass,
         "flex items-center justify-center rounded-xl border bg-muted/50 text-muted-foreground shadow-sm",
+        className,
       )}
     >
       <Music4Icon className="size-5" />
@@ -67,29 +91,57 @@ function CoverThumb({
   );
 }
 
-function PlaybackProgress({
-  currentTimeSec,
-  durationSec,
-  compact = false,
-}: {
+function PlaybackProgress(props: {
   currentTimeSec: number;
   durationSec: number;
+  bufferedUntilSec: number;
   compact?: boolean;
+  disabled?: boolean;
+  isSeeking: boolean;
+  onBeginSeek: (nextTimeSec: number) => void;
+  onUpdateSeekPreview: (nextTimeSec: number) => void;
+  onCommitSeek: (nextTimeSec: number) => void;
 }) {
-  const progressPercent =
-    durationSec > 0 ? Math.min(100, Math.max(0, (currentTimeSec / durationSec) * 100)) : 0;
+  const maxValue = props.durationSec > 0 ? props.durationSec : 0;
+  const safeValue = Math.min(maxValue, Math.max(0, props.currentTimeSec));
+  const bufferedPercent =
+    maxValue > 0 ? Math.min(100, Math.max(0, (props.bufferedUntilSec / maxValue) * 100)) : 0;
 
   return (
-    <div className="space-y-1">
-      <div className={cn("h-1.5 overflow-hidden rounded-full bg-muted", compact && "h-1")}>
-        <div
-          className="h-full rounded-full bg-foreground/80 transition-[width]"
-          style={{ width: `${progressPercent}%` }}
-        />
-      </div>
+    <div className="space-y-1.5">
+      <Slider
+        min={0}
+        max={maxValue > 0 ? maxValue : 1}
+        step={0.1}
+        value={safeValue}
+        disabled={props.disabled || maxValue <= 0}
+        onValueChange={(value) => {
+          if (!props.isSeeking) {
+            props.onBeginSeek(value);
+            return;
+          }
+
+          props.onUpdateSeekPreview(value);
+        }}
+        onValueCommitted={(value) => {
+          props.onCommitSeek(value);
+        }}
+        className="w-full"
+      >
+        <SliderControl>
+          <SliderTrack className={cn("h-2.5 bg-muted/90", props.compact && "h-2")}>
+            <div
+              className="absolute inset-y-0 left-0 rounded-full bg-foreground/20"
+              style={{ width: `${bufferedPercent}%` }}
+            />
+            <SliderIndicator className="bg-foreground" />
+          </SliderTrack>
+          <SliderThumb />
+        </SliderControl>
+      </Slider>
       <div className="flex items-center justify-between text-[11px] text-muted-foreground">
-        <span>{formatPlaybackTime(currentTimeSec)}</span>
-        <span>{durationSec > 0 ? formatPlaybackTime(durationSec) : "--:--"}</span>
+        <span>{formatPlaybackTime(safeValue)}</span>
+        <span>{maxValue > 0 ? formatPlaybackTime(maxValue) : "--:--"}</span>
       </div>
     </div>
   );
@@ -115,7 +167,10 @@ export function GlobalPlayer({
   const pendingResumeTimeSec = usePlaybackSession(sessionKind, (state) => state.pendingResumeTimeSec);
   const autoPlayOnReady = usePlaybackSession(sessionKind, (state) => state.autoPlayOnReady);
   const resumeTimeSec = usePlaybackSession(sessionKind, (state) => state.resumeTimeSec);
+  const displayTimeSec = usePlaybackSession(sessionKind, (state) => state.displayTimeSec);
   const durationSec = usePlaybackSession(sessionKind, (state) => state.durationSec);
+  const bufferedUntilSec = usePlaybackSession(sessionKind, (state) => state.bufferedUntilSec);
+  const isSeeking = usePlaybackSession(sessionKind, (state) => state.isSeeking);
   const volume = usePlaybackSession(sessionKind, (state) => state.volume);
   const muted = usePlaybackSession(sessionKind, (state) => state.muted);
   const activePlayback = usePlaybackSession(sessionKind, (state) => state.activePlayback);
@@ -128,7 +183,12 @@ export function GlobalPlayer({
   const stopSession = usePlaybackStore((state) => state.stopSession);
   const setIsAudioPlaying = usePlaybackStore((state) => state.setIsAudioPlaying);
   const setPlaybackError = usePlaybackStore((state) => state.setPlaybackError);
+  const setPlaybackPosition = usePlaybackStore((state) => state.setPlaybackPosition);
   const syncProgressSnapshot = usePlaybackStore((state) => state.syncProgressSnapshot);
+  const beginSeek = usePlaybackStore((state) => state.beginSeek);
+  const updateSeekPreview = usePlaybackStore((state) => state.updateSeekPreview);
+  const commitSeek = usePlaybackStore((state) => state.commitSeek);
+  const setBufferedUntilSec = usePlaybackStore((state) => state.setBufferedUntilSec);
   const setDurationSec = usePlaybackStore((state) => state.setDurationSec);
   const setVolume = usePlaybackStore((state) => state.setVolume);
   const setMuted = usePlaybackStore((state) => state.setMuted);
@@ -148,7 +208,6 @@ export function GlobalPlayer({
 
   const attachAudioElement = React.useCallback(
     (audio: HTMLAudioElement | null) => {
-      // audio 节点仍然由播放器组件承载，但绑定时需要明确写回对应会话，避免 admin/user 相互抢引用。
       bindAudioElement(sessionKind, audio);
     },
     [bindAudioElement, sessionKind],
@@ -177,6 +236,12 @@ export function GlobalPlayer({
         ? "正在准备播放资源，完成后会按当前操作进入可播放状态。"
         : restoreMessage;
 
+  React.useEffect(() => {
+    if (!currentTrack) {
+      setShowDetails(false);
+    }
+  }, [currentTrack]);
+
   if (!currentTrack) {
     return null;
   }
@@ -185,6 +250,7 @@ export function GlobalPlayer({
     title: currentTrack.title,
     artist: currentTrack.artist,
     album: null,
+    albumArtist: null,
   };
   const showCompactButtons = isAdminSession;
 
@@ -260,19 +326,27 @@ export function GlobalPlayer({
                 type="button"
                 variant="outline"
                 size="sm"
-                onClick={() => setShowDetails((value) => !value)}
-                aria-expanded={showDetails}
-                aria-label="展开播放详情"
+                onClick={() => setShowDetails(true)}
+                aria-label="打开播放详情"
               >
                 <InfoIcon />
                 {showCompactButtons ? null : "详情"}
-                <ChevronDownIcon className={cn("transition-transform", showDetails && "rotate-180")} />
               </Button>
             </div>
           </div>
 
           <div className="grid gap-3 lg:grid-cols-[1fr_auto] lg:items-center">
-            <PlaybackProgress currentTimeSec={resumeTimeSec} durationSec={durationSec} compact={isAdminSession} />
+            <PlaybackProgress
+              currentTimeSec={displayTimeSec}
+              durationSec={durationSec}
+              bufferedUntilSec={bufferedUntilSec}
+              compact={isAdminSession}
+              disabled={isPreparing}
+              isSeeking={isSeeking}
+              onBeginSeek={(nextTimeSec) => beginSeek(sessionKind, nextTimeSec)}
+              onUpdateSeekPreview={(nextTimeSec) => updateSeekPreview(sessionKind, nextTimeSec)}
+              onCommitSeek={(nextTimeSec) => commitSeek(sessionKind, nextTimeSec)}
+            />
 
             {!isAdminSession ? (
               <div className="flex flex-wrap gap-2">
@@ -307,49 +381,89 @@ export function GlobalPlayer({
               <div className="text-xs text-muted-foreground">试听态不保留用户歌单与播放模式</div>
             )}
           </div>
+        </div>
 
-          {showDetails ? (
-            <div className="grid gap-4 rounded-2xl border bg-muted/20 p-4 lg:grid-cols-[0.9fr_1.1fr]">
-              <div className="space-y-3">
-                <div className="space-y-1">
-                  <div className="text-sm font-medium">当前上下文</div>
-                  <div className="text-sm text-muted-foreground">{getPlaybackQueueLabel(queueSourceKey)}</div>
-                </div>
+        <Sheet open={showDetails} onOpenChange={setShowDetails}>
+          <SheetContent side="bottom" className="max-h-[88vh] overflow-y-auto rounded-t-3xl px-0">
+            <SheetHeader className="px-6">
+              <SheetTitle>{isAdminSession ? "试听详情" : "播放详情"}</SheetTitle>
+              <SheetDescription>{detailStatusText}</SheetDescription>
+            </SheetHeader>
 
-                <div className="space-y-1">
-                  <div className="text-sm font-medium">播放说明</div>
-                  <div className="text-sm text-muted-foreground">{detailStatusText}</div>
-                </div>
-
-                <div className="grid gap-2 text-sm text-muted-foreground">
-                  <div>资料来源：{mediaQuery.data?.mediaSourceSummary.cover === "edit" ? "编辑封面" : mediaQuery.data?.mediaSourceSummary.cover === "scan" ? "扫描封面" : "无封面"}</div>
-                  <div>歌词来源：{mediaQuery.data?.mediaSourceSummary.lyrics === "edit" ? "编辑歌词" : mediaQuery.data?.mediaSourceSummary.lyrics === "scan" ? "扫描歌词" : "无歌词"}</div>
-                  {currentProfile ? <div>播放规格：{currentProfile}</div> : null}
-                  {currentSourceKind ? (
-                    <div>当前流：{currentSourceKind === "transcode_cache" ? "转码缓存" : "原始直出"}</div>
+            <div className="space-y-6 px-6 pb-6">
+              <div className="grid gap-4 md:grid-cols-[200px_1fr] md:items-start">
+                <CoverThumb
+                  coverUrl={mediaQuery.data?.coverUrl}
+                  title={detailTrack.title}
+                  className="size-40 justify-self-center md:size-48"
+                />
+                <div className="space-y-2">
+                  <div className="text-2xl font-semibold">{detailTrack.title}</div>
+                  <div className="text-base text-muted-foreground">{detailTrack.artist}</div>
+                  {detailTrack.album ? (
+                    <div className="text-sm text-muted-foreground">
+                      专辑：<span className="text-foreground">{detailTrack.album}</span>
+                    </div>
                   ) : null}
-                  {!isAdminSession ? <div>播放模式：{getPlaybackModeLabel(playbackMode)}</div> : null}
+                  {detailTrack.albumArtist ? (
+                    <div className="text-sm text-muted-foreground">
+                      专辑艺人：<span className="text-foreground">{detailTrack.albumArtist}</span>
+                    </div>
+                  ) : null}
                 </div>
               </div>
 
-              <div className="space-y-3">
-                <div className="space-y-1">
-                  <div className="text-sm font-medium">歌词</div>
-                  <div className="max-h-44 overflow-y-auto whitespace-pre-wrap rounded-xl border bg-background px-3 py-2 text-sm text-muted-foreground">
+              {isAdminSession ? (
+                <div className="space-y-3">
+                  <div className="text-sm font-medium">歌词预览</div>
+                  <div className="max-h-[40vh] overflow-y-auto whitespace-pre-wrap rounded-2xl border bg-muted/15 px-4 py-4 text-sm leading-7 text-foreground/90">
                     {mediaQuery.data?.lyricsText?.trim()
                       ? mediaQuery.data.lyricsText
                       : "当前曲目还没有可显示的歌词。"}
                   </div>
                 </div>
-                {detailTrack.album ? (
-                  <div className="text-sm text-muted-foreground">
-                    专辑：<span className="text-foreground">{detailTrack.album}</span>
+              ) : (
+                <LyricsPanel
+                  lyricsText={mediaQuery.data?.lyricsText}
+                  lyricsFormat={(mediaQuery.data?.lyricsFormat as TrackLyricsFormat | undefined) ?? "plain"}
+                  currentTimeSec={displayTimeSec}
+                  isPlaying={isAudioPlaying}
+                  onSeekTo={(nextTimeSec) => commitSeek(sessionKind, nextTimeSec)}
+                />
+              )}
+
+              <div className="rounded-2xl border bg-muted/15 p-4">
+                <div className="mb-3 text-sm font-medium">播放信息</div>
+                <div className="grid gap-2 text-sm text-muted-foreground md:grid-cols-2">
+                  <div>当前上下文：{getPlaybackQueueLabel(queueSourceKey)}</div>
+                  <div>
+                    资料来源：
+                    {mediaQuery.data?.mediaSourceSummary.cover === "edit"
+                      ? "编辑封面"
+                      : mediaQuery.data?.mediaSourceSummary.cover === "scan"
+                        ? "扫描封面"
+                        : "无封面"}
                   </div>
-                ) : null}
+                  <div>
+                    歌词来源：
+                    {mediaQuery.data?.mediaSourceSummary.lyrics === "edit"
+                      ? "编辑歌词"
+                      : mediaQuery.data?.mediaSourceSummary.lyrics === "scan"
+                        ? "扫描歌词"
+                        : "无歌词"}
+                  </div>
+                  {currentProfile ? <div>播放规格：{currentProfile}</div> : null}
+                  {currentSourceKind ? (
+                    <div>当前流：{currentSourceKind === "transcode_cache" ? "转码缓存" : "原始直出"}</div>
+                  ) : null}
+                  {!isAdminSession ? <div>播放模式：{getPlaybackModeLabel(playbackMode)}</div> : null}
+                  {!isAdminSession ? <div>恢复位置：{formatPlaybackTime(resumeTimeSec)}</div> : null}
+                  {playbackError ? <div className="text-destructive md:col-span-2">错误：{playbackError}</div> : null}
+                </div>
               </div>
             </div>
-          ) : null}
-        </div>
+          </SheetContent>
+        </Sheet>
 
         {activePlayback ? (
           <audio
@@ -362,6 +476,7 @@ export function GlobalPlayer({
             onPlay={() => setIsAudioPlaying(sessionKind, true)}
             onPause={(event) => {
               setIsAudioPlaying(sessionKind, false);
+              setPlaybackPosition(sessionKind, event.currentTarget.currentTime, true);
               syncProgressSnapshot(sessionKind, event.currentTarget.currentTime, true);
             }}
             onLoadedMetadata={(event) => {
@@ -375,14 +490,20 @@ export function GlobalPlayer({
                 audio.currentTime = Math.min(pendingResumeTimeSec, maxSeek);
               }
 
+              setPlaybackPosition(sessionKind, audio.currentTime, true);
+              setBufferedUntilSec(sessionKind, getBufferedUntilSec(audio));
+
               if (!autoPlayOnReady) {
                 audio.pause();
               }
 
               clearPendingResumeTime(sessionKind);
             }}
+            onProgress={(event) => {
+              setBufferedUntilSec(sessionKind, getBufferedUntilSec(event.currentTarget));
+            }}
             onTimeUpdate={(event) => {
-              syncProgressSnapshot(sessionKind, event.currentTarget.currentTime);
+              setPlaybackPosition(sessionKind, event.currentTarget.currentTime);
             }}
             onVolumeChange={(event) => {
               setVolume(sessionKind, event.currentTarget.volume);
@@ -390,6 +511,7 @@ export function GlobalPlayer({
             }}
             onEnded={() => {
               setIsAudioPlaying(sessionKind, false);
+              setPlaybackPosition(sessionKind, 0, true);
               syncProgressSnapshot(sessionKind, 0, true);
               handleTrackEnded(sessionKind);
             }}

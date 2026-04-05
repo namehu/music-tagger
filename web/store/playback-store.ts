@@ -69,7 +69,11 @@ type PlaybackSessionState = PersistedPlaybackSessionState & {
   autoPlayOnReady: boolean;
   audioElement: HTMLAudioElement | null;
   requestSeq: number;
+  currentTimeSec: number;
   durationSec: number;
+  bufferedUntilSec: number;
+  isSeeking: boolean;
+  seekingPreviewTimeSec: number | null;
 };
 
 type PlaybackSessionComputed = {
@@ -82,6 +86,7 @@ type PlaybackSessionComputed = {
   canPlayNext: boolean;
   isPreparing: boolean;
   isCurrentTrackInQueue: boolean;
+  displayTimeSec: number;
 };
 
 type PlaybackStoreState = {
@@ -131,11 +136,21 @@ type PlaybackStoreState = {
   pauseOtherSessionOnStart: (sessionKind: PlaybackSessionKind) => void;
   setPlaybackError: (sessionKind: PlaybackSessionKind, message: string | null) => void;
   setIsAudioPlaying: (sessionKind: PlaybackSessionKind, value: boolean) => void;
+  setPlaybackPosition: (
+    sessionKind: PlaybackSessionKind,
+    currentTimeSec: number,
+    forceSnapshot?: boolean,
+  ) => void;
   syncProgressSnapshot: (
     sessionKind: PlaybackSessionKind,
     currentTimeSec: number,
     force?: boolean,
   ) => void;
+  beginSeek: (sessionKind: PlaybackSessionKind, previewTimeSec: number) => void;
+  updateSeekPreview: (sessionKind: PlaybackSessionKind, previewTimeSec: number) => void;
+  commitSeek: (sessionKind: PlaybackSessionKind, nextTimeSec: number) => void;
+  cancelSeek: (sessionKind: PlaybackSessionKind) => void;
+  setBufferedUntilSec: (sessionKind: PlaybackSessionKind, seconds: number) => void;
   setDurationSec: (sessionKind: PlaybackSessionKind, value: number) => void;
   setVolume: (sessionKind: PlaybackSessionKind, value: number) => void;
   setMuted: (sessionKind: PlaybackSessionKind, value: boolean) => void;
@@ -228,7 +243,11 @@ function createInitialSessionState(sessionKind: PlaybackSessionKind): PlaybackSe
     autoPlayOnReady: false,
     audioElement: null,
     requestSeq: 0,
+    currentTimeSec: 0,
     durationSec: 0,
+    bufferedUntilSec: 0,
+    isSeeking: false,
+    seekingPreviewTimeSec: null,
   };
 }
 
@@ -271,6 +290,10 @@ function computeSessionState(
           : Boolean(orderedNextTrack),
     isPreparing: Boolean(session.preparingJobId),
     isCurrentTrackInQueue,
+    displayTimeSec:
+      session.isSeeking && session.seekingPreviewTimeSec != null
+        ? session.seekingPreviewTimeSec
+        : session.currentTimeSec,
   };
 }
 
@@ -358,6 +381,7 @@ export function createPlaybackStoreApi(storage?: StateStorage, random = Math.ran
           buildSessionUpdate(current, sessionKind, {
             audioElement: null,
             isAudioPlaying: false,
+            currentTimeSec: currentTime > 0 ? currentTime : current.sessions[sessionKind].currentTimeSec,
             resumeTimeSec: currentTime > 0 ? currentTime : current.sessions[sessionKind].resumeTimeSec,
           }),
         );
@@ -415,6 +439,7 @@ export function createPlaybackStoreApi(storage?: StateStorage, random = Math.ran
           isAudioPlaying: false,
           playbackError: null,
           currentSourceKind: toSourceKind(session.currentProfile!),
+          currentTimeSec: session.resumeTimeSec,
           resolveRequest: {
             seq: current.sessions.user.requestSeq + 1,
             track: currentTrack,
@@ -487,6 +512,7 @@ export function createPlaybackStoreApi(storage?: StateStorage, random = Math.ran
       set((current) =>
         buildSessionUpdate(current, otherSessionKind, {
           isAudioPlaying: false,
+          currentTimeSec: nextProgress,
           resumeTimeSec: nextProgress,
         }),
       );
@@ -534,8 +560,12 @@ export function createPlaybackStoreApi(storage?: StateStorage, random = Math.ran
           shuffleHistory: sessionKind === "user" ? nextHistory : [],
           resumeLock: false,
           hydrationStatus: "ready",
+          currentTimeSec: nextResumeTime,
           resumeTimeSec: nextResumeTime,
           durationSec: 0,
+          bufferedUntilSec: 0,
+          isSeeking: false,
+          seekingPreviewTimeSec: null,
         }),
       );
     },
@@ -580,9 +610,13 @@ export function createPlaybackStoreApi(storage?: StateStorage, random = Math.ran
           resolveRequest: null,
           pendingResumeTimeSec: request.resumeTimeSec,
           autoPlayOnReady: request.autoPlay,
+          currentTimeSec: normalizeResumeTime(request.resumeTimeSec),
           resumeTimeSec: normalizeResumeTime(request.resumeTimeSec),
           playbackError: null,
           hydrationStatus: "ready",
+          bufferedUntilSec: 0,
+          isSeeking: false,
+          seekingPreviewTimeSec: null,
         }),
       );
     },
@@ -606,12 +640,16 @@ export function createPlaybackStoreApi(storage?: StateStorage, random = Math.ran
             resolveRequest: null,
             pendingResumeTimeSec: null,
             autoPlayOnReady: false,
+            currentTimeSec: 0,
             resumeTimeSec: 0,
             playbackError: message,
             hydrationStatus: "ready",
             resumeLock: false,
             isAudioPlaying: false,
             durationSec: 0,
+            bufferedUntilSec: 0,
+            isSeeking: false,
+            seekingPreviewTimeSec: null,
           }),
         );
         return;
@@ -627,8 +665,12 @@ export function createPlaybackStoreApi(storage?: StateStorage, random = Math.ran
           resolveRequest: null,
           pendingResumeTimeSec: null,
           autoPlayOnReady: false,
+          currentTimeSec: 0,
           playbackError: message,
           hydrationStatus: "ready",
+          bufferedUntilSec: 0,
+          isSeeking: false,
+          seekingPreviewTimeSec: null,
         }),
       );
     },
@@ -669,8 +711,12 @@ export function createPlaybackStoreApi(storage?: StateStorage, random = Math.ran
           preparingRequest: null,
           currentProfile: null,
           currentSourceKind: null,
+          currentTimeSec: 0,
           playbackError: message,
           hydrationStatus: "ready",
+          bufferedUntilSec: 0,
+          isSeeking: false,
+          seekingPreviewTimeSec: null,
         }),
       );
     },
@@ -789,10 +835,14 @@ export function createPlaybackStoreApi(storage?: StateStorage, random = Math.ran
       set((current) =>
         buildSessionUpdate(current, sessionKind, {
           isAudioPlaying: false,
+          currentTimeSec: 0,
           resumeTimeSec: 0,
           pendingResumeTimeSec: null,
           autoPlayOnReady: false,
           durationSec: normalizeDuration(audio?.duration),
+          bufferedUntilSec: 0,
+          isSeeking: false,
+          seekingPreviewTimeSec: null,
         }),
       );
     },
@@ -808,6 +858,7 @@ export function createPlaybackStoreApi(storage?: StateStorage, random = Math.ran
       set((current) =>
         buildSessionUpdate(current, sessionKind, {
           isAudioPlaying: false,
+          currentTimeSec: nextProgress,
           resumeTimeSec: nextProgress,
         }),
       );
@@ -826,6 +877,19 @@ export function createPlaybackStoreApi(storage?: StateStorage, random = Math.ran
         }),
       );
     },
+    setPlaybackPosition: (sessionKind, currentTimeSec, forceSnapshot = false) => {
+      const normalized = normalizeResumeTime(currentTimeSec);
+      const session = get().sessions[sessionKind];
+      const shouldUpdateSnapshot =
+        forceSnapshot || Math.abs(session.resumeTimeSec - normalized) >= PROGRESS_PERSIST_INTERVAL_SEC;
+
+      set((current) =>
+        buildSessionUpdate(current, sessionKind, {
+          currentTimeSec: normalized,
+          resumeTimeSec: shouldUpdateSnapshot ? normalized : current.sessions[sessionKind].resumeTimeSec,
+        }),
+      );
+    },
     syncProgressSnapshot: (sessionKind, currentTimeSec, force = false) => {
       const normalized = normalizeResumeTime(currentTimeSec);
       const session = get().sessions[sessionKind];
@@ -836,6 +900,56 @@ export function createPlaybackStoreApi(storage?: StateStorage, random = Math.ran
       set((current) =>
         buildSessionUpdate(current, sessionKind, {
           resumeTimeSec: normalized,
+        }),
+      );
+    },
+    beginSeek: (sessionKind, previewTimeSec) => {
+      const normalized = normalizeResumeTime(previewTimeSec);
+      set((current) =>
+        buildSessionUpdate(current, sessionKind, {
+          isSeeking: true,
+          seekingPreviewTimeSec: normalized,
+        }),
+      );
+    },
+    updateSeekPreview: (sessionKind, previewTimeSec) => {
+      const normalized = normalizeResumeTime(previewTimeSec);
+      set((current) =>
+        buildSessionUpdate(current, sessionKind, {
+          isSeeking: true,
+          seekingPreviewTimeSec: normalized,
+        }),
+      );
+    },
+    commitSeek: (sessionKind, nextTimeSec) => {
+      const normalized = normalizeResumeTime(nextTimeSec);
+      const audio = get().sessions[sessionKind].audioElement;
+      if (audio) {
+        audio.currentTime = normalized;
+      }
+
+      set((current) =>
+        buildSessionUpdate(current, sessionKind, {
+          currentTimeSec: normalized,
+          resumeTimeSec: normalized,
+          isSeeking: false,
+          seekingPreviewTimeSec: null,
+        }),
+      );
+    },
+    cancelSeek: (sessionKind) => {
+      set((current) =>
+        buildSessionUpdate(current, sessionKind, {
+          isSeeking: false,
+          seekingPreviewTimeSec: null,
+        }),
+      );
+    },
+    setBufferedUntilSec: (sessionKind, seconds) => {
+      const normalized = normalizeResumeTime(seconds);
+      set((current) =>
+        buildSessionUpdate(current, sessionKind, {
+          bufferedUntilSec: normalized,
         }),
       );
     },
@@ -910,6 +1024,7 @@ export function createPlaybackStoreApi(storage?: StateStorage, random = Math.ran
             user: {
               ...currentState.sessions.user,
               ...persisted.userSession,
+              currentTimeSec: persisted.userSession.resumeTimeSec,
             },
           },
         };

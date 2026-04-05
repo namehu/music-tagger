@@ -13,6 +13,11 @@ import {
   parseTrackEditError,
   TRACK_EDIT_DOMAINS,
 } from "@/lib/track-edits";
+import {
+  TRACK_LYRICS_FORMATS,
+  detectLyricsFormat,
+  validateLyricsText,
+} from "@/lib/lyrics";
 
 import { adminProcedure, router } from "../trpc";
 
@@ -35,7 +40,7 @@ const saveMetadataInputSchema = z.object({
 const saveLyricsInputSchema = z.object({
   trackId: z.string().min(1),
   lyricsText: z.string().max(100_000).nullable(),
-  format: z.enum(["plain"]).default("plain"),
+  format: z.enum(TRACK_LYRICS_FORMATS).default("plain"),
 });
 
 const retrySyncInputSchema = z.object({
@@ -286,7 +291,9 @@ function serializeTrackEditResponse(
     },
     lyrics: {
       text: track.lyricsEdit != null ? track.lyricsEdit.lyricsText : track.observedLyricsText,
-      format: track.lyricsEdit?.format ?? "plain",
+      format:
+        (track.lyricsEdit?.format as (typeof TRACK_LYRICS_FORMATS)[number] | undefined) ??
+        detectLyricsFormat(track.observedLyricsText),
       syncStatus: track.lyricsEdit?.syncStatus ?? "synced",
       syncError: parseTrackEditError(track.lyricsEdit?.syncErrorJson),
       syncRequestedAt: track.lyricsEdit?.syncRequestedAt ?? null,
@@ -411,11 +418,21 @@ export const trackEditsRouter = router({
   saveLyrics: adminProcedure.input(saveLyricsInputSchema).mutation(async ({ ctx, input }) => {
     await getTrackOrThrow(ctx, input.trackId);
     const now = new Date();
+    const validation = validateLyricsText({
+      text: input.lyricsText,
+      format: input.format,
+    });
+    if (!validation.ok) {
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: validation.message,
+      });
+    }
 
     await ctx.prisma.trackLyricsEdit.upsert({
       where: { trackId: input.trackId },
       update: {
-        lyricsText: normalizeOptionalText(input.lyricsText),
+        lyricsText: normalizeOptionalText(validation.normalizedText),
         format: input.format,
         syncStatus: "pending",
         syncErrorJson: null,
@@ -426,7 +443,7 @@ export const trackEditsRouter = router({
       create: {
         id: `track_lyrics_edit_${randomUUID()}`,
         trackId: input.trackId,
-        lyricsText: normalizeOptionalText(input.lyricsText),
+        lyricsText: normalizeOptionalText(validation.normalizedText),
         format: input.format,
         syncStatus: "pending",
         syncRequestedAt: now,

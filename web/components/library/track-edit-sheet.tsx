@@ -19,6 +19,11 @@ import {
   type TrackEditSyncStatus,
 } from "@/lib/track-edits";
 import { getTrackEditStatusCopy, type TrackEditLatestJob } from "@/lib/track-edit-failures";
+import {
+  TRACK_LYRICS_FORMATS,
+  getTrackLyricsFormatLabel,
+  type TrackLyricsFormat,
+} from "@/lib/lyrics";
 
 function formatDateTime(value: string | Date | null | undefined) {
   if (!value) return "-";
@@ -116,6 +121,7 @@ export function TrackEditSheet(props: {
     genre: "",
   });
   const [lyricsText, setLyricsText] = React.useState("");
+  const [lyricsFormat, setLyricsFormat] = React.useState<TrackLyricsFormat>("plain");
   const [coverUploadKey, setCoverUploadKey] = React.useState(0);
   const trackQuery = trpc.trackEdits.get.useQuery(
     { trackId: props.trackId ?? "" },
@@ -214,6 +220,7 @@ export function TrackEditSheet(props: {
       genre: values.genre ?? "",
     });
     setLyricsText(trackQuery.data.lyrics.text ?? "");
+    setLyricsFormat(trackQuery.data.lyrics.format);
   }, [trackQuery.data]);
 
   async function handleCoverUpload(event: React.ChangeEvent<HTMLInputElement>) {
@@ -445,18 +452,33 @@ export function TrackEditSheet(props: {
                   />
                 ) : null}
                 <div className="space-y-2">
+                  <Label htmlFor="track-lyrics-format">歌词格式</Label>
+                  <select
+                    id="track-lyrics-format"
+                    value={lyricsFormat}
+                    onChange={(event) => setLyricsFormat(event.target.value as TrackLyricsFormat)}
+                    className="h-9 w-full rounded-xl border bg-transparent px-3 text-sm outline-none"
+                  >
+                    {TRACK_LYRICS_FORMATS.map((format) => (
+                      <option key={format} value={format}>
+                        {getTrackLyricsFormatLabel(format)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-2">
                   <Label htmlFor="track-lyrics">歌词正文</Label>
                   <textarea
                     id="track-lyrics"
                     value={lyricsText}
                     onChange={(event) => setLyricsText(event.target.value)}
                     className="min-h-48 w-full rounded-xl border bg-transparent px-3 py-2 text-sm outline-none"
-                    placeholder="这里填写要保存到数据库并异步写回文件的歌词文本"
+                    placeholder="这里填写要保存到数据库并异步写回文件的歌词文本；LRC / 增强 LRC 也可以直接贴原文。"
                   />
                 </div>
                 <SheetFooter className="gap-2 sm:justify-between">
                   <div className="text-xs text-muted-foreground">
-                    当前展示来源：{lyrics?.hasEdit ? "编辑值" : lyrics?.source === "scan" ? "扫描值" : "未设置"}
+                    当前展示来源：{lyrics?.hasEdit ? "编辑值" : lyrics?.source === "scan" ? "扫描值" : "未设置"} · 当前格式：{getTrackLyricsFormatLabel(lyricsFormat)}
                   </div>
                   <div className="flex gap-2">
                     <Button
@@ -475,7 +497,7 @@ export function TrackEditSheet(props: {
                         saveLyrics.mutate({
                           trackId: props.trackId,
                           lyricsText: lyricsText.trim().length > 0 ? lyricsText : null,
-                          format: "plain",
+                          format: lyricsFormat,
                         })
                       }
                     >

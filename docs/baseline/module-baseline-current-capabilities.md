@@ -31,11 +31,11 @@ source_refs:
 | Jobs Queue | implemented | `/admin` `/admin/jobs` | `Job`, `jobs` router, `worker.py` | 已支持 scan 与转码任务 |
 | User Dashboard | implemented | `/dashboard` | `library.dashboard`, `playback` components, `PlaybackResolveEvent` | 已支持继续收听、最近播放、最近更新歌单和最近更新曲目 |
 | Library Browse | implemented | `/library` `/admin/library` | `tracks.list`, `library.stats`, `Track` | 用户区与管理区共享浏览层，但分别驱动 `user/admin` 播放会话 |
-| Track Editing Sync | implemented | `/admin/library` | `TrackMetadataEdit` / `TrackLyricsEdit` / `TrackCoverEdit`, `trackEdits` router, `track_edit_sync` job | 元数据、歌词、封面先写数据库，再异步回写源文件；没有 edit 真值时会回退显示扫描到的已有歌词和封面 |
-| Playback Resolve | implemented | 用户播放器 + admin 试听条 | `playback.resolve`, `playback.getPreparationStatus`, `playback.getTrackMedia`, `/api/stream/[trackId]`, `/api/tracks/[trackId]/cover` | 已支持原始与 `mp3_192`，并支持播放详情读取与刷新后重新动态签发 |
+| Track Editing Sync | implemented | `/admin/library` | `TrackMetadataEdit` / `TrackLyricsEdit` / `TrackCoverEdit`, `trackEdits` router, `track_edit_sync` job | 元数据、歌词、封面先写数据库，再异步回写源文件；歌词编辑已支持 `plain / lrc / elrc`，没有 edit 真值时会回退显示扫描到的已有歌词和封面 |
+| Playback Resolve | implemented | 用户播放器 + admin 试听条 | `playback.resolve`, `playback.getPreparationStatus`, `playback.getTrackMedia`, `/api/stream/[trackId]`, `/api/tracks/[trackId]/cover` | 已支持原始与 `mp3_192`，并支持播放详情读取、歌词格式回传、实时 seek 与刷新后重新动态签发 |
 | Transcode Cache Ops | implemented | `/admin/cache` `/admin/settings` | `TranscodeCache`, `library.cacheOverview`, settings router | 已支持容量治理与失败分类 |
 | Dashboard Overview | partial | `/admin` | `library`, `jobs`, `tracks` 聚合查询 | 还不是独立定义的首页模块 |
-| Playback Modes | implemented | 用户播放器 | `playback-store`, `PlaybackRuntime`, `playback.resolve` | 用户会话已支持顺序、随机、单曲循环和 localStorage 恢复；admin 试听保持线性 |
+| Playback Modes | implemented | 用户播放器 | `playback-store`, `PlaybackRuntime`, `playback.resolve` | 用户会话已支持顺序、随机、单曲循环、实时进度 / 缓冲 / seek 与 localStorage 恢复；admin 试听保持线性 |
 | Plan Workflow | partial | `/admin/plans` `/admin/plans/[planId]` | `Plan` / `PlanItem`, `plans` router, `plan_execute` job | 当前保留历史记录读取与兼容执行器；不再承担日常元数据编辑主线 |
 | Playlist | implemented | `/playlists` `/playlists/[playlistId]` | `Playlist` / `PlaylistItem`, `playlists` router | 已支持个人歌单 CRUD、加歌、移歌与顺序点播 |
 | Ignored Tracks | implemented | `/ignored-tracks` `/admin/ignored-tracks` | `UserIgnoredTrack` / `GlobalIgnoredTrack`, `ignoredTracks` router | 已支持双层忽略、默认过滤与歌单忽略标记 |

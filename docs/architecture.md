@@ -567,13 +567,20 @@ sequenceDiagram
 - 每个会话各自的 `pendingTrackId`
 - 每个会话各自的 `preparingJobId`
 - 用户会话的 `playbackMode / shuffleHistory / resumeLock / hydrationStatus`
-- 每个会话各自的 `resumeTimeSec / durationSec / volume / muted`
+- 每个会话各自的 `resumeTimeSec / currentTimeSec / durationSec / bufferedUntilSec / volume / muted`
+- 每个会话各自的 `isSeeking / seekingPreviewTimeSec`
 
 另外通过 computed 统一派生：
 
 - `sessionComputed.user.*`
 - `sessionComputed.admin.*`
-- 每个会话各自的 `currentTrack / activeTrackId / previousTrack / nextTrack / canPlayPrevious / canPlayNext / isPreparing`
+- 每个会话各自的 `currentTrack / activeTrackId / previousTrack / nextTrack / canPlayPrevious / canPlayNext / isPreparing / displayTimeSec`
+
+播放器 UI 也已经从“主条 + 内联详情”收成“两层”：
+
+- 主条只保留封面缩略图、标题、艺人、上一首 / 播放暂停 / 下一首、模式入口和三层进度条
+- 用户侧详情统一放到底部抽屉，歌词成为主内容区
+- `playback.getTrackMedia` 现在会把歌词格式一起返回，播放器可按 `plain / lrc / elrc` 分别渲染原文、逐行高亮或逐字高亮
 
 ### 7.4 播放模式与恢复策略
 

@@ -13,6 +13,7 @@ import {
   resolveTrackSourcePath,
 } from "@/lib/playback";
 import { getTrackDisplaySummary } from "@/lib/track-edits";
+import { detectLyricsFormat } from "@/lib/lyrics";
 
 import { parseJobPayload } from "@/lib/jobs";
 
@@ -115,6 +116,7 @@ export const playbackRouter = router({
         lyricsEdit: {
           select: {
             lyricsText: true,
+            format: true,
             updatedAt: true,
           },
         },
@@ -160,6 +162,10 @@ export const playbackRouter = router({
       coverUrl:
         coverSource !== "none" ? `/api/tracks/${track.id}/cover?ts=${coverTimestamp}` : null,
       lyricsText: track.lyricsEdit?.lyricsText ?? track.observedLyricsText ?? null,
+      lyricsFormat:
+        track.lyricsEdit?.format != null
+          ? track.lyricsEdit.format
+          : detectLyricsFormat(track.observedLyricsText),
       mediaSourceSummary: {
         cover: coverSource,
         lyrics: lyricsSource,

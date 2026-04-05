@@ -6,7 +6,7 @@
     "dev:web": "pnpm -C web dev",
     "build:web": "pnpm -C web build",
     "start:web": "pnpm -C web start",
-    "test:web": "node --test web/lib/app-routes.test.mts web/lib/ignored-tracks.test.mts web/lib/playback-store.test.mts web/lib/playback-ui.test.mts web/lib/library-dashboard.test.mts web/lib/plans.test.mts web/lib/plan-move.test.mts web/lib/track-edits.test.mts web/lib/track-edit-failures.test.mts",
+    "test:web": "node --test web/lib/app-routes.test.mts web/lib/ignored-tracks.test.mts web/lib/lyrics.test.mts web/lib/playback-store.test.mts web/lib/playback-ui.test.mts web/lib/library-dashboard.test.mts web/lib/plans.test.mts web/lib/plan-move.test.mts web/lib/track-edits.test.mts web/lib/track-edit-failures.test.mts",
     "prisma:studio": "pnpm -C web run prisma:studio",
     "prisma:migrate": "pnpm -C web run prisma:migrate",
     "lint:web": "pnpm -C web lint"

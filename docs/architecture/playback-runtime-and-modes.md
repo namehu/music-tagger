@@ -52,10 +52,16 @@ flowchart TD
 
 | 层 | 负责内容 | 不负责内容 |
 | --- | --- | --- |
-| `playback-store.ts` | 在同一个 zustand 容器里持有 `sessions.user` 与 `sessions.admin`；提供按 `sessionKind` 参数化的切歌 action；用 computed 产出每个会话的派生状态 | 不直接发网络请求；不轮询 job；不自己执行动态签发 |
+| `playback-store.ts` | 在同一个 zustand 容器里持有 `sessions.user` 与 `sessions.admin`；提供按 `sessionKind` 参数化的切歌 action；维护实时进度、缓冲、seek 预览；用 computed 产出每个会话的派生状态 | 不直接发网络请求；不轮询 job；不自己执行动态签发 |
 | `playback-runtime.tsx` | 每个会话各挂一个 runtime，监听各自的 `resolveRequest`、调用 `playback.resolve`、轮询 `getPreparationStatus`、消费对应 `audio` 事件、把结果回写 store | 不保存业务事实状态；不决定上一首/下一首算法 |
-| `global-player.tsx` | 按会话渲染用户侧播放器或 admin 最小试听条，绑定对应 `audio` 元素，默认只展示必要 UI，更多信息放进详情展开层 | 不持有独立播放状态；不决定 token 恢复策略 |
+| `global-player.tsx` | 按会话渲染用户侧播放器或 admin 最小试听条，绑定对应 `audio` 元素；用户侧主条只保留核心控制，详情统一放到底部抽屉，并在抽屉中承载歌词播放器 | 不持有独立播放状态；不决定 token 恢复策略 |
 | 页面组件 | 只向自己的会话注入 queue、触发当前会话点播 | 不跨会话写入对方的 queue |
+
+当前用户侧播放器的关键 UI 约束：
+
+- 主条使用三层进度条：底轨 / 缓冲 / 已播放
+- seek 采用“拖动预览、松手跳转”
+- 抽屉歌词区按 `plain / lrc / elrc` 分别显示纯文本、逐行同步、逐字同步
 
 ## 4. localStorage 恢复链路图
 

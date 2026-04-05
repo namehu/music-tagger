@@ -315,3 +315,57 @@ test("stale audio unbind does not clear the newly attached audio element during 
   assert.equal(store.getState().sessions.user.displayTrack?.id, second.id);
   assert.equal(store.getState().sessions.user.resumeTimeSec, 0);
 });
+
+test("setPlaybackPosition updates live progress without forcing every snapshot write", () => {
+  const { store, first } = createStoreWithTracks();
+
+  store.getState().requestPlayTrack("user", first, { autoPlay: false });
+  store.getState().writeResolvedPlayback("user", {
+    seq: store.getState().sessions.user.resolveRequest!.seq,
+    url: "/stream/1",
+  });
+
+  store.getState().setPlaybackPosition("user", 1.2);
+  assert.equal(store.getState().sessions.user.currentTimeSec, 1.2);
+  assert.equal(store.getState().sessions.user.resumeTimeSec, 0);
+
+  store.getState().setPlaybackPosition("user", 3.4);
+  assert.equal(store.getState().sessions.user.currentTimeSec, 3.4);
+  assert.equal(store.getState().sessions.user.resumeTimeSec, 3.4);
+});
+
+test("seek preview and commit update displayed playback position", () => {
+  const { store, first } = createStoreWithTracks();
+  const audio = {
+    currentTime: 12,
+    pause() {
+      return;
+    },
+  } as HTMLAudioElement;
+
+  store.getState().bindAudioElement("user", audio);
+  store.getState().requestPlayTrack("user", first, { autoPlay: false });
+  store.getState().writeResolvedPlayback("user", {
+    seq: store.getState().sessions.user.resolveRequest!.seq,
+    url: "/stream/1",
+  });
+
+  store.getState().beginSeek("user", 33);
+  assert.equal(store.getState().sessionComputed.user.displayTimeSec, 33);
+
+  store.getState().updateSeekPreview("user", 48);
+  assert.equal(store.getState().sessionComputed.user.displayTimeSec, 48);
+
+  store.getState().commitSeek("user", 48);
+  assert.equal(audio.currentTime, 48);
+  assert.equal(store.getState().sessions.user.currentTimeSec, 48);
+  assert.equal(store.getState().sessions.user.resumeTimeSec, 48);
+  assert.equal(store.getState().sessions.user.isSeeking, false);
+});
+
+test("buffered progress can be tracked independently from playback position", () => {
+  const { store } = createStoreWithTracks();
+
+  store.getState().setBufferedUntilSec("user", 64);
+  assert.equal(store.getState().sessions.user.bufferedUntilSec, 64);
+});
