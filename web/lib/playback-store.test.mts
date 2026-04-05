@@ -172,3 +172,41 @@ test("restored sessions ignore passive queue sync until user intent replaces the
   assert.equal(store.getState().queueSourceKey, "library");
   assert.deepEqual(store.getState().queue.map((track) => track.id), [second.id]);
 });
+
+test("passive queue sync still updates when the source key stays the same", () => {
+  const { store, first, second, third } = createStoreWithTracks();
+
+  store.getState().requestPlayTrack(second, { autoPlay: false });
+  store.getState().setQueue({
+    tracks: [first, second, third, createTrack("4")],
+    sourceKey: "library",
+  });
+
+  assert.equal(store.getState().queueSourceKey, "library");
+  assert.deepEqual(
+    store.getState().queue.map((track) => track.id),
+    [first.id, second.id, third.id, "4"],
+  );
+});
+
+test("replacing queue from user intent clears shuffle history", () => {
+  const { store, first, second, third } = createStoreWithTracks();
+
+  store.getState().setPlaybackMode("shuffle");
+  store.getState().requestPlayTrack(first, { autoPlay: false, pushShuffleHistory: false });
+  store.getState().writeResolvedPlayback({
+    seq: store.getState().resolveRequest!.seq,
+    url: "/stream/1",
+  });
+  store.getState().requestPlayTrack(second, { autoPlay: false });
+
+  assert.deepEqual(store.getState().shuffleHistory.map((track) => track.id), [first.id]);
+
+  store.getState().replaceQueueFromUserIntent({
+    tracks: [third],
+    sourceKey: "playlist:next",
+  });
+
+  assert.deepEqual(store.getState().shuffleHistory, []);
+  assert.equal(store.getState().queueSourceKey, "playlist:next");
+});

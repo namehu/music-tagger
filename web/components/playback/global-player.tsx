@@ -15,19 +15,9 @@ import {
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { getPlaybackModeLabel, getPlaybackQueueLabel, getPlaybackRestoreMessage } from "@/lib/playback-ui";
 import { cn } from "@/lib/utils";
 import { getGlobalPlaybackErrorMessage, usePlaybackStore } from "@/store/playback-store";
-
-function formatProgressSeconds(value: number) {
-  if (!Number.isFinite(value) || value < 0) {
-    return "00:00";
-  }
-
-  const totalSeconds = Math.floor(value);
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
-}
 
 export function GlobalPlayer() {
   const activePlayback = usePlaybackStore((state) => state.activePlayback);
@@ -35,6 +25,8 @@ export function GlobalPlayer() {
   const currentProfile = usePlaybackStore((state) => state.currentProfile);
   const currentSourceKind = usePlaybackStore((state) => state.currentSourceKind);
   const playbackMode = usePlaybackStore((state) => state.playbackMode);
+  const queueSourceKey = usePlaybackStore((state) => state.queueSourceKey);
+  const hydrationStatus = usePlaybackStore((state) => state.hydrationStatus);
   const isPreparing = usePlaybackStore((state) => state.isPreparing);
   const isAudioPlaying = usePlaybackStore((state) => state.isAudioPlaying);
   const playbackError = usePlaybackStore((state) => state.playbackError);
@@ -64,6 +56,16 @@ export function GlobalPlayer() {
     return () => bindAudioElement(null);
   }, [bindAudioElement]);
 
+  const restoreMessage = getPlaybackRestoreMessage({
+    hydrationStatus,
+    isPreparing,
+    isAudioPlaying,
+    activePlayback: Boolean(activePlayback),
+    autoPlayOnReady,
+    pendingResumeTimeSec,
+    resumeTimeSec,
+  });
+
   if (!currentTrack) {
     return null;
   }
@@ -78,13 +80,12 @@ export function GlobalPlayer() {
                 {isPreparing ? "全局准备中" : isAudioPlaying ? "全局播放中" : "全局已暂停"}
               </Badge>
               <Badge variant="secondary">跨页面保持</Badge>
+              <Badge variant="outline">{getPlaybackQueueLabel(queueSourceKey)}</Badge>
               {currentProfile ? <Badge variant="outline">{currentProfile}</Badge> : null}
               {currentSourceKind ? (
                 <Badge variant="outline">{currentSourceKind === "transcode_cache" ? "转码缓存" : "原始直出"}</Badge>
               ) : null}
-              <Badge variant="secondary">
-                {playbackMode === "ordered" ? "顺序" : playbackMode === "shuffle" ? "随机" : "单曲循环"}
-              </Badge>
+              <Badge variant="secondary">{getPlaybackModeLabel(playbackMode)}</Badge>
             </div>
             <div className="flex items-start gap-3">
               <div className="rounded-xl border bg-muted/50 p-2 text-muted-foreground">
@@ -95,12 +96,7 @@ export function GlobalPlayer() {
                 <div className="truncate text-sm text-muted-foreground">{currentTrack.artist}</div>
               </div>
             </div>
-            {!isPreparing ? (
-              <div className="text-xs text-muted-foreground">
-                上次恢复进度 {formatProgressSeconds(resumeTimeSec)}
-                {!isAudioPlaying && activePlayback && !autoPlayOnReady ? "，刷新后恢复为暂停状态" : ""}
-              </div>
-            ) : null}
+            <div className="text-xs text-muted-foreground">{restoreMessage}</div>
           </div>
 
           <div className="flex flex-col items-start gap-2 lg:items-end">
@@ -221,9 +217,7 @@ export function GlobalPlayer() {
           <div className="flex min-h-14 items-center gap-3 rounded-xl border border-dashed bg-muted/20 px-4 text-sm text-muted-foreground">
             <LoaderCircleIcon className={cn("size-4", isPreparing && "animate-spin")} />
             <span>
-              {isPreparing
-                ? "正在准备转码播放，完成后会自动开始。"
-                : "当前没有可用的音频流，恢复会在拿到新播放地址后继续。"}
+              {isPreparing ? "正在准备转码播放，完成后会自动开始。" : restoreMessage}
             </span>
           </div>
         )}

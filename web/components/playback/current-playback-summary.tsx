@@ -12,6 +12,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { getPlaybackModeLabel, getPlaybackQueueLabel, getPlaybackRestoreMessage } from "@/lib/playback-ui";
 import { usePlaybackStore } from "@/store/playback-store";
 
 function getPlaybackStatusText(input: {
@@ -49,6 +50,8 @@ export function CurrentPlaybackSummary({
   const currentTrack = usePlaybackStore((state) => state.currentTrack);
   const currentProfile = usePlaybackStore((state) => state.currentProfile);
   const currentSourceKind = usePlaybackStore((state) => state.currentSourceKind);
+  const queueSourceKey = usePlaybackStore((state) => state.queueSourceKey);
+  const hydrationStatus = usePlaybackStore((state) => state.hydrationStatus);
   const preparingJobId = usePlaybackStore((state) => state.preparingJobId);
   const isPreparing = usePlaybackStore((state) => state.isPreparing);
   const isAudioPlaying = usePlaybackStore((state) => state.isAudioPlaying);
@@ -56,6 +59,9 @@ export function CurrentPlaybackSummary({
   const activeTrackId = usePlaybackStore((state) => state.activeTrackId);
   const toggleTrack = usePlaybackStore((state) => state.toggleTrack);
   const playbackMode = usePlaybackStore((state) => state.playbackMode);
+  const pendingResumeTimeSec = usePlaybackStore((state) => state.pendingResumeTimeSec);
+  const autoPlayOnReady = usePlaybackStore((state) => state.autoPlayOnReady);
+  const activePlayback = usePlaybackStore((state) => state.activePlayback);
   const resumeTimeSec = usePlaybackStore((state) => state.resumeTimeSec);
 
   const status = getPlaybackStatusText({
@@ -63,6 +69,15 @@ export function CurrentPlaybackSummary({
     isAudioPlaying,
     currentTrackId: activeTrackId,
     playbackError,
+  });
+  const restoreMessage = getPlaybackRestoreMessage({
+    hydrationStatus,
+    isPreparing,
+    isAudioPlaying,
+    activePlayback: Boolean(activePlayback),
+    autoPlayOnReady,
+    pendingResumeTimeSec,
+    resumeTimeSec,
   });
 
   return (
@@ -84,15 +99,14 @@ export function CurrentPlaybackSummary({
       <CardContent className="space-y-4 pt-4">
         <div className="flex flex-wrap items-center gap-2">
           <Badge variant={status.variant}>{status.label}</Badge>
+          <Badge variant="outline">{getPlaybackQueueLabel(queueSourceKey)}</Badge>
           {currentProfile ? <Badge variant="outline">{currentProfile}</Badge> : null}
           {currentSourceKind ? (
             <Badge variant="secondary">
               {currentSourceKind === "transcode_cache" ? "转码缓存" : "原始直出"}
             </Badge>
           ) : null}
-          <Badge variant="outline">
-            {playbackMode === "ordered" ? "顺序" : playbackMode === "shuffle" ? "随机" : "单曲循环"}
-          </Badge>
+          <Badge variant="outline">{getPlaybackModeLabel(playbackMode)}</Badge>
           {preparingJobId ? <Badge variant="outline">job: {preparingJobId}</Badge> : null}
         </div>
 
@@ -116,7 +130,7 @@ export function CurrentPlaybackSummary({
         ) : (
           <div className="rounded-xl border bg-muted/20 p-3 text-sm text-muted-foreground">
             {currentTrack
-              ? `当前曲目已进入全局播放器，可在任意后台页面继续播放。上次恢复进度约 ${Math.floor(resumeTimeSec)} 秒。`
+              ? `当前曲目已进入全局播放器，可在任意页面继续播放。${restoreMessage}`
               : "从音乐库点播后，这里会显示实时状态。"}
           </div>
         )}

@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { getPlaybackModeLabel, getPlaybackQueueLabel } from "@/lib/playback-ui";
 import { usePlaybackStore, type PlaybackQueueTrack } from "@/store/playback-store";
 
 function renderText(value: string | null | undefined, fallback: string) {
@@ -27,7 +28,9 @@ export default function PlaylistDetailPage() {
   const pendingTrackId = usePlaybackStore((state) => state.pendingTrackId);
   const isAudioPlaying = usePlaybackStore((state) => state.isAudioPlaying);
   const isPreparing = usePlaybackStore((state) => state.isPreparing);
+  const playbackMode = usePlaybackStore((state) => state.playbackMode);
   const queueSourceKey = usePlaybackStore((state) => state.queueSourceKey);
+  const hydrationStatus = usePlaybackStore((state) => state.hydrationStatus);
   const setQueue = usePlaybackStore((state) => state.setQueue);
   const replaceQueueFromUserIntent = usePlaybackStore((state) => state.replaceQueueFromUserIntent);
   const requestPlayTrack = usePlaybackStore((state) => state.requestPlayTrack);
@@ -74,6 +77,7 @@ export default function PlaylistDetailPage() {
   });
 
   const playlist = playlistQuery.data;
+  const sourceKey = `playlist:${playlistId}`;
   const playlistTracks = React.useMemo<PlaybackQueueTrack[]>(
     () =>
       (playlist?.items ?? []).map((item) => ({
@@ -88,16 +92,23 @@ export default function PlaylistDetailPage() {
     if (playlistTracks.length > 0) {
       setQueue({
         tracks: playlistTracks,
-        sourceKey: `playlist:${playlistId}`,
+        sourceKey,
       });
     }
-  }, [playlistId, playlistTracks, setQueue]);
+  }, [playlistTracks, setQueue, sourceKey]);
 
   return (
     <div className="mx-auto flex w-full max-w-7xl flex-col gap-6">
       <div className="space-y-1">
         <h1 className="text-2xl font-semibold tracking-tight">{playlist?.name ?? "歌单详情"}</h1>
         <p className="text-sm text-muted-foreground">按歌单保存顺序点播，也可以从下方曲库搜索结果中继续加入。</p>
+        <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+          <Badge variant="outline">{getPlaybackModeLabel(playbackMode)}</Badge>
+          <Badge variant={queueSourceKey === sourceKey ? "secondary" : "outline"}>
+            {queueSourceKey === sourceKey ? "当前队列来自这个歌单" : getPlaybackQueueLabel(queueSourceKey)}
+          </Badge>
+          {hydrationStatus !== "ready" ? <span>正在恢复上次播放会话…</span> : null}
+        </div>
       </div>
 
       <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
@@ -129,8 +140,6 @@ export default function PlaylistDetailPage() {
                       title: item.track.title,
                       artist: item.track.artist,
                     };
-                    const sourceKey = `playlist:${playlistId}`;
-
                     return (
                       <TableRow key={item.id} className={isActiveTrack ? "bg-muted/30" : undefined}>
                         <TableCell className="w-16">
@@ -226,6 +235,13 @@ export default function PlaylistDetailPage() {
                       </TableCell>
                     </TableRow>
                   ) : null}
+                  {playlistQuery.isLoading ? (
+                    <TableRow>
+                      <TableCell colSpan={6} className="py-10 text-center text-muted-foreground">
+                        正在加载歌单内容…
+                      </TableCell>
+                    </TableRow>
+                  ) : null}
                 </TableBody>
               </Table>
             </div>
@@ -243,6 +259,11 @@ export default function PlaylistDetailPage() {
               onChange={(event) => setSearch(event.target.value)}
               placeholder="搜索标题、艺人、专辑或文件名"
             />
+
+            <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+              <Badge variant="outline">{deferredSearch.trim().length > 0 ? `搜索: ${deferredSearch.trim()}` : "默认候选"}</Badge>
+              <span>忽略曲目会自动从这里过滤掉。</span>
+            </div>
 
             <div className="space-y-3">
               {(tracksQuery.data?.items ?? []).map((track) => (
@@ -273,7 +294,12 @@ export default function PlaylistDetailPage() {
 
               {!tracksQuery.isLoading && (tracksQuery.data?.items.length ?? 0) === 0 ? (
                 <div className="rounded-xl border border-dashed bg-muted/20 px-4 py-8 text-center text-sm text-muted-foreground">
-                  没有匹配的曲目。
+                  {deferredSearch.trim().length > 0 ? "没有匹配的曲目。" : "当前没有可加入的候选曲目。"}
+                </div>
+              ) : null}
+              {tracksQuery.isLoading ? (
+                <div className="rounded-xl border border-dashed bg-muted/20 px-4 py-8 text-center text-sm text-muted-foreground">
+                  正在加载曲库候选…
                 </div>
               ) : null}
             </div>

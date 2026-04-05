@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { getPlaybackQueueLabel } from "@/lib/playback-ui";
 import { cn } from "@/lib/utils";
 import { usePlaybackStore, type PlaybackQueueTrack } from "@/store/playback-store";
 
@@ -82,6 +83,7 @@ export function LibraryBrowser({ mode }: { mode: LibraryBrowserMode }) {
   const isAudioPlaying = usePlaybackStore((state) => state.isAudioPlaying);
   const isPreparing = usePlaybackStore((state) => state.isPreparing);
   const queueSourceKey = usePlaybackStore((state) => state.queueSourceKey);
+  const hydrationStatus = usePlaybackStore((state) => state.hydrationStatus);
   const setQueue = usePlaybackStore((state) => state.setQueue);
   const replaceQueueFromUserIntent = usePlaybackStore((state) => state.replaceQueueFromUserIntent);
   const requestPlayTrack = usePlaybackStore((state) => state.requestPlayTrack);
@@ -108,6 +110,7 @@ export function LibraryBrowser({ mode }: { mode: LibraryBrowserMode }) {
     [currentTracks],
   );
   const visibleTrackIds = React.useMemo(() => currentTracks.map((track) => track.id), [currentTracks]);
+  const sourceKey = isAdminMode ? "admin-library" : "user-library";
   const editingTrack = React.useMemo(
     () => currentTracks.find((track) => track.id === editingTrackId) ?? null,
     [currentTracks, editingTrackId],
@@ -212,9 +215,9 @@ export function LibraryBrowser({ mode }: { mode: LibraryBrowserMode }) {
   React.useEffect(() => {
     setQueue({
       tracks: playbackQueueTracks,
-      sourceKey: isAdminMode ? "admin-library" : "user-library",
+      sourceKey,
     });
-  }, [isAdminMode, playbackQueueTracks, setQueue]);
+  }, [playbackQueueTracks, setQueue, sourceKey]);
 
   React.useEffect(() => {
     if (statsQuery.error) {
@@ -426,6 +429,10 @@ export function LibraryBrowser({ mode }: { mode: LibraryBrowserMode }) {
             {query.length > 0 ? <Badge variant="secondary">FTS 全文检索</Badge> : null}
             {query.length > 0 ? <span>相关性优先，当前排序作为次级顺序。</span> : null}
             <Badge variant="outline">全局播放器</Badge>
+            <Badge variant={queueSourceKey === sourceKey ? "secondary" : "outline"}>
+              {queueSourceKey === sourceKey ? "当前队列来自这个列表" : getPlaybackQueueLabel(queueSourceKey)}
+            </Badge>
+            {hydrationStatus !== "ready" ? <span>正在恢复上次播放会话…</span> : null}
             {isAdminMode ? (
               <Badge variant="outline">
                 {EDITED_FILTER_OPTIONS.find((option) => option.value === editedFilter)?.label}
@@ -509,8 +516,6 @@ export function LibraryBrowser({ mode }: { mode: LibraryBrowserMode }) {
                     title: renderCell(track.title, track.filename),
                     artist: renderCell(track.artist, "未知艺人"),
                   };
-                  const sourceKey = isAdminMode ? "admin-library" : "user-library";
-
                   return (
                     <TableRow
                       key={track.id}
@@ -640,7 +645,14 @@ export function LibraryBrowser({ mode }: { mode: LibraryBrowserMode }) {
                 {!tracksQuery.isLoading && currentTracks.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={isAdminMode ? 9 : 7} className="py-10 text-center text-muted-foreground">
-                      暂无曲目，请先触发一次 scan_full。
+                      {query.length > 0 ? "没有匹配的曲目，换个关键词试试。" : "暂无曲目，请先触发一次 scan_full。"}
+                    </TableCell>
+                  </TableRow>
+                ) : null}
+                {tracksQuery.isLoading ? (
+                  <TableRow>
+                    <TableCell colSpan={isAdminMode ? 9 : 7} className="py-10 text-center text-muted-foreground">
+                      正在加载曲目列表…
                     </TableCell>
                   </TableRow>
                 ) : null}
