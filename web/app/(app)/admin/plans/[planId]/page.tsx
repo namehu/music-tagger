@@ -210,11 +210,13 @@ export default function AdminPlanDetailPage() {
               <div className="mt-2 text-sm font-medium">{plan?.scopeSummary ?? "-"}</div>
             </div>
               <div className="rounded-xl border bg-muted/20 p-4">
-                <div className="text-sm text-muted-foreground">模板</div>
+                <div className="text-sm text-muted-foreground">参数</div>
                 <div className="mt-2 break-all text-sm font-medium">
                   {plan?.type === "rename"
                     ? (plan.params as { template?: string } | null)?.template ?? "-"
-                    : "字段写回计划"}
+                    : plan?.type === "move"
+                      ? (plan.params as { targetDirTemplate?: string } | null)?.targetDirTemplate ?? "-"
+                      : "字段写回计划"}
                 </div>
               </div>
             <div className="rounded-xl border bg-muted/20 p-4">

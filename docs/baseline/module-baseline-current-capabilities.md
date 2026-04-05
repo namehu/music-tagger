@@ -36,7 +36,7 @@ source_refs:
 | Transcode Cache Ops | implemented | `/admin/cache` `/admin/settings` | `TranscodeCache`, `library.cacheOverview`, settings router | 已支持容量治理与失败分类 |
 | Dashboard Overview | partial | `/admin` | `library`, `jobs`, `tracks` 聚合查询 | 还不是独立定义的首页模块 |
 | Playback Modes | implemented | 全局播放器 | `playback-store`, `PlaybackRuntime`, `playback.resolve` | 已支持顺序、随机、单曲循环和 localStorage 恢复 |
-| Plan Workflow | partial | `/admin/plans` `/admin/plans/[planId]` | `Plan` / `PlanItem`, `plans` router, `plan_execute` job | 当前支持 `rename` 与基础 `tag_write` 的 preview / confirm / execute，其他类型未落地 |
+| Plan Workflow | partial | `/admin/plans` `/admin/plans/[planId]` | `Plan` / `PlanItem`, `plans` router, `plan_execute` job | 当前支持 `rename`、`move` 与基础 `tag_write` 的 preview / confirm / execute，其他类型未落地 |
 | Playlist | implemented | `/playlists` `/playlists/[playlistId]` | `Playlist` / `PlaylistItem`, `playlists` router | 已支持个人歌单 CRUD、加歌、移歌与顺序点播 |
 | Ignored Tracks | implemented | `/ignored-tracks` `/admin/ignored-tracks` | `UserIgnoredTrack` / `GlobalIgnoredTrack`, `ignoredTracks` router | 已支持双层忽略、默认过滤与歌单忽略标记 |
 
@@ -56,7 +56,7 @@ source_refs:
 
 以下内容不能被当作当前事实：
 
-- 封面、歌词、move、delete 等更高阶 Plan 执行能力
+- 封面、歌词、delete 等更高阶 Plan 执行能力
 - 多设备播放会话同步
 
 ## 后续 PRD 编写要求

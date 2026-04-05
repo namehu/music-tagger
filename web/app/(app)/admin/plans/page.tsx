@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 import { trpc } from "@/app/_trpc/provider";
+import { MOVE_TEMPLATE_TOKENS } from "@/lib/plan-move";
 import {
   getPlanStatusLabel,
   getPlanTypeLabel,
@@ -63,6 +64,7 @@ export default function AdminPlansPage() {
   const [scopeType, setScopeType] = React.useState<"trackIds" | "album" | "artist">("album");
   const [scopeValue, setScopeValue] = React.useState("");
   const [template, setTemplate] = React.useState("{trackNo:02} - {title}");
+  const [moveTargetDirTemplate, setMoveTargetDirTemplate] = React.useState("{artist}/{album}");
   const [tagForm, setTagForm] = React.useState({
     title: "",
     artist: "",
@@ -108,6 +110,11 @@ export default function AdminPlansPage() {
 
     if (planType === "rename" && template.trim().length === 0) {
       toast.error("请填写 rename 模板");
+      return;
+    }
+
+    if (planType === "move" && moveTargetDirTemplate.trim().length === 0) {
+      toast.error("请填写目标目录模板");
       return;
     }
 
@@ -165,6 +172,18 @@ export default function AdminPlansPage() {
         params: {
           type: "tag_write",
           ...payload,
+        },
+      });
+      return;
+    }
+
+    if (planType === "move") {
+      createPlan.mutate({
+        type: "move",
+        scope: sharedScope,
+        params: {
+          type: "move",
+          targetDirTemplate: moveTargetDirTemplate.trim(),
         },
       });
       return;
@@ -296,7 +315,7 @@ export default function AdminPlansPage() {
           <SheetHeader>
             <SheetTitle>创建 Plan</SheetTitle>
             <SheetDescription>
-              当前 v1 已支持 `rename` 与基础 `tag_write`。`tag_write` 依赖 worker 环境安装 `mutagen`。
+              当前已支持 `rename`、`move` 与基础 `tag_write`。`tag_write` 依赖 worker 环境安装 `mutagen`。
             </SheetDescription>
           </SheetHeader>
 
@@ -310,6 +329,7 @@ export default function AdminPlansPage() {
                 className="h-9 w-full rounded-md border bg-background px-3 text-sm"
               >
                 <option value="rename">rename</option>
+                <option value="move">move</option>
                 <option value="tag_write">tag_write</option>
               </select>
             </div>
@@ -357,6 +377,20 @@ export default function AdminPlansPage() {
                 />
                 <p className="text-xs text-muted-foreground">
                   可用变量：`title`、`artist`、`album`、`albumArtist`、`trackNo`、`discNo`、`year`、`genre`、`filenameBase`
+                </p>
+              </div>
+            ) : planType === "move" ? (
+              <div className="space-y-2">
+                <Label htmlFor="move-target-dir-template">目标目录模板</Label>
+                <Input
+                  id="move-target-dir-template"
+                  value={moveTargetDirTemplate}
+                  onChange={(event) => setMoveTargetDirTemplate(event.target.value)}
+                  placeholder="{artist}/{album}"
+                />
+                <p className="text-xs text-muted-foreground">
+                  `move` v1 只移动目录，不改文件名。可用变量：
+                  {MOVE_TEMPLATE_TOKENS.map((token) => ` \`${token}\``).join("、")}
                 </p>
               </div>
             ) : (

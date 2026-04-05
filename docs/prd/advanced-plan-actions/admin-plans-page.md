@@ -1,0 +1,101 @@
+---
+doc_type: page-spec
+page_id: admin_plans_advanced_actions
+page_name: Plans 管理页
+route: /admin/plans
+permissions:
+  - admin
+source_refs:
+  - docs/baseline/product-baseline.md
+  - docs/prd/plan-workflow/admin-plans-page.md
+  - docs/prd/advanced-plan-actions/summary.md
+  - docs/archive/raw-requirements/2026-04-01-local-music-manager-requirements.md
+---
+
+# Plans 管理页
+
+## 模块 A：页面元数据
+
+- **页面名称**：Plans 管理页
+- **访问路由**：`/admin/plans`
+- **权限要求**：仅管理员可访问；普通用户与未登录用户不显示业务内容。
+
+## 模块 B：UI/布局结构
+
+- **页面布局模式**：复用现有后台列表页，顶部操作区 + 筛选区 + 计划列表。
+- **核心区块划分**：
+  - [顶部操作区]：页面标题、模块说明、创建 Plan 按钮。
+  - [筛选区]：按状态和关键字筛选。
+  - [计划列表]：展示现有 Plan 列表。
+- **页面内从属交互**：
+  - [创建 Plan 抽屉]：继续作为页内抽屉承载；本模块只扩展其 `计划类型` 与 `move` 参数表单。
+
+## 模块 C：数据展示与字段定义
+
+### 字段分组 1：筛选区字段
+| 字段名称 (中/英) | 数据类型 | 必填/选填 | 业务规则/约束 | 默认值 |
+| --- | --- | --- | --- | --- |
+| 状态 `status` | enum | 选填 | `all / draft / confirmed / running / done / failed / cancelled` | `all` |
+| 关键字 `q` | string | 选填 | 匹配 plan id、创建人、作用范围摘要 | 空 |
+
+### 字段分组 2：计划列表列
+| 字段名称 (中/英) | 数据类型 | 必填/选填 | 业务规则/约束 | 默认值 |
+| --- | --- | --- | --- | --- |
+| 计划 ID `id` | string | 必显 | 可点击进入详情页 | 无 |
+| 类型 `type` | enum | 必显 | 当前需兼容 `rename / tag_write / move` | 无 |
+| 状态 `status` | enum | 必显 | 与详情页头部状态一致 | 无 |
+| 作用范围摘要 `scopeSummary` | string | 必显 | 用于快速判断影响对象 | 无 |
+| 预览摘要 `previewSummary` | array<object> | 选显 | 至少包含 item 数和 warning 数；未 preview 时显示“未生成” | 空 |
+| 最近操作人 `createdBy` | string | 必显 | 当前仍默认为管理员 | 无 |
+| 更新时间 `updatedAt` | datetime | 必显 | 列表默认倒序 | 无 |
+
+### 字段分组 3：创建 Plan 抽屉字段
+| 字段名称 (中/英) | 数据类型 | 必填/选填 | 业务规则/约束 | 默认值 |
+| --- | --- | --- | --- | --- |
+| 计划类型 `type` | enum | 必填 | 本模块新增 `move` | 无 |
+| 作用范围类型 `scopeType` | enum | 必填 | `trackIds / album / artist` | 无 |
+| 作用范围值 `scopeValue` | string | 必填 | 根据 `scopeType` 决定写法 | 无 |
+| 目标目录模板 `targetDirTemplate` | string | `move` 必填 | 只允许生成 `MUSIC_ROOT` 内目录；不允许为空 | 无 |
+| 模板变量说明 `templateTokens` | array<object> | 必显 | 当前展示 `artist / albumArtist / album / year` | 固定说明 |
+| 冲突策略 `conflictPolicy` | enum | 必显 | 当前固定 `block`，不允许覆盖写入 | `block` |
+
+## 模块 D：交互与状态流转
+
+### 操作 1：筛选与刷新计划列表
+- **触发事件**：用户修改筛选项、点击刷新按钮或进入页面。
+- **前置校验**：用户必须为管理员。
+- **流转结果**：请求列表接口并刷新表格区域。
+- **成功结果**：刷新列表数据，并保留当前筛选条件。
+- **失败结果**：显示错误提示，保留上一次成功快照或空列表状态。
+
+### 操作 2：创建 `move` draft plan
+- **触发事件**：点击“创建 Plan”按钮，在抽屉中选择 `move` 后提交表单。
+- **前置校验**：
+  - `type` 必须为 `move`
+  - `scopeType` 与 `scopeValue` 必须成对存在
+  - `targetDirTemplate` 必填
+  - `targetDirTemplate` 不允许为空目录、非法路径段或待确认的未知变量
+- **流转结果**：服务端创建 `move` 类型 `draft` plan，并返回 `planId`。
+- **成功结果**：创建 `draft` plan，关闭抽屉并跳转至详情页。
+- **失败结果**：保留抽屉输入内容，展示字段级错误或服务端错误。
+
+### 操作 3：进入 Plan 详情页
+- **触发事件**：点击列表行或“查看详情”按钮。
+- **前置校验**：目标 plan 存在且当前用户为管理员。
+- **流转结果**：执行路由跳转到详情页。
+- **成功结果**：跳转 `/admin/plans/[planId]`。
+- **失败结果**：展示“计划不存在”或“无权限”提示。
+
+### 页面状态与异常
+- **加载中**：列表骨架屏或表格 loading。
+- **无数据**：展示空状态，保留创建入口。
+- **网络错误**：展示错误提示与重试按钮。
+- **无权限**：跳转登录或展示管理员权限不足提示。
+- **重复提交**：创建按钮进入 loading，直到请求完成。
+- **分页逻辑**：当前继续只做最近列表和简单分页，不做无限滚动。
+- **搜索逻辑**：关键字仅匹配摘要字段，不执行全文 diff 搜索。
+- **排序逻辑**：当前实现固定按 `updatedAt DESC`，前端未暴露排序控件。
+
+## 模块 E：复杂业务逻辑图
+
+无复杂状态流转，复杂状态集中在详情页处理。

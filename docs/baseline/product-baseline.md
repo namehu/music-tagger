@@ -72,7 +72,7 @@ source_refs:
 
 ### 3.5 Plan Workflow
 
-- 已支持 `rename` / `tag_write` 类型 Plan 的创建
+- 已支持 `rename` / `move` / `tag_write` 类型 Plan 的创建
 - 已支持 preview、confirm、execute 主链路
 - 已支持 `plan_execute` job 与 worker 执行器
 - 已支持 Plan 列表页与详情页
@@ -82,7 +82,7 @@ source_refs:
 
 - `tag_write` 只覆盖基础文本/数字标签字段
 - `tag_write` 当前仅支持常见格式，依赖 worker 环境安装 `mutagen`
-- 封面、歌词、move、delete 等动作尚未进入 Plan 执行器
+- 封面、歌词、delete 等动作尚未进入 Plan 执行器
 
 ### 3.6 Playlist
 
@@ -134,7 +134,7 @@ source_refs:
 以下能力仅存在于历史需求材料或长期规划中，当前代码未形成完整主线：
 
 - 扫描增量策略的独立产品化界面
-- 封面、歌词、move、delete 等更高阶 Plan 类型
+- 封面、歌词、delete 等更高阶 Plan 类型
 
 ## 6. 当前 public interfaces
 

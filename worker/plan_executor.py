@@ -106,6 +106,15 @@ def _assert_should_continue(should_continue: Callable[[], bool] | None) -> None:
         raise JobCancelled("Plan 执行已取消")
 
 
+def _get_music_root() -> Path:
+    return Path(os.environ.get("MUSIC_ROOT", "/music")).resolve()
+
+
+def _is_path_within_root(candidate: Path, root: Path) -> bool:
+    resolved_candidate = candidate.resolve(strict=False)
+    return resolved_candidate == root or root in resolved_candidate.parents
+
+
 def _execute_rename_item(conn: sqlite3.Connection, item: sqlite3.Row) -> None:
     track_id = item["trackId"]
     from_path_text = item["fromPath"]
@@ -195,6 +204,24 @@ def _execute_rename_item(conn: sqlite3.Connection, item: sqlite3.Row) -> None:
         ),
     )
     conn.commit()
+
+
+def _execute_move_item(conn: sqlite3.Connection, item: sqlite3.Row) -> None:
+    from_path_text = item["fromPath"]
+    to_path_text = item["toPath"]
+    if not from_path_text or not to_path_text:
+        raise RuntimeError("move 计划项缺少必要字段")
+
+    music_root = _get_music_root()
+    from_path = Path(from_path_text)
+    to_path = Path(to_path_text)
+    if not _is_path_within_root(from_path, music_root):
+        raise RuntimeError(f"源文件路径超出音乐根目录: {from_path}")
+    if not _is_path_within_root(to_path, music_root):
+        raise RuntimeError(f"目标文件路径超出音乐根目录: {to_path}")
+
+    # move v1 只改变目录不改变文件名，但底层仍然复用同一条文件移动与 tracks 回写逻辑。
+    _execute_rename_item(conn, item)
 
 
 def _get_mutagen_file(path: Path):
@@ -439,7 +466,7 @@ def execute_plan(
     if plan is None:
         raise RuntimeError("Plan 不存在")
 
-    if plan["type"] not in {"rename", "tag_write"}:
+    if plan["type"] not in {"rename", "tag_write", "move"}:
         raise RuntimeError(f"Unsupported plan type: {plan['type']}")
 
     items = conn.execute(
@@ -485,6 +512,8 @@ def execute_plan(
         try:
             if item["kind"] == "rename":
                 _execute_rename_item(conn, item)
+            elif item["kind"] == "move":
+                _execute_move_item(conn, item)
             elif item["kind"] == "tag_write":
                 _execute_tag_write_item(conn, item)
             else:

@@ -52,7 +52,7 @@ worker 领取后会调用 `scan_full`，遍历 `MUSIC_ROOT` 下支持的音频�
 
 - `scan_full`
 - `transcode_prepare`
-- `plan_execute`（当前支持 `rename` 与 `tag_write` 类型 Plan）
+- `plan_execute`（当前支持 `rename`、`move` 与 `tag_write` 类型 Plan）
 
 ## SQLite 自动重连
 

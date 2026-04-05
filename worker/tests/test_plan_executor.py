@@ -1,5 +1,7 @@
+import os
 import sqlite3
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -37,6 +39,25 @@ def _setup_schema(conn: sqlite3.Connection) -> None:
           "status" TEXT NOT NULL,
           "errorJson" TEXT,
           "createdAt" TEXT,
+          "updatedAt" TEXT
+        );
+
+        CREATE TABLE "tracks" (
+          "id" TEXT PRIMARY KEY,
+          "path" TEXT NOT NULL,
+          "dirPath" TEXT NOT NULL,
+          "filename" TEXT NOT NULL,
+          "fileSize" INTEGER NOT NULL,
+          "mtimeMs" INTEGER NOT NULL,
+          "tagsJson" TEXT,
+          "titleOverride" TEXT,
+          "artistOverride" TEXT,
+          "albumOverride" TEXT,
+          "albumArtistOverride" TEXT,
+          "trackNoOverride" INTEGER,
+          "discNoOverride" INTEGER,
+          "yearOverride" INTEGER,
+          "genreOverride" TEXT,
           "updatedAt" TEXT
         );
         """
@@ -93,7 +114,7 @@ class ExecutePlanTests(unittest.TestCase):
     def test_execute_plan_still_rejects_unknown_plan_type(self) -> None:
         self.conn.execute(
             'INSERT INTO "plans" ("id", "type", "status") VALUES (?, ?, ?)',
-            ("plan_other", "move", "confirmed"),
+            ("plan_other", "delete", "confirmed"),
         )
         self.conn.execute(
             """
@@ -102,12 +123,135 @@ class ExecutePlanTests(unittest.TestCase):
             VALUES
               (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
             """,
-            ("item_other", "plan_other", "move", "track_2", "/tmp/track.mp3", "pending"),
+            ("item_other", "plan_other", "delete", "track_2", "/tmp/track.mp3", "pending"),
         )
         self.conn.commit()
 
         with self.assertRaisesRegex(RuntimeError, "Unsupported plan type"):
             plan_executor.execute_plan(self.conn, {"planId": "plan_other"})
+
+    def test_execute_plan_moves_file_and_updates_track_path(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            music_root = Path(tmpdir)
+            source_dir = music_root / "source"
+            target_dir = music_root / "Artist" / "Album"
+            source_dir.mkdir(parents=True)
+            source_path = source_dir / "song.flac"
+            source_path.write_bytes(b"music")
+
+            self.conn.execute(
+                'INSERT INTO "plans" ("id", "type", "status") VALUES (?, ?, ?)',
+                ("plan_move", "move", "confirmed"),
+            )
+            self.conn.execute(
+                """
+                INSERT INTO "tracks"
+                  ("id", "path", "dirPath", "filename", "fileSize", "mtimeMs", "updatedAt")
+                VALUES
+                  (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                """,
+                (
+                    "track_move",
+                    str(source_path),
+                    str(source_dir),
+                    source_path.name,
+                    source_path.stat().st_size,
+                    int(source_path.stat().st_mtime_ns // 1_000_000),
+                ),
+            )
+            self.conn.execute(
+                """
+                INSERT INTO "plan_items"
+                  ("id", "planId", "kind", "trackId", "fromPath", "toPath", "warningsJson", "status", "createdAt", "updatedAt")
+                VALUES
+                  (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                """,
+                (
+                    "item_move",
+                    "plan_move",
+                    "move",
+                    "track_move",
+                    str(source_path),
+                    str(target_dir / source_path.name),
+                    "[]",
+                    "pending",
+                ),
+            )
+            self.conn.commit()
+
+            with patch.dict(os.environ, {"MUSIC_ROOT": str(music_root)}):
+                result = plan_executor.execute_plan(self.conn, {"planId": "plan_move"})
+
+            self.assertEqual(result, {"total": 1, "failed": 0})
+            self.assertEqual(source_path.exists(), False)
+            self.assertEqual((target_dir / source_path.name).exists(), True)
+
+            track_row = self.conn.execute(
+                'SELECT "path", "dirPath", "filename" FROM "tracks" WHERE "id" = ?',
+                ("track_move",),
+            ).fetchone()
+            self.assertEqual(track_row["path"], str(target_dir / source_path.name))
+            self.assertEqual(track_row["dirPath"], str(target_dir))
+            self.assertEqual(track_row["filename"], source_path.name)
+
+    def test_execute_plan_rejects_move_outside_music_root(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            music_root = Path(tmpdir)
+            source_dir = music_root / "source"
+            source_dir.mkdir(parents=True)
+            source_path = source_dir / "song.flac"
+            source_path.write_bytes(b"music")
+
+            self.conn.execute(
+                'INSERT INTO "plans" ("id", "type", "status") VALUES (?, ?, ?)',
+                ("plan_move_escape", "move", "confirmed"),
+            )
+            self.conn.execute(
+                """
+                INSERT INTO "tracks"
+                  ("id", "path", "dirPath", "filename", "fileSize", "mtimeMs", "updatedAt")
+                VALUES
+                  (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                """,
+                (
+                    "track_escape",
+                    str(source_path),
+                    str(source_dir),
+                    source_path.name,
+                    source_path.stat().st_size,
+                    int(source_path.stat().st_mtime_ns // 1_000_000),
+                ),
+            )
+            self.conn.execute(
+                """
+                INSERT INTO "plan_items"
+                  ("id", "planId", "kind", "trackId", "fromPath", "toPath", "warningsJson", "status", "createdAt", "updatedAt")
+                VALUES
+                  (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                """,
+                (
+                    "item_move_escape",
+                    "plan_move_escape",
+                    "move",
+                    "track_escape",
+                    str(source_path),
+                    str(Path(tmpdir).parent / "outside" / source_path.name),
+                    "[]",
+                    "pending",
+                ),
+            )
+            self.conn.commit()
+
+            with patch.dict(os.environ, {"MUSIC_ROOT": str(music_root)}):
+                with self.assertRaisesRegex(RuntimeError, "Plan 执行完成，但有 1 个计划项失败"):
+                    plan_executor.execute_plan(self.conn, {"planId": "plan_move_escape"})
+
+            item_row = self.conn.execute(
+                'SELECT "status", "errorJson" FROM "plan_items" WHERE "id" = ?',
+                ("item_move_escape",),
+            ).fetchone()
+            self.assertEqual(item_row["status"], "failed")
+            self.assertIn("目标文件路径超出音乐根目录", item_row["errorJson"])
 
 
 if __name__ == "__main__":

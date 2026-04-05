@@ -5,6 +5,7 @@ import {
   getPlanActionState,
   getPlanExecutionCounts,
   getPlanExecutionHint,
+  parseMovePlanParams,
   type PlanItemStatus,
   type PlanStatus,
 } from "./plans.ts";
@@ -138,4 +139,11 @@ test("getPlanExecutionHint explains the next operator action", () => {
     }),
     "执行已结束，但仍有失败项；先检查错误信息和 Jobs 日志。",
   );
+});
+
+test("parseMovePlanParams reads the target directory template", () => {
+  assert.deepEqual(parseMovePlanParams(JSON.stringify({ targetDirTemplate: "{artist}/{album}" })), {
+    targetDirTemplate: "{artist}/{album}",
+  });
+  assert.equal(parseMovePlanParams(JSON.stringify({ targetDirTemplate: "" })), null);
 });

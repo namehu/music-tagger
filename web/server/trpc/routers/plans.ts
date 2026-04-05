@@ -7,6 +7,7 @@ import { z } from "zod";
 
 import {
   getPlanScopeSummary,
+  parseMovePlanParams,
   parseRenamePlanParams,
   parsePlanPreviewSummary,
   parsePlanScope,
@@ -15,10 +16,11 @@ import {
   type PlanPreviewSummary,
   type PlanWarning,
 } from "@/lib/plans";
+import { resolveMoveTargetPath } from "@/lib/plan-move";
 
 import { adminProcedure, router } from "../trpc";
 
-const PLAN_TYPE_VALUES = ["rename", "tag_write"] as const;
+const PLAN_TYPE_VALUES = ["rename", "tag_write", "move"] as const;
 const PLAN_STATUS_VALUES = ["draft", "confirmed", "running", "done", "failed", "cancelled"] as const;
 const PLAN_ITEM_STATUS_VALUES = ["pending", "running", "done", "failed", "skipped"] as const;
 const MAX_SCOPE_TRACKS = 200;
@@ -46,6 +48,10 @@ const createPlanInputSchema = z.object({
     z.object({
       type: z.literal("rename"),
       template: z.string().trim().min(1).max(200),
+    }),
+    z.object({
+      type: z.literal("move"),
+      targetDirTemplate: z.string().trim().min(1).max(300),
     }),
     z
       .object({
@@ -108,7 +114,7 @@ type PlanTrackSnapshot = {
 
 type DraftPreviewItem = {
   id: string;
-  kind: "rename" | "tag_write";
+  kind: "rename" | "tag_write" | "move";
   trackId: string | null;
   fromPath: string;
   toPath: string | null;
@@ -163,6 +169,10 @@ function buildWarning(code: string, message: string, blocking = false): PlanWarn
 function normalizeTextValue(value: string | null | undefined) {
   const text = value?.trim() ?? "";
   return text.length > 0 ? text : null;
+}
+
+function getPlanMusicRoot() {
+  return path.posix.resolve((process.env.MUSIC_ROOT ?? "/music").replaceAll("\\", "/"));
 }
 
 function getTrackFieldValue(track: PlanTrackSnapshot, field: string) {
@@ -527,6 +537,141 @@ async function buildTagWritePreview(
   };
 }
 
+async function buildMovePreview(
+  prisma: PrismaClient,
+  input: {
+    scopeJson: string;
+    paramsJson: string;
+  },
+): Promise<{
+  items: DraftPreviewItem[];
+  globalWarnings: PlanWarning[];
+  summary: PlanPreviewSummary;
+}> {
+  const tracks = await resolveScopeTracks(prisma, input.scopeJson);
+  const params = parseMovePlanParams(input.paramsJson);
+  if (!params) {
+    const warning = buildWarning("invalid_params", "move 参数无效或缺少目标目录模板", true);
+    return {
+      items: [],
+      globalWarnings: [warning],
+      summary: { sourceTrackCount: tracks.length, itemCount: 0, warningCount: 1, blockingCount: 1 },
+    };
+  }
+
+  if (tracks.length === 0) {
+    const warning = buildWarning("scope_empty", "当前作用范围没有匹配到任何曲目", true);
+    return {
+      items: [],
+      globalWarnings: [warning],
+      summary: { sourceTrackCount: 0, itemCount: 0, warningCount: 1, blockingCount: 1 },
+    };
+  }
+
+  const musicRoot = getPlanMusicRoot();
+  const items: DraftPreviewItem[] = [];
+  for (const track of tracks) {
+    const resolved = resolveMoveTargetPath({
+      musicRoot,
+      template: params.targetDirTemplate,
+      track: {
+        path: track.path,
+        filename: track.filename,
+        artist: track.artist,
+        albumArtist: track.albumArtist,
+        album: track.album,
+        year: toNullableNumber(track.year),
+      },
+    });
+
+    if (!resolved.changed && resolved.warnings.length === 0) {
+      continue;
+    }
+
+    items.push({
+      id: `plan_item_${randomUUID()}`,
+      kind: "move",
+      trackId: track.id,
+      fromPath: track.path,
+      toPath: resolved.toPath,
+      tagDiffJson: null,
+      warnings: resolved.warnings,
+    });
+  }
+
+  const globalWarnings: PlanWarning[] = [];
+  if (items.length === 0) {
+    globalWarnings.push(buildWarning("no_changes", "预览结果没有生成任何需要执行的移动项", true));
+  }
+
+  const duplicateTargetMap = new Map<string, DraftPreviewItem[]>();
+  for (const item of items) {
+    if (!item.toPath) {
+      continue;
+    }
+
+    const bucket = duplicateTargetMap.get(item.toPath) ?? [];
+    bucket.push(item);
+    duplicateTargetMap.set(item.toPath, bucket);
+  }
+
+  for (const bucket of duplicateTargetMap.values()) {
+    if (bucket.length < 2) {
+      continue;
+    }
+
+    for (const item of bucket) {
+      item.warnings.push(buildWarning("duplicate_target", "多个计划项生成了相同目标路径", true));
+    }
+  }
+
+  const uniqueTargetPaths = [...new Set(items.map((item) => item.toPath).filter((value): value is string => Boolean(value)))];
+  if (uniqueTargetPaths.length > 0) {
+    const conflicts = await prisma.track.findMany({
+      where: {
+        path: {
+          in: uniqueTargetPaths,
+        },
+        id: {
+          notIn: items
+            .map((item) => item.trackId)
+            .filter((value): value is string => Boolean(value)),
+        },
+      },
+      select: {
+        path: true,
+      },
+    });
+
+    const conflictSet = new Set(conflicts.map((item) => item.path));
+    for (const item of items) {
+      if (item.toPath && conflictSet.has(item.toPath)) {
+        item.warnings.push(buildWarning("target_exists", "目标路径已经被其他曲目占用", true));
+      }
+    }
+  }
+
+  const warningCount =
+    globalWarnings.length + items.reduce((count, item) => count + item.warnings.length, 0);
+  const blockingCount =
+    globalWarnings.filter((warning) => warning.blocking).length +
+    items.reduce(
+      (count, item) => count + item.warnings.filter((warning) => warning.blocking).length,
+      0,
+    );
+
+  return {
+    items,
+    globalWarnings,
+    summary: {
+      sourceTrackCount: tracks.length,
+      itemCount: items.length,
+      warningCount,
+      blockingCount,
+    },
+  };
+}
+
 export const plansRouter = router({
   list: adminProcedure.input(listPlansInputSchema).query(async ({ ctx, input }) => {
     const plans = await ctx.prisma.plan.findMany({
@@ -615,6 +760,10 @@ export const plansRouter = router({
             ? {
                 template: input.params.template,
               }
+            : input.params.type === "move"
+              ? {
+                  targetDirTemplate: input.params.targetDirTemplate.trim(),
+                }
             : {
                 title: typeof input.params.title === "undefined" ? undefined : normalizeTextValue(input.params.title),
                 artist: typeof input.params.artist === "undefined" ? undefined : normalizeTextValue(input.params.artist),
@@ -697,7 +846,9 @@ export const plansRouter = router({
       params:
         plan.type === "rename"
           ? parseRenamePlanParams(plan.paramsJson)
-          : parseTagWritePlanParams(plan.paramsJson),
+          : plan.type === "move"
+            ? parseMovePlanParams(plan.paramsJson)
+            : parseTagWritePlanParams(plan.paramsJson),
       previewSummary: parsePlanPreviewSummary(plan.previewSummaryJson),
       warnings: parsePlanWarnings(plan.warningsJson),
       executionJob,
@@ -812,6 +963,11 @@ export const plansRouter = router({
               template,
             });
           })()
+        : plan.type === "move"
+          ? buildMovePreview(ctx.prisma, {
+              scopeJson: plan.scopeJson,
+              paramsJson: plan.paramsJson,
+            })
         : buildTagWritePreview(ctx.prisma, {
             scopeJson: plan.scopeJson,
             paramsJson: plan.paramsJson,

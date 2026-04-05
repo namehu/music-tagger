@@ -30,12 +30,12 @@
 - 浏览器本地播放会话恢复（刷新后默认暂停）
 - 个人歌单 CRUD、加歌、移歌与按保存顺序点播
 - 双层忽略曲目：用户“我的忽略”与管理员“全局忽略”
-- `rename` / `tag_write` 类型的 Plan 预览、确认与后台执行
+- `rename` / `move` / `tag_write` 类型的 Plan 预览、确认与后台执行
 - 转码观测、缓存容量治理与后台策略配置
 
 当前尚未完成：
 
-- 封面、歌词、move、delete 等其他类型的 Plan 工作流
+- 封面、歌词、delete 等其他类型的 Plan 工作流
 
 ## 2. 架构总览
 
@@ -111,7 +111,7 @@ flowchart LR
 - `worker.py`：主循环、SQLite 重连、job dispatch
 - `jobs.py`：job claim / heartbeat / progress / done / failed
 - `scanner.py`：全量扫描与 `tracks` 写入
-- `plan_executor.py`：Plan 执行器，当前支持 `rename` 与基础 `tag_write`
+- `plan_executor.py`：Plan 执行器，当前支持 `rename`、`move` 与基础 `tag_write`
 - `transcoder.py`：`mp3_192` 转码、原子写入缓存、`transcode_cache` 回写
 
 ## 4. 关键数据表

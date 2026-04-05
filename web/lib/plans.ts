@@ -1,4 +1,4 @@
-export const PLAN_TYPES = ["rename", "tag_write"] as const;
+export const PLAN_TYPES = ["rename", "tag_write", "move"] as const;
 export type PlanType = (typeof PLAN_TYPES)[number];
 
 export const PLAN_STATUSES = [
@@ -32,6 +32,10 @@ export type TagWritePlanParams = {
   discNo?: number | null;
   year?: number | null;
   genre?: string | null;
+};
+
+export type MovePlanParams = {
+  targetDirTemplate: string;
 };
 
 export type PlanWarning = {
@@ -139,6 +143,22 @@ export function parseTagWritePlanParams(value: string | null | undefined): TagWr
   return hasChanges ? params : null;
 }
 
+export function parseMovePlanParams(value: string | null | undefined): MovePlanParams | null {
+  const parsed = safeJsonParse(value);
+  if (!parsed || typeof parsed !== "object") {
+    return null;
+  }
+
+  const record = parsed as JsonObject;
+  if (typeof record.targetDirTemplate !== "string" || record.targetDirTemplate.trim().length === 0) {
+    return null;
+  }
+
+  return {
+    targetDirTemplate: record.targetDirTemplate.trim(),
+  };
+}
+
 export function parsePlanWarnings(value: string | null | undefined): PlanWarning[] {
   const parsed = safeJsonParse(value);
   if (!Array.isArray(parsed)) {
@@ -224,6 +244,10 @@ export function getPlanTypeLabel(type: string) {
 
   if (type === "tag_write") {
     return "批量写标签";
+  }
+
+  if (type === "move") {
+    return "批量移动文件";
   }
 
   return type;
