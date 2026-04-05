@@ -11,7 +11,8 @@
 1. 架构总览
 2. 关键数据表
 3. 四条核心业务链路
-4. 生产环境的持久化与运维要点
+4. [`docs/architecture/playback-runtime-and-modes.md`](/Users/namehu/github/music-tagger/docs/architecture/playback-runtime-and-modes.md)
+5. 生产环境的持久化与运维要点
 
 ## 1. 当前范围
 
@@ -24,6 +25,8 @@
 - SQLite 曲库索引与 FTS 搜索
 - 全局原始音频播放
 - `mp3_192` 转码缓存播放
+- `zustand` 全局播放状态、顺序 / 随机 / 单曲循环模式
+- 浏览器本地播放会话恢复（刷新后默认暂停）
 - 个人歌单 CRUD、加歌、移歌与按保存顺序点播
 - 双层忽略曲目：用户“我的忽略”与管理员“全局忽略”
 - `rename` / `tag_write` 类型的 Plan 预览、确认与后台执行
@@ -32,7 +35,6 @@
 当前尚未完成：
 
 - 封面、歌词、move、delete 等其他类型的 Plan 工作流
-- 播放模式：顺序 / 随机 / 单曲循环
 
 ## 2. 架构总览
 
@@ -96,6 +98,7 @@ flowchart LR
 - `app/`：Next.js App Router 页面与 Route Handler
 - `server/trpc/`：tRPC 路由与鉴权中间件
 - `components/playback/`：全局播放器与播放状态管理
+- `store/`：`zustand` 全局状态与 computed middleware
 - `components/shell/`：后台导航、顶栏与管理壳
 - `components/library/`：用户区与管理区共享的曲库浏览组件
 - `lib/`：认证、Prisma、播放 token/路径解析等基础能力
@@ -414,7 +417,8 @@ sequenceDiagram
 sequenceDiagram
   autonumber
   actor U as Browser
-  participant GP as Global Playback Provider
+  participant RT as PlaybackRuntime
+  participant Store as Playback Store
   participant W as Web
   participant DB as SQLite
   participant WK as Worker
@@ -422,17 +426,19 @@ sequenceDiagram
   participant Music as /music
   participant Cache as /cache
 
-  U->>GP: 点击播放曲目
-  GP->>W: playback.resolve(trackId, mp3_192)
+  U->>Store: requestPlayTrack(track)
+  Store->>RT: resolveRequest
+  RT->>W: playback.resolve(trackId, mp3_192)
   W->>DB: 查 track + transcode_cache
   alt 缓存命中且文件可读
-    W-->>GP: {status: ready, url}
-    GP-->>U: 立即播放
+    W-->>RT: {status: ready, url}
+    RT->>Store: writeResolvedPlayback(url)
+    Store-->>U: 立即播放
   else 缓存未命中
     W->>DB: upsert transcode_cache(status=pending)
     W->>DB: 写入或复用 transcode_prepare job
-    W-->>GP: {status: preparing, jobId}
-    GP->>W: jobs.get(jobId) 轮询
+    W-->>RT: {status: preparing, jobId}
+    RT->>W: playback.getPreparationStatus(jobId) 轮询
 
     WK->>DB: claim transcode_prepare
     WK->>Music: 读取源文件
@@ -441,18 +447,19 @@ sequenceDiagram
     WK->>DB: upsert transcode_cache(status=ready,fileSize,...)
     WK->>DB: mark_done(job)
 
-    GP->>W: jobs.get(jobId)
-    W-->>GP: status=done
-    GP->>W: playback.resolve(trackId, mp3_192)
-    W-->>GP: {status: ready, url}
-    GP-->>U: 自动开始播放
+    RT->>W: playback.getPreparationStatus(jobId)
+    W-->>RT: status=done
+    RT->>W: playback.resolve(trackId, mp3_192)
+    W-->>RT: {status: ready, url}
+    RT->>Store: writeResolvedPlayback(url)
+    Store-->>U: 自动开始播放
   end
 ```
 
 说明：
 
 - 当前默认远程播放档位已经切到 `mp3_192`
-- preparing 状态由全局播放器统一持有，因此切换后台页面不会丢状态
+- preparing 状态由 `playback-store + PlaybackRuntime` 统一持有，因此切换页面不会丢状态
 - 若转码失败，前端会展示明确错误，不自动回退到 `original`
 
 ## 6.6 缓存治理链路
@@ -487,27 +494,66 @@ sequenceDiagram
 
 ## 7. 当前播放实现
 
-### 7.1 为什么播放器要做成全局
+### 7.1 当前实现概览
 
-当前播放器挂在 `(app)` 级别的 layout 里，而不是某一个页面里。
+当前播放器仍然挂在 `(app)` 级别的 layout 里，但业务状态已经不再由某个 provider 持有。
+
+现在的分层是：
+
+- `playback-store.ts`：用 `zustand` 持有 queue、当前曲目、播放模式、进度、音量、恢复锁等业务状态
+- `playback-runtime.tsx`：承接 `playback.resolve`、`getPreparationStatus`、`audio` 事件与刷新恢复副作用
+- `global-player.tsx`：只负责渲染底部播放器和绑定 `audio` 元素
+- 页面组件：只负责注入 queue 和触发用户主动点播
+
+### 7.2 为什么仍然需要全局运行时
 
 这样可以保证：
 
-- 在 `/admin`、`/admin/library`、`/admin/jobs` 间切页时不停止播放
-- `preparing` 轮询状态不会在页面卸载时丢失
-- 曲库页只负责选歌和高亮，不负责持有 `<audio>`
+- 在 `/dashboard`、`/library`、`/playlists`、`/admin/*` 间切页时不停止播放
+- `transcode_prepare` 的轮询不会随页面卸载而丢失
+- 曲库页和歌单页不再自己持有 `<audio>`
+- 刷新后可以从 `localStorage` 恢复播放会话，再重新动态签发 URL
 
-### 7.2 当前前端状态
+### 7.3 当前前端状态
 
-全局播放状态至少包含：
+当前全局播放状态至少包含：
 
 - `queue`
-- `currentTrack`
+- `queueSourceKey`
+- `displayTrack`
 - `activePlayback`
 - `pendingTrackId`
+- `preparingJobId`
+- `playbackMode`
+- `shuffleHistory`
+- `resumeTimeSec`
+- `volume`
+- `muted`
+- `resumeLock`
+- `hydrationStatus`
+
+另外通过 computed 统一派生：
+
+- `currentTrack`
+- `activeTrackId`
+- `previousTrack`
+- `nextTrack`
+- `canPlayPrevious`
+- `canPlayNext`
 - `isPreparing`
-- `isAudioPlaying`
-- `playbackError`
+
+### 7.4 播放模式与恢复策略
+
+- `ordered`：按当前 queue 线性切歌
+- `shuffle`：下一首随机选择，上一首回退真实播放历史
+- `repeat_one`：只在自然播放结束时重播当前曲目
+- `localStorage` 只保存 queue、曲目、模式、进度和音量等可重建状态
+- 播放 URL 与 token 不持久化，刷新后必须重新调用 `playback.resolve`
+- 恢复完成后默认暂停，不自动续播
+
+更完整的状态分层图、恢复链路图和业务流转图见：
+
+- [`docs/architecture/playback-runtime-and-modes.md`](/Users/namehu/github/music-tagger/docs/architecture/playback-runtime-and-modes.md)
 
 ## 8. Docker 与持久化边界
 
@@ -608,10 +654,12 @@ flowchart TD
 
 如果你想理解播放链路，优先看：
 
-1. [`web/components/playback/global-playback-provider.tsx`](/Users/namehu/github/music-tagger/web/components/playback/global-playback-provider.tsx)
-2. [`web/server/trpc/routers/playback.ts`](/Users/namehu/github/music-tagger/web/server/trpc/routers/playback.ts)
-3. [`web/app/api/stream/[trackId]/route.ts`](/Users/namehu/github/music-tagger/web/app/api/stream/[trackId]/route.ts)
-4. [`worker/transcoder.py`](/Users/namehu/github/music-tagger/worker/transcoder.py)
+1. [`web/store/playback-store.ts`](/Users/namehu/github/music-tagger/web/store/playback-store.ts)
+2. [`web/components/playback/playback-runtime.tsx`](/Users/namehu/github/music-tagger/web/components/playback/playback-runtime.tsx)
+3. [`web/components/playback/global-player.tsx`](/Users/namehu/github/music-tagger/web/components/playback/global-player.tsx)
+4. [`web/server/trpc/routers/playback.ts`](/Users/namehu/github/music-tagger/web/server/trpc/routers/playback.ts)
+5. [`web/app/api/stream/[trackId]/route.ts`](/Users/namehu/github/music-tagger/web/app/api/stream/[trackId]/route.ts)
+6. [`worker/transcoder.py`](/Users/namehu/github/music-tagger/worker/transcoder.py)
 
 如果你想理解后台任务，优先看：
 

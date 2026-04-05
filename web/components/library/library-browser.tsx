@@ -5,7 +5,6 @@ import { toast } from "sonner";
 import { EyeOffIcon, LoaderCircleIcon, PauseCircleIcon, PlayCircleIcon } from "lucide-react";
 
 import { trpc } from "@/app/_trpc/provider";
-import { useGlobalPlayback, type PlaybackQueueTrack } from "@/components/playback/global-playback-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,6 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
+import { usePlaybackStore, type PlaybackQueueTrack } from "@/store/playback-store";
 
 type TrackOrder = "recent" | "title" | "artist";
 type EditedFilter = "all" | "edited" | "unedited";
@@ -77,7 +77,15 @@ export function LibraryBrowser({ mode }: { mode: LibraryBrowserMode }) {
   );
   const deferredSearch = React.useDeferredValue(search);
   const query = deferredSearch.trim();
-  const { activeTrackId, pendingTrackId, isAudioPlaying, isPreparing, setQueue, toggleTrack } = useGlobalPlayback();
+  const activeTrackId = usePlaybackStore((state) => state.activeTrackId);
+  const pendingTrackId = usePlaybackStore((state) => state.pendingTrackId);
+  const isAudioPlaying = usePlaybackStore((state) => state.isAudioPlaying);
+  const isPreparing = usePlaybackStore((state) => state.isPreparing);
+  const queueSourceKey = usePlaybackStore((state) => state.queueSourceKey);
+  const setQueue = usePlaybackStore((state) => state.setQueue);
+  const replaceQueueFromUserIntent = usePlaybackStore((state) => state.replaceQueueFromUserIntent);
+  const requestPlayTrack = usePlaybackStore((state) => state.requestPlayTrack);
+  const toggleTrack = usePlaybackStore((state) => state.toggleTrack);
 
   const statsQuery = trpc.library.stats.useQuery({
     surface: isAdminMode ? "admin" : "user",
@@ -90,6 +98,15 @@ export function LibraryBrowser({ mode }: { mode: LibraryBrowserMode }) {
     surface: isAdminMode ? "admin" : "user",
   });
   const currentTracks = React.useMemo(() => tracksQuery.data?.items ?? [], [tracksQuery.data?.items]);
+  const playbackQueueTracks = React.useMemo<PlaybackQueueTrack[]>(
+    () =>
+      currentTracks.map((track) => ({
+        id: track.id,
+        title: renderCell(track.title, track.filename),
+        artist: renderCell(track.artist, "未知艺人"),
+      })),
+    [currentTracks],
+  );
   const visibleTrackIds = React.useMemo(() => currentTracks.map((track) => track.id), [currentTracks]);
   const editingTrack = React.useMemo(
     () => currentTracks.find((track) => track.id === editingTrackId) ?? null,
@@ -193,13 +210,11 @@ export function LibraryBrowser({ mode }: { mode: LibraryBrowserMode }) {
   });
 
   React.useEffect(() => {
-    const queueTracks: PlaybackQueueTrack[] = currentTracks.map((track) => ({
-      id: track.id,
-      title: renderCell(track.title, track.filename),
-      artist: renderCell(track.artist, "未知艺人"),
-    }));
-    setQueue(queueTracks);
-  }, [currentTracks, setQueue]);
+    setQueue({
+      tracks: playbackQueueTracks,
+      sourceKey: isAdminMode ? "admin-library" : "user-library",
+    });
+  }, [isAdminMode, playbackQueueTracks, setQueue]);
 
   React.useEffect(() => {
     if (statsQuery.error) {
@@ -489,6 +504,12 @@ export function LibraryBrowser({ mode }: { mode: LibraryBrowserMode }) {
                   const isPendingTrack = pendingTrackId === track.id;
                   const canTogglePlayback = isActiveTrack && !isPendingTrack;
                   const isSelected = selectedTrackIds.includes(track.id);
+                  const playbackTrack = {
+                    id: track.id,
+                    title: renderCell(track.title, track.filename),
+                    artist: renderCell(track.artist, "未知艺人"),
+                  };
+                  const sourceKey = isAdminMode ? "admin-library" : "user-library";
 
                   return (
                     <TableRow
@@ -513,13 +534,23 @@ export function LibraryBrowser({ mode }: { mode: LibraryBrowserMode }) {
                           type="button"
                           variant={isActiveTrack ? "secondary" : "ghost"}
                           size="icon-sm"
-                          onClick={() =>
-                            toggleTrack({
-                              id: track.id,
-                              title: renderCell(track.title, track.filename),
-                              artist: renderCell(track.artist, "未知艺人"),
-                            })
-                          }
+                          onClick={() => {
+                            if (queueSourceKey !== sourceKey) {
+                              replaceQueueFromUserIntent({
+                                tracks: playbackQueueTracks,
+                                sourceKey,
+                              });
+                              requestPlayTrack(playbackTrack);
+                              return;
+                            }
+
+                            if (activeTrackId === track.id) {
+                              toggleTrack(playbackTrack);
+                              return;
+                            }
+
+                            requestPlayTrack(playbackTrack);
+                          }}
                           aria-label={`播放 ${renderCell(track.title, track.filename)}`}
                         >
                           {isPendingTrack ? (

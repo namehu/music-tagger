@@ -2,7 +2,7 @@
 doc_type: baseline
 product: music-tagger
 module: current-system
-version: 2026-04-04
+version: 2026-04-05
 source_refs:
   - README.md
   - docs/architecture.md
@@ -57,9 +57,18 @@ source_refs:
 
 - 已支持 `original` 原始音频播放
 - 已支持 `mp3_192` 转码缓存播放
+- 已支持 `ordered / shuffle / repeat_one` 三种全局播放模式
 - `/api/stream/[trackId]` 已支持 `Range`
 - 已有播放解析事件和缓存命中/未命中记录
+- 前端播放状态已迁到 `zustand` 全局 store
+- 已支持把当前浏览器内的队列、曲目、模式、进度、音量持久化到 `localStorage`
+- 已支持刷新后重新动态签发播放 URL，并恢复到暂停状态
 - 已有缓存概览、异常识别、清理与策略配置
+
+当前限制：
+
+- 当前恢复只覆盖单浏览器，不做数据库持久化或多设备同步
+- 刷新恢复后默认暂停，不自动续播
 
 ### 3.5 Plan Workflow
 
@@ -85,7 +94,6 @@ source_refs:
 
 - 暂不支持拖拽排序
 - 暂不支持共享、公开链接或协作歌单
-- 暂不支持随机 / 单曲循环等播放模式
 
 ### 3.7 Ignored Tracks
 
@@ -118,13 +126,12 @@ source_refs:
 
 - Dashboard 首页：已有用户区入口页和管理区概览页，但还不是完整的首页产品模块
 - 元数据维护：已支持 override 编辑，但还没有进入完整的 Plan 驱动整理链路
-- 当前播放摘要：已有 UI 与状态，但没有扩展为播放模式与队列策略模块
+- 当前播放摘要：已支持模式与恢复摘要，但仍未扩展到账号级同步或持久队列模块
 
 ## 5. 未实现能力
 
 以下能力仅存在于历史需求材料或长期规划中，当前代码未形成完整主线：
 
-- 顺序 / 随机 / 单曲循环播放模式
 - 扫描增量策略的独立产品化界面
 - 封面、歌词、move、delete 等更高阶 Plan 类型
 
@@ -225,6 +232,7 @@ source_refs:
 - 曲库编辑
 - jobs 观测
 - 后台策略配置
+- 多设备播放会话同步
 
 ## 9. 后续文档使用规则
 

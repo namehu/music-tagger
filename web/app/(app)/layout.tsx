@@ -1,5 +1,10 @@
-import { GlobalPlaybackProvider } from "@/components/playback/global-playback-provider";
+import { PlaybackRuntime } from "@/components/playback/playback-runtime";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
-  return <GlobalPlaybackProvider>{children}</GlobalPlaybackProvider>;
+  return (
+    <>
+      <PlaybackRuntime />
+      {children}
+    </>
+  );
 }

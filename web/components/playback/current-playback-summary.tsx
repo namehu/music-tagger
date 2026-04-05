@@ -12,8 +12,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-
-import { useGlobalPlayback } from "./global-playback-provider";
+import { usePlaybackStore } from "@/store/playback-store";
 
 function getPlaybackStatusText(input: {
   isPreparing: boolean;
@@ -47,17 +46,17 @@ export function CurrentPlaybackSummary({
   compact?: boolean;
   className?: string;
 }) {
-  const {
-    currentTrack,
-    currentProfile,
-    currentSourceKind,
-    preparingJobId,
-    isPreparing,
-    isAudioPlaying,
-    playbackError,
-    activeTrackId,
-    toggleTrack,
-  } = useGlobalPlayback();
+  const currentTrack = usePlaybackStore((state) => state.currentTrack);
+  const currentProfile = usePlaybackStore((state) => state.currentProfile);
+  const currentSourceKind = usePlaybackStore((state) => state.currentSourceKind);
+  const preparingJobId = usePlaybackStore((state) => state.preparingJobId);
+  const isPreparing = usePlaybackStore((state) => state.isPreparing);
+  const isAudioPlaying = usePlaybackStore((state) => state.isAudioPlaying);
+  const playbackError = usePlaybackStore((state) => state.playbackError);
+  const activeTrackId = usePlaybackStore((state) => state.activeTrackId);
+  const toggleTrack = usePlaybackStore((state) => state.toggleTrack);
+  const playbackMode = usePlaybackStore((state) => state.playbackMode);
+  const resumeTimeSec = usePlaybackStore((state) => state.resumeTimeSec);
 
   const status = getPlaybackStatusText({
     isPreparing,
@@ -75,7 +74,7 @@ export function CurrentPlaybackSummary({
         </div>
         {!compact ? (
           <CardAction>
-            <Link href="/admin/library" className={buttonVariants({ variant: "ghost", size: "sm" })}>
+            <Link href="/library" className={buttonVariants({ variant: "ghost", size: "sm" })}>
               前往音乐库
             </Link>
           </CardAction>
@@ -91,6 +90,9 @@ export function CurrentPlaybackSummary({
               {currentSourceKind === "transcode_cache" ? "转码缓存" : "原始直出"}
             </Badge>
           ) : null}
+          <Badge variant="outline">
+            {playbackMode === "ordered" ? "顺序" : playbackMode === "shuffle" ? "随机" : "单曲循环"}
+          </Badge>
           {preparingJobId ? <Badge variant="outline">job: {preparingJobId}</Badge> : null}
         </div>
 
@@ -113,7 +115,9 @@ export function CurrentPlaybackSummary({
           </div>
         ) : (
           <div className="rounded-xl border bg-muted/20 p-3 text-sm text-muted-foreground">
-            {currentTrack ? "当前曲目已进入全局播放器，可在任意后台页面继续播放。" : "从音乐库点播后，这里会显示实时状态。"}
+            {currentTrack
+              ? `当前曲目已进入全局播放器，可在任意后台页面继续播放。上次恢复进度约 ${Math.floor(resumeTimeSec)} 秒。`
+              : "从音乐库点播后，这里会显示实时状态。"}
           </div>
         )}
 

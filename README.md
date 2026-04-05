@@ -8,6 +8,8 @@
 - 扫描本地音乐目录并写入 SQLite 索引
 - 在 Web 控制台浏览最小音乐库统计、曲目列表与全文搜索
 - 原始音频直出播放与 `mp3_192` 转码缓存播放
+- 顺序 / 随机 / 单曲循环三种全局播放模式
+- 浏览器本地播放会话恢复：刷新后恢复队列、曲目、模式、进度和音量，并默认暂停
 - 个人歌单的创建、重命名、删除、加歌、移歌与顺序点播
 - 双层忽略曲目：用户“我的忽略”与管理员“全局忽略”
 - 转码缓存观测、容量治理与策略配置
@@ -15,7 +17,7 @@
 
 暂未支持：
 
-- 播放模式：顺序 / 随机 / 单曲循环
+- 多设备播放会话同步或数据库级播放状态持久化
 - 封面、歌词、move、delete 等其他类型的 Plan 执行链路
 
 ## 项目结构
@@ -58,6 +60,7 @@
 
 - Agent 快速切入指南：[`AGENT.md`](./AGENT.md)
 - 系统架构说明：[`docs/architecture.md`](./docs/architecture.md)
+- 播放器状态架构：[`docs/architecture/playback-runtime-and-modes.md`](./docs/architecture/playback-runtime-and-modes.md)
 - 当前系统基线：[`docs/baseline/product-baseline.md`](./docs/baseline/product-baseline.md)
 - 当前能力矩阵：[`docs/baseline/module-baseline-current-capabilities.md`](./docs/baseline/module-baseline-current-capabilities.md)
 - PRD 驱动开发约定：[`docs/prd/README.md`](./docs/prd/README.md)
@@ -83,8 +86,9 @@ pnpm prisma:studio
 2. 进入 `/admin` 或 `/admin/jobs` 触发 `scan_full`。
 3. 进入 `/library` 验证普通用户侧的浏览、播放与“我的忽略”链路。
 4. 进入 `/playlists` 创建个人歌单，并在歌单详情页加入曲目。
-5. 进入 `/ignored-tracks` 查看和解除自己的忽略曲目。
-6. 如需管理任务与策略，管理员可从右上角菜单进入 `/admin`。
-7. 在 `/admin/library`、`/admin/ignored-tracks`、`/admin/plans`、`/admin/cache`、`/admin/settings` 完成管理操作。
+5. 在底部全局播放器切换顺序 / 随机 / 单曲循环，刷新页面可恢复为暂停状态。
+6. 进入 `/ignored-tracks` 查看和解除自己的忽略曲目。
+7. 如需管理任务与策略，管理员可从右上角菜单进入 `/admin`。
+8. 在 `/admin/library`、`/admin/ignored-tracks`、`/admin/plans`、`/admin/cache`、`/admin/settings` 完成管理操作。
 
 更多细节见 [`web/README.md`](./web/README.md) 和 [`worker/README.md`](./worker/README.md)。

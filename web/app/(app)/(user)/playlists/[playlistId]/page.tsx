@@ -6,12 +6,12 @@ import { toast } from "sonner";
 import { EyeOffIcon, LoaderCircleIcon, PauseCircleIcon, PlayCircleIcon, PlusIcon, Trash2Icon } from "lucide-react";
 
 import { trpc } from "@/app/_trpc/provider";
-import { useGlobalPlayback, type PlaybackQueueTrack } from "@/components/playback/global-playback-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { usePlaybackStore, type PlaybackQueueTrack } from "@/store/playback-store";
 
 function renderText(value: string | null | undefined, fallback: string) {
   return value && value.trim().length > 0 ? value : fallback;
@@ -23,7 +23,15 @@ export default function PlaylistDetailPage() {
   const utils = trpc.useUtils();
   const [search, setSearch] = React.useState("");
   const deferredSearch = React.useDeferredValue(search);
-  const { activeTrackId, pendingTrackId, isAudioPlaying, isPreparing, setQueue, toggleTrack } = useGlobalPlayback();
+  const activeTrackId = usePlaybackStore((state) => state.activeTrackId);
+  const pendingTrackId = usePlaybackStore((state) => state.pendingTrackId);
+  const isAudioPlaying = usePlaybackStore((state) => state.isAudioPlaying);
+  const isPreparing = usePlaybackStore((state) => state.isPreparing);
+  const queueSourceKey = usePlaybackStore((state) => state.queueSourceKey);
+  const setQueue = usePlaybackStore((state) => state.setQueue);
+  const replaceQueueFromUserIntent = usePlaybackStore((state) => state.replaceQueueFromUserIntent);
+  const requestPlayTrack = usePlaybackStore((state) => state.requestPlayTrack);
+  const toggleTrack = usePlaybackStore((state) => state.toggleTrack);
   const playlistQuery = trpc.playlists.get.useQuery(
     { playlistId },
     { enabled: playlistId.length > 0 },
@@ -78,9 +86,12 @@ export default function PlaylistDetailPage() {
 
   React.useEffect(() => {
     if (playlistTracks.length > 0) {
-      setQueue(playlistTracks);
+      setQueue({
+        tracks: playlistTracks,
+        sourceKey: `playlist:${playlistId}`,
+      });
     }
-  }, [playlistTracks, setQueue]);
+  }, [playlistId, playlistTracks, setQueue]);
 
   return (
     <div className="mx-auto flex w-full max-w-7xl flex-col gap-6">
@@ -113,6 +124,12 @@ export default function PlaylistDetailPage() {
                     const isActiveTrack = activeTrackId === item.track.id;
                     const isPendingTrack = pendingTrackId === item.track.id;
                     const canTogglePlayback = isActiveTrack && !isPendingTrack;
+                    const playbackTrack = {
+                      id: item.track.id,
+                      title: item.track.title,
+                      artist: item.track.artist,
+                    };
+                    const sourceKey = `playlist:${playlistId}`;
 
                     return (
                       <TableRow key={item.id} className={isActiveTrack ? "bg-muted/30" : undefined}>
@@ -121,13 +138,23 @@ export default function PlaylistDetailPage() {
                             type="button"
                             variant={isActiveTrack ? "secondary" : "ghost"}
                             size="icon-sm"
-                            onClick={() =>
-                              toggleTrack({
-                                id: item.track.id,
-                                title: item.track.title,
-                                artist: item.track.artist,
-                              })
-                            }
+                            onClick={() => {
+                              if (queueSourceKey !== sourceKey) {
+                                replaceQueueFromUserIntent({
+                                  tracks: playlistTracks,
+                                  sourceKey,
+                                });
+                                requestPlayTrack(playbackTrack);
+                                return;
+                              }
+
+                              if (activeTrackId === item.track.id) {
+                                toggleTrack(playbackTrack);
+                                return;
+                              }
+
+                              requestPlayTrack(playbackTrack);
+                            }}
                           >
                             {isPendingTrack ? (
                               <LoaderCircleIcon className="animate-spin" />
