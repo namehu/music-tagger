@@ -76,6 +76,7 @@ flowchart LR
   - 通过 tRPC 提供业务控制面
   - 通过 `library.dashboard` 聚合用户首页数据
   - 通过 `trackEdits` router 与 `/api/admin/tracks/[trackId]/cover` 处理 DB-first 编辑
+  - `trackEdits.get` 会一并返回每个编辑域最近一次同步任务摘要，供编辑面板直接展示最近结果与排障建议
   - 通过 Prisma 直接读写 SQLite
   - 通过 Route Handler 输出支持 `Range` 的音频流
 - Worker：
@@ -371,8 +372,12 @@ sequenceDiagram
   - 看曲库规模、最近扫描、缓存健康、转码命中率
 - `/admin/library`
   - 看搜索结果、播放链路与曲目列表
-  - 基于当前选中曲目直接发起 `rename / move / tag_write`
-  - 在页内先看即时 preview，再直接提交执行
+  - 打开单曲编辑面板，直接编辑元数据、歌词、封面
+  - 先立即写 DB，再由 worker 异步写回文件
+  - 在页内看到最近一次同步结果与建议动作
+- `/admin/jobs`
+  - 按“编辑同步”和“扫描 / 转码 / 其他任务”分区排障
+  - 优先展示结构化结论，再按需展开原始错误
 - `/admin/plans`
   - 回看已提交的执行历史与详情
 - `/admin/cache`

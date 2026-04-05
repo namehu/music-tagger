@@ -3,6 +3,7 @@ import { unlink } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 
+import { getJobErrorSummary, parseJobPayload } from "@/lib/jobs";
 import { resolveTrackEditAssetPath } from "@/lib/track-edit-assets";
 import { ensureTrackEditSyncJob } from "@/lib/track-edit-jobs";
 import {
@@ -111,6 +112,17 @@ const trackEditSelect = {
   },
 } as const;
 
+type TrackEditLatestJob = {
+  jobId: string;
+  status: string;
+  progress: number;
+  attempts: number;
+  maxAttempts: number;
+  updatedAt: Date;
+  errorSummary: string | null;
+  errorJson: string | null;
+};
+
 async function getTrackOrThrow(
   ctx: Parameters<Parameters<typeof adminProcedure.query>[0]>[0]["ctx"],
   trackId: string,
@@ -127,7 +139,60 @@ async function getTrackOrThrow(
   return track;
 }
 
-function serializeTrackEditResponse(track: Awaited<ReturnType<typeof getTrackOrThrow>>) {
+async function getLatestTrackEditJobs(
+  ctx: Parameters<Parameters<typeof adminProcedure.query>[0]>[0]["ctx"],
+  trackId: string,
+) {
+  const jobs = await ctx.prisma.job.findMany({
+    where: {
+      type: "track_edit_sync",
+      payloadJson: {
+        contains: `"trackId":"${trackId}"`,
+      },
+    },
+    orderBy: {
+      createdAt: "desc",
+    },
+    take: 12,
+    select: {
+      id: true,
+      status: true,
+      progress: true,
+      attempts: true,
+      maxAttempts: true,
+      payloadJson: true,
+      errorJson: true,
+      updatedAt: true,
+    },
+  });
+
+  const latestByDomain: Partial<Record<(typeof TRACK_EDIT_DOMAINS)[number], TrackEditLatestJob>> = {};
+  for (const job of jobs) {
+    const payload = parseJobPayload(job.payloadJson);
+    const domain = payload?.domain;
+    if (!domain || latestByDomain[domain]) {
+      continue;
+    }
+
+    latestByDomain[domain] = {
+      jobId: job.id,
+      status: job.status,
+      progress: job.progress,
+      attempts: job.attempts,
+      maxAttempts: job.maxAttempts,
+      updatedAt: job.updatedAt,
+      errorSummary: getJobErrorSummary(job.errorJson),
+      errorJson: job.errorJson,
+    };
+  }
+
+  return latestByDomain;
+}
+
+function serializeTrackEditResponse(
+  track: Awaited<ReturnType<typeof getTrackOrThrow>>,
+  latestJobs: Partial<Record<(typeof TRACK_EDIT_DOMAINS)[number], TrackEditLatestJob>>,
+) {
   const effectiveMetadata = getEffectiveTrackMetadata({
     filename: track.filename,
     title: track.title,
@@ -217,6 +282,7 @@ function serializeTrackEditResponse(track: Awaited<ReturnType<typeof getTrackOrT
       syncFinishedAt: track.metadataEdit?.syncFinishedAt ?? null,
       updatedAt: track.metadataEdit?.updatedAt ?? null,
       hasEdit: track.metadataEdit != null,
+      latestJob: latestJobs.metadata ?? null,
     },
     lyrics: {
       text: track.lyricsEdit != null ? track.lyricsEdit.lyricsText : track.observedLyricsText,
@@ -229,6 +295,7 @@ function serializeTrackEditResponse(track: Awaited<ReturnType<typeof getTrackOrT
       updatedAt: track.lyricsEdit?.updatedAt ?? null,
       hasEdit: track.lyricsEdit != null,
       source: lyricsSource,
+      latestJob: latestJobs.lyrics ?? null,
     },
     cover: {
       hasCover:
@@ -250,6 +317,7 @@ function serializeTrackEditResponse(track: Awaited<ReturnType<typeof getTrackOrT
       updatedAt: track.coverEdit?.updatedAt ?? null,
       hasEdit: track.coverEdit != null,
       source: coverSource,
+      latestJob: latestJobs.cover ?? null,
     },
   };
 }
@@ -267,7 +335,8 @@ async function touchTrackEditJob(
 export const trackEditsRouter = router({
   get: adminProcedure.input(trackIdSchema).query(async ({ ctx, input }) => {
     const track = await getTrackOrThrow(ctx, input.trackId);
-    return serializeTrackEditResponse(track);
+    const latestJobs = await getLatestTrackEditJobs(ctx, input.trackId);
+    return serializeTrackEditResponse(track, latestJobs);
   }),
 
   saveMetadata: adminProcedure.input(saveMetadataInputSchema).mutation(async ({ ctx, input }) => {
@@ -313,9 +382,10 @@ export const trackEditsRouter = router({
       domain: "metadata",
     });
     const track = await getTrackOrThrow(ctx, input.trackId);
+    const latestJobs = await getLatestTrackEditJobs(ctx, input.trackId);
 
     return {
-      ...serializeTrackEditResponse(track),
+      ...serializeTrackEditResponse(track, latestJobs),
       job,
     };
   }),
@@ -330,9 +400,10 @@ export const trackEditsRouter = router({
       domain: "metadata",
     });
     const track = await getTrackOrThrow(ctx, input.trackId);
+    const latestJobs = await getLatestTrackEditJobs(ctx, input.trackId);
 
     return {
-      ...serializeTrackEditResponse(track),
+      ...serializeTrackEditResponse(track, latestJobs),
       job,
     };
   }),
@@ -368,9 +439,10 @@ export const trackEditsRouter = router({
       domain: "lyrics",
     });
     const track = await getTrackOrThrow(ctx, input.trackId);
+    const latestJobs = await getLatestTrackEditJobs(ctx, input.trackId);
 
     return {
-      ...serializeTrackEditResponse(track),
+      ...serializeTrackEditResponse(track, latestJobs),
       job,
     };
   }),
@@ -406,9 +478,10 @@ export const trackEditsRouter = router({
       domain: "lyrics",
     });
     const track = await getTrackOrThrow(ctx, input.trackId);
+    const latestJobs = await getLatestTrackEditJobs(ctx, input.trackId);
 
     return {
-      ...serializeTrackEditResponse(track),
+      ...serializeTrackEditResponse(track, latestJobs),
       job,
     };
   }),
@@ -451,9 +524,10 @@ export const trackEditsRouter = router({
       domain: "cover",
     });
     const nextTrack = await getTrackOrThrow(ctx, input.trackId);
+    const latestJobs = await getLatestTrackEditJobs(ctx, input.trackId);
 
     return {
-      ...serializeTrackEditResponse(nextTrack),
+      ...serializeTrackEditResponse(nextTrack, latestJobs),
       job,
     };
   }),
@@ -526,9 +600,10 @@ export const trackEditsRouter = router({
 
     const job = await touchTrackEditJob(ctx, input);
     const track = await getTrackOrThrow(ctx, input.trackId);
+    const latestJobs = await getLatestTrackEditJobs(ctx, input.trackId);
 
     return {
-      ...serializeTrackEditResponse(track),
+      ...serializeTrackEditResponse(track, latestJobs),
       job,
     };
   }),

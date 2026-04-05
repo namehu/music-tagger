@@ -6,7 +6,6 @@ import { toast } from "sonner";
 import { RefreshCwIcon } from "lucide-react";
 
 import { trpc } from "@/app/_trpc/provider";
-import { CurrentPlaybackSummary } from "@/components/playback/current-playback-summary";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -28,8 +27,10 @@ import {
   getJobDisplayName,
   getJobErrorSummary,
   getJobScopeText,
+  parseJobPayload,
   getTranscodeFailureMeta,
 } from "@/lib/jobs";
+import { getTrackEditDomainLabel, getTrackEditStatusCopy } from "@/lib/track-edit-failures";
 import { getTranscodeFailureCategoryLabel, TRANSCODE_FAILURE_CATEGORIES } from "@/lib/transcode-failure";
 import { cn } from "@/lib/utils";
 
@@ -52,6 +53,13 @@ function prettyErrorJson(raw: string) {
   } catch {
     return raw;
   }
+}
+
+function toTrackEditSyncStatus(status: string) {
+  if (status === "done") return "synced" as const;
+  if (status === "running") return "syncing" as const;
+  if (status === "pending") return "pending" as const;
+  return "failed" as const;
 }
 
 export default function AdminJobsPage() {
@@ -124,9 +132,12 @@ export default function AdminJobsPage() {
   };
 
   const jobs = jobsQuery.data ?? [];
+  const editSyncJobs = jobs.filter((job) => job.type === "track_edit_sync");
+  const nonEditJobs = jobs.filter((job) => job.type !== "track_edit_sync");
   const pendingJobs = jobs.filter((job) => job.status === "pending").length;
   const runningJobs = jobs.filter((job) => job.status === "running").length;
   const failedJobs = jobs.filter((job) => job.status === "failed").length;
+  const failedEditJobs = editSyncJobs.filter((job) => job.status === "failed" || job.status === "cancelled").length;
   const transcodeJobs = jobs.filter((job) => job.type === "transcode_prepare");
   const failedTranscodeJobs = transcodeJobs.filter((job) => job.status === "failed").length;
   const failedTranscodeByCategory = TRANSCODE_FAILURE_CATEGORIES.map((category) => {
@@ -207,28 +218,136 @@ export default function AdminJobsPage() {
         )
       ) : null}
 
-      <div className="grid gap-4 xl:grid-cols-[1fr_1fr]">
-        <CurrentPlaybackSummary compact />
-
-        <Card>
-          <CardHeader className="border-b">
-            <CardTitle>队列摘要</CardTitle>
-            <CardDescription>方便快速判断当前是扫描问题、转码问题，还是队列整体异常。</CardDescription>
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <Card size="sm">
+          <CardHeader>
+            <CardTitle>运行中</CardTitle>
+            <CardDescription>正在处理的后台任务</CardDescription>
           </CardHeader>
-          <CardContent className="grid gap-3 pt-4 md:grid-cols-2">
+          <CardContent className="pt-1 text-2xl font-semibold">{runningJobs}</CardContent>
+        </Card>
+        <Card size="sm">
+          <CardHeader>
+            <CardTitle>失败任务</CardTitle>
+            <CardDescription>当前需要人工排查</CardDescription>
+          </CardHeader>
+          <CardContent className="pt-1 text-2xl font-semibold">{failedJobs}</CardContent>
+        </Card>
+        <Card size="sm">
+          <CardHeader>
+            <CardTitle>编辑同步失败</CardTitle>
+            <CardDescription>优先影响单曲编辑落盘</CardDescription>
+          </CardHeader>
+          <CardContent className="pt-1 text-2xl font-semibold">{failedEditJobs}</CardContent>
+        </Card>
+        <Card size="sm">
+          <CardHeader>
+            <CardTitle>转码失败</CardTitle>
+            <CardDescription>影响缓存播放与准备任务</CardDescription>
+          </CardHeader>
+          <CardContent className="pt-1 text-2xl font-semibold">{failedTranscodeJobs}</CardContent>
+        </Card>
+      </div>
+
+      <Card>
+        <CardHeader className="border-b">
+          <CardTitle>编辑同步</CardTitle>
+          <CardDescription>
+            优先展示单曲编辑相关的同步结果，先给结论，再保留原始错误详情。
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="pt-4">
+          <div className="space-y-3">
+            {editSyncJobs.map((job) => {
+              const payload = parseJobPayload(job.payloadJson);
+              const domain = payload?.domain ?? "metadata";
+              const copy = getTrackEditStatusCopy({
+                domain,
+                status: toTrackEditSyncStatus(job.status),
+                latestJob: {
+                  jobId: job.id,
+                  status: job.status,
+                  progress: job.progress,
+                  attempts: job.attempts,
+                  maxAttempts: job.maxAttempts,
+                  updatedAt: job.updatedAt,
+                  errorSummary: getJobErrorSummary(job.errorJson),
+                  errorJson: job.errorJson,
+                },
+                errorJson: job.errorJson,
+              });
+              const badge = statusBadge(job.status);
+              const canRetry = (job.status === "failed" || job.status === "cancelled") && copy.canRetry;
+
+              return (
+                <div key={job.id} className="rounded-2xl border bg-muted/20 p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <Badge variant={badge.variant}>{badge.text}</Badge>
+                        <span className="font-medium">{copy.title}</span>
+                      </div>
+                      <div className="text-sm text-muted-foreground">
+                        {getTrackEditDomainLabel(domain)} · {payload?.trackId ?? "未知曲目"}
+                      </div>
+                    </div>
+                    {canRetry ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={retryJob.isPending}
+                        onClick={() => retryJob.mutate({ jobId: job.id })}
+                      >
+                        重试同步
+                      </Button>
+                    ) : null}
+                  </div>
+                  <div className="mt-3 text-sm">{copy.detail}</div>
+                  <div className="mt-2 text-sm text-muted-foreground">{copy.recommendation}</div>
+                  <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+                    <span>最近结果：{getJobErrorSummary(job.errorJson) ?? (job.status === "done" ? "同步成功" : formatProgress(job.progress))}</span>
+                    <span>更新时间：{formatDateTime(job.updatedAt)}</span>
+                    <span>尝试次数：{job.attempts}/{job.maxAttempts}</span>
+                  </div>
+                  {job.errorJson ? (
+                    <details className="mt-3">
+                      <summary className="cursor-pointer text-xs text-muted-foreground">查看原始错误详情</summary>
+                      <pre className="mt-2 max-h-72 overflow-auto rounded-lg border bg-background p-3 text-xs leading-relaxed whitespace-pre-wrap">
+                        {prettyErrorJson(job.errorJson)}
+                      </pre>
+                    </details>
+                  ) : null}
+                </div>
+              );
+            })}
+
+            {!jobsQuery.isLoading && editSyncJobs.length === 0 ? (
+              <div className="rounded-2xl border border-dashed px-4 py-8 text-center text-sm text-muted-foreground">
+                最近没有编辑同步任务
+              </div>
+            ) : null}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="border-b">
+          <CardTitle>扫描 / 转码 / 其他任务</CardTitle>
+          <CardDescription>
+            保留运维排障必要信息，避免和编辑同步混在同一张表里。
+          </CardDescription>
+        </CardHeader>
+
+        <CardContent className="space-y-4 pt-4">
+          <div className="grid gap-3 md:grid-cols-2">
             <div className="rounded-xl border bg-muted/20 p-4">
-              <div className="text-sm text-muted-foreground">队列状态</div>
+              <div className="text-sm text-muted-foreground">队列概览</div>
               <div className="mt-2 text-sm font-medium">
                 {pendingJobs} pending / {runningJobs} running / {failedJobs} failed
               </div>
             </div>
             <div className="rounded-xl border bg-muted/20 p-4">
-              <div className="text-sm text-muted-foreground">转码任务</div>
-              <div className="mt-2 text-sm font-medium">
-                最近 {transcodeJobs.length} 条中有 {failedTranscodeJobs} 条失败
-              </div>
-            </div>
-            <div className="rounded-xl border bg-muted/20 p-4 md:col-span-2">
               <div className="text-sm text-muted-foreground">排障提醒</div>
               <div className="mt-2 text-sm font-medium">
                 {longPendingJobs > 0
@@ -236,54 +355,44 @@ export default function AdminJobsPage() {
                   : "当前没有明显卡住的 pending 任务"}
               </div>
             </div>
-            {failedTranscodeByCategory.length > 0 ? (
-              <div className="rounded-xl border bg-muted/20 p-4 md:col-span-2">
-                <div className="text-sm text-muted-foreground">失败分类</div>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {failedTranscodeByCategory.map((item) => (
-                    <Badge key={item.category} variant="outline">
-                      {item.label} · {item.count}
-                    </Badge>
-                  ))}
-                </div>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {failedTranscodeByCategory.map((item) => (
-                    <Button
-                      key={`${item.category}-retry`}
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      disabled={retryFailedTranscodes.isPending}
-                      onClick={() =>
-                        retryFailedTranscodes.mutate({ categories: [item.category], limit: 100 })
-                      }
-                    >
-                      重试{item.label}
-                    </Button>
-                  ))}
+          </div>
+
+          {failedTranscodeByCategory.length > 0 ? (
+            <div className="rounded-xl border bg-muted/20 p-4">
+              <div className="text-sm text-muted-foreground">转码失败分类</div>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {failedTranscodeByCategory.map((item) => (
+                  <Badge key={item.category} variant="outline">
+                    {item.label} · {item.count}
+                  </Badge>
+                ))}
+              </div>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {failedTranscodeByCategory.map((item) => (
                   <Button
+                    key={`${item.category}-retry`}
                     type="button"
                     variant="outline"
                     size="sm"
                     disabled={retryFailedTranscodes.isPending}
-                    onClick={() => retryFailedTranscodes.mutate({ categories: [], limit: 100 })}
+                    onClick={() => retryFailedTranscodes.mutate({ categories: [item.category], limit: 100 })}
                   >
-                    批量重试全部失败转码
+                    重试{item.label}
                   </Button>
-                </div>
+                ))}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={retryFailedTranscodes.isPending}
+                  onClick={() => retryFailedTranscodes.mutate({ categories: [], limit: 100 })}
+                >
+                  批量重试全部失败转码
+                </Button>
               </div>
-            ) : null}
-          </CardContent>
-        </Card>
-      </div>
+            </div>
+          ) : null}
 
-      <Card>
-        <CardHeader className="border-b">
-          <CardTitle>任务列表</CardTitle>
-          <CardDescription>{jobsQuery.isLoading ? "加载中…" : `共 ${jobs.length} 条`}</CardDescription>
-        </CardHeader>
-
-        <CardContent className="pt-4">
           <Table>
             <TableHeader>
               <TableRow>
@@ -298,7 +407,7 @@ export default function AdminJobsPage() {
             </TableHeader>
 
             <TableBody>
-              {jobs.map((job) => {
+              {nonEditJobs.map((job) => {
                 const badge = statusBadge(job.status);
                 const canRetry = job.status === "failed" || job.status === "cancelled";
                 const failureMeta =
@@ -363,10 +472,10 @@ export default function AdminJobsPage() {
                 );
               })}
 
-              {!jobsQuery.isLoading && jobs.length === 0 ? (
+              {!jobsQuery.isLoading && nonEditJobs.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={7} className="py-8 text-center text-muted-foreground">
-                    暂无任务
+                    最近没有扫描、转码或其他运维任务
                   </TableCell>
                 </TableRow>
               ) : null}

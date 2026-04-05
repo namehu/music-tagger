@@ -2,6 +2,7 @@
 
 import React from "react";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 import { trpc } from "@/app/_trpc/provider";
@@ -17,6 +18,7 @@ import {
   type TrackEditDomain,
   type TrackEditSyncStatus,
 } from "@/lib/track-edits";
+import { getTrackEditStatusCopy, type TrackEditLatestJob } from "@/lib/track-edit-failures";
 
 function formatDateTime(value: string | Date | null | undefined) {
   if (!value) return "-";
@@ -35,11 +37,73 @@ function SyncBadge(props: { status: TrackEditSyncStatus }) {
   return <Badge variant={variant}>{getTrackEditSyncStatusLabel(props.status)}</Badge>;
 }
 
+function TrackEditStatusPanel(props: {
+  domain: TrackEditDomain;
+  status: TrackEditSyncStatus;
+  latestJob: TrackEditLatestJob;
+  syncError: string | null;
+  requestedAt?: string | Date | null;
+  finishedAt?: string | Date | null;
+  onRetry?: () => void;
+  onOpenJobs: () => void;
+}) {
+  const copy = getTrackEditStatusCopy({
+    domain: props.domain,
+    status: props.status,
+    latestJob: props.latestJob,
+    errorJson: props.syncError,
+  });
+  const latestAt = props.latestJob?.updatedAt ?? props.finishedAt ?? props.requestedAt ?? null;
+  const isFailed = props.status === "failed";
+  const primaryAction =
+    isFailed && copy.canRetry && props.onRetry
+      ? (
+        <Button type="button" variant="outline" size="sm" onClick={props.onRetry}>
+          重试同步
+        </Button>
+      )
+      : isFailed
+        ? (
+          <Button type="button" variant="outline" size="sm" onClick={props.onOpenJobs}>
+            去 Jobs 查看详情
+          </Button>
+        )
+        : null;
+
+  return (
+    <div className="rounded-2xl border bg-muted/20 p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <SyncBadge status={props.status} />
+            <span className="text-sm font-medium">{copy.title}</span>
+          </div>
+          <div className="text-sm text-muted-foreground">{copy.detail}</div>
+        </div>
+        {primaryAction}
+      </div>
+      <div className="mt-3 grid gap-2 text-xs text-muted-foreground sm:grid-cols-[1fr_auto] sm:items-end">
+        <div>
+          最近结果：{props.latestJob?.errorSummary ?? (props.status === "synced" ? "同步成功" : props.status === "syncing" ? "正在处理" : "已提交")}
+        </div>
+        <div>{latestAt ? `最近更新时间：${formatDateTime(latestAt)}` : "最近更新时间：-"}</div>
+      </div>
+      <div className="mt-2 text-sm">{copy.recommendation}</div>
+      {isFailed ? (
+        <button type="button" className="mt-2 text-xs text-muted-foreground underline-offset-4 hover:underline" onClick={props.onOpenJobs}>
+          查看 Jobs 中的原始错误详情
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
 export function TrackEditSheet(props: {
   trackId: string | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
+  const router = useRouter();
   const utils = trpc.useUtils();
   const [metadataForm, setMetadataForm] = React.useState({
     title: "",
@@ -188,6 +252,10 @@ export function TrackEditSheet(props: {
     });
   }
 
+  function openJobs() {
+    router.push("/admin/jobs");
+  }
+
   const track = trackQuery.data?.track;
   const metadata = trackQuery.data?.metadata;
   const lyrics = trackQuery.data?.lyrics;
@@ -228,10 +296,17 @@ export function TrackEditSheet(props: {
                     <Badge variant="outline">当前使用扫描值</Badge>
                   )}
                 </div>
-                {metadata?.syncError ? (
-                  <div className="rounded-xl border border-destructive/20 bg-destructive/5 px-3 py-2 text-sm text-destructive">
-                    {metadata.syncError}
-                  </div>
+                {metadata ? (
+                  <TrackEditStatusPanel
+                    domain="metadata"
+                    status={metadata.syncStatus as TrackEditSyncStatus}
+                    latestJob={metadata.latestJob}
+                    syncError={metadata.syncError}
+                    requestedAt={metadata.syncRequestedAt}
+                    finishedAt={metadata.syncFinishedAt}
+                    onRetry={metadata.syncStatus === "failed" ? () => triggerRetry("metadata") : undefined}
+                    onOpenJobs={openJobs}
+                  />
                 ) : null}
                 <div className="grid gap-4">
                   <div className="space-y-2">
@@ -308,14 +383,9 @@ export function TrackEditSheet(props: {
                 </div>
                 <SheetFooter className="gap-2 sm:justify-between">
                   <div className="text-xs text-muted-foreground">
-                    最近同步请求：{formatDateTime(metadata?.syncRequestedAt)}
+                    当前展示来源：{metadata?.hasEdit ? "编辑值" : "扫描值"}
                   </div>
                   <div className="flex gap-2">
-                    {metadata?.syncStatus === "failed" ? (
-                      <Button type="button" variant="outline" onClick={() => triggerRetry("metadata")}>
-                        重试同步
-                      </Button>
-                    ) : null}
                     <Button
                       type="button"
                       variant="outline"
@@ -362,10 +432,17 @@ export function TrackEditSheet(props: {
                     <Badge variant="outline">未设置</Badge>
                   )}
                 </div>
-                {lyrics?.syncError ? (
-                  <div className="rounded-xl border border-destructive/20 bg-destructive/5 px-3 py-2 text-sm text-destructive">
-                    {lyrics.syncError}
-                  </div>
+                {lyrics ? (
+                  <TrackEditStatusPanel
+                    domain="lyrics"
+                    status={lyrics.syncStatus as TrackEditSyncStatus}
+                    latestJob={lyrics.latestJob}
+                    syncError={lyrics.syncError}
+                    requestedAt={lyrics.syncRequestedAt}
+                    finishedAt={lyrics.syncFinishedAt}
+                    onRetry={lyrics.syncStatus === "failed" ? () => triggerRetry("lyrics") : undefined}
+                    onOpenJobs={openJobs}
+                  />
                 ) : null}
                 <div className="space-y-2">
                   <Label htmlFor="track-lyrics">歌词正文</Label>
@@ -379,14 +456,9 @@ export function TrackEditSheet(props: {
                 </div>
                 <SheetFooter className="gap-2 sm:justify-between">
                   <div className="text-xs text-muted-foreground">
-                    最近同步完成：{formatDateTime(lyrics?.syncFinishedAt)}
+                    当前展示来源：{lyrics?.hasEdit ? "编辑值" : lyrics?.source === "scan" ? "扫描值" : "未设置"}
                   </div>
                   <div className="flex gap-2">
-                    {lyrics?.syncStatus === "failed" ? (
-                      <Button type="button" variant="outline" onClick={() => triggerRetry("lyrics")}>
-                        重试同步
-                      </Button>
-                    ) : null}
                     <Button
                       type="button"
                       variant="outline"
@@ -427,10 +499,17 @@ export function TrackEditSheet(props: {
                     <Badge variant="outline">未设置</Badge>
                   )}
                 </div>
-                {cover?.syncError ? (
-                  <div className="rounded-xl border border-destructive/20 bg-destructive/5 px-3 py-2 text-sm text-destructive">
-                    {cover.syncError}
-                  </div>
+                {cover ? (
+                  <TrackEditStatusPanel
+                    domain="cover"
+                    status={cover.syncStatus as TrackEditSyncStatus}
+                    latestJob={cover.latestJob}
+                    syncError={cover.syncError}
+                    requestedAt={cover.syncRequestedAt}
+                    finishedAt={cover.syncFinishedAt}
+                    onRetry={cover.syncStatus === "failed" ? () => triggerRetry("cover") : undefined}
+                    onOpenJobs={openJobs}
+                  />
                 ) : null}
                 {cover?.assetUrl ? (
                   <div className="overflow-hidden rounded-2xl border">
@@ -459,13 +538,9 @@ export function TrackEditSheet(props: {
                       onChange={handleCoverUpload}
                     />
                   </div>
-                  {cover?.syncStatus === "failed" ? (
-                    <Button type="button" variant="outline" onClick={() => triggerRetry("cover")}>
-                      重试同步
-                    </Button>
-                  ) : (
-                    <div />
-                  )}
+                  <div className="text-xs text-muted-foreground">
+                    当前展示来源：{cover?.hasEdit ? "编辑值" : cover?.source === "scan" ? "扫描值" : "未设置"}
+                  </div>
                   <Button
                     type="button"
                     variant="outline"
@@ -479,11 +554,14 @@ export function TrackEditSheet(props: {
 
               <Separator />
 
-              <div className="grid gap-3 text-xs text-muted-foreground sm:grid-cols-2">
-                <div>扫描到的歌词状态：{track.lyricsObservation.kind ?? "无"}</div>
-                <div>扫描到的封面状态：{track.artworkObservation.kind ?? "无"}</div>
-                <div>上次元数据同步完成：{formatDateTime(metadata?.syncFinishedAt)}</div>
-                <div>上次封面同步完成：{formatDateTime(cover?.syncFinishedAt)}</div>
+              <div className="rounded-2xl border bg-muted/20 p-4">
+                <div className="text-sm font-medium">扫描观察</div>
+                <div className="mt-2 grid gap-2 text-xs text-muted-foreground sm:grid-cols-2">
+                  <div>歌词：{track.lyricsObservation.kind ? "已扫描到" : "未扫描到"}</div>
+                  <div>封面：{track.artworkObservation.kind ? "已扫描到" : "未扫描到"}</div>
+                  <div>当前歌词来源：{lyrics?.hasEdit ? "编辑值" : lyrics?.source === "scan" ? "扫描值" : "未设置"}</div>
+                  <div>当前封面来源：{cover?.hasEdit ? "编辑值" : cover?.source === "scan" ? "扫描值" : "未设置"}</div>
+                </div>
               </div>
             </>
           ) : null}

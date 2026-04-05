@@ -78,6 +78,7 @@ source_refs:
 - 已支持 `track_edit_sync` job 与 worker 执行器
 - 已支持编辑域级同步状态：`pending / syncing / synced / failed`
 - 已支持封面资产通过 `/api/admin/tracks/[trackId]/cover` 落到应用资产目录
+- `trackEdits.get` 当前会返回每个编辑域最近一次同步任务摘要，供编辑面板直接展示最近结果与排障建议
 - 已支持在没有 edit 真值时，从扫描观察值回显已有歌词和封面
 
 当前限制：
@@ -134,6 +135,7 @@ source_refs:
 - 已有 `/admin/plans`、`/admin/plans/[planId]`
 - 已有全局播放器与当前播放摘要
 - 已有用户区 shell：`/dashboard`、`/library`、`/playlists`、`/ignored-tracks`
+- `/admin/jobs` 当前已按“编辑同步”与“扫描/转码/其他任务”分区，编辑同步失败会优先显示结构化结论与建议动作
 
 ## 4. 部分实现能力
 
