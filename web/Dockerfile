@@ -4,7 +4,7 @@ ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
 ENV NEXT_TELEMETRY_DISABLED=1
 
-RUN corepack enable
+RUN npm install -g pnpm@8.15.9
 
 WORKDIR /app
 
@@ -35,6 +35,8 @@ RUN --mount=type=cache,target=/app/web/.next/cache \
   DATABASE_URL="file:/tmp/music-tagger-build.db" \
   pnpm -C web build
 
+RUN pnpm deploy --filter web --prod /app/prod-web
+
 FROM node:20-bookworm-slim AS runner
 
 ENV NODE_ENV=production
@@ -46,7 +48,6 @@ WORKDIR /app
 
 RUN apt-get update \
   && apt-get install -y --no-install-recommends ca-certificates openssl \
-  && npm install -g prisma@7.6.0 \
   && rm -rf /var/lib/apt/lists/* \
   && groupadd --system --gid 1001 nodejs \
   && useradd --system --uid 1001 --gid 1001 nextjs
@@ -54,6 +55,7 @@ RUN apt-get update \
 COPY --from=builder --chown=nextjs:nodejs /app/web/public ./web/public
 COPY --from=builder --chown=nextjs:nodejs /app/web/prisma ./web/prisma
 COPY --from=builder --chown=nextjs:nodejs /app/web/prisma.config.ts ./web/prisma.config.ts
+COPY --from=builder --chown=nextjs:nodejs /app/prod-web/node_modules ./web/node_modules
 COPY --from=builder --chown=nextjs:nodejs /app/web/.next/static ./web/.next/static
 COPY --from=builder --chown=nextjs:nodejs /app/web/.next/standalone ./
 
@@ -61,4 +63,4 @@ USER nextjs
 
 EXPOSE 3000
 
-CMD ["sh", "-c", "cd /app/web && prisma migrate deploy --schema=prisma/schema.prisma && node /app/web/server.js"]
+CMD ["sh", "-c", "cd /app/web && npx prisma migrate deploy --schema=prisma/schema.prisma && node /app/web/server.js"]
