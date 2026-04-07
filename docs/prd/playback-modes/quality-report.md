@@ -19,7 +19,7 @@ source_refs:
 - completeness：已覆盖 store、runtime、底部播放器、用户曲库、歌单详情与刷新恢复
 - consistency：页面行为、架构文档和测试基线保持一致
 - blocker 数量：0
-- 未决项数量：1
+- 未决项数量：0
 
 ## Blocker
 
@@ -31,7 +31,7 @@ source_refs:
 
 | 编号 | 问题 | 影响文件 | 建议 |
 | --- | --- | --- | --- |
-| N-001 | 当前恢复只覆盖单浏览器 localStorage，不支持多设备同步 | `web/store/playback-store.ts` | 如后续要做账号级恢复，再单独设计数据库模型 |
+| N-001 | 无 | 无 | 无 |
 
 ## 自动修复记录
 
