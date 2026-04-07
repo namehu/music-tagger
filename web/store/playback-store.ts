@@ -80,6 +80,9 @@ type PlaybackSessionComputed = {
   currentTrack: PlaybackQueueTrack | null;
   activeTrackId: string | null;
   activeTrackIndex: number;
+  queueSize: number;
+  queueItems: PlaybackQueueTrack[];
+  upNextItems: PlaybackQueueTrack[];
   previousTrack: PlaybackQueueTrack | null;
   nextTrack: PlaybackQueueTrack | null;
   canPlayPrevious: boolean;
@@ -102,6 +105,8 @@ type PlaybackStoreState = {
     sessionKind: PlaybackSessionKind,
     input: { tracks: PlaybackQueueTrack[]; sourceKey: string },
   ) => void;
+  removeQueueTrack: (sessionKind: PlaybackSessionKind, trackId: string) => void;
+  clearQueue: (sessionKind: PlaybackSessionKind) => void;
   setPlaybackMode: (sessionKind: PlaybackSessionKind, mode: PlaybackMode) => void;
   requestPlayTrack: (
     sessionKind: PlaybackSessionKind,
@@ -274,11 +279,16 @@ function computeSessionState(
   const orderedNextTrack = getOrderedNextTrack(session.queue, activeTrackId);
   const isCurrentTrackInQueue = activeTrackIndex >= 0;
   const usesShuffle = sessionKind === "user" && session.playbackMode === "shuffle";
+  const upNextItems =
+    activeTrackIndex >= 0 ? session.queue.slice(activeTrackIndex + 1) : session.queue.slice();
 
   return {
     currentTrack,
     activeTrackId,
     activeTrackIndex,
+    queueSize: session.queue.length,
+    queueItems: session.queue,
+    upNextItems,
     previousTrack: usesShuffle ? getShufflePreviousTrack(session.shuffleHistory) : orderedPreviousTrack,
     nextTrack: usesShuffle ? null : orderedNextTrack,
     canPlayPrevious: usesShuffle ? session.shuffleHistory.length > 0 : Boolean(orderedPreviousTrack),
@@ -337,6 +347,34 @@ function buildSessionUpdate(
         ...partial,
       },
     },
+  };
+}
+
+function buildClearedQueueSessionState(session: PlaybackSessionState): Partial<PlaybackSessionState> {
+  return {
+    queue: [],
+    queueSourceKey: null,
+    displayTrack: null,
+    activePlayback: null,
+    pendingTrackId: null,
+    preparingJobId: null,
+    preparingRequest: null,
+    currentProfile: null,
+    currentSourceKind: null,
+    shuffleHistory: [],
+    resolveRequest: null,
+    pendingResumeTimeSec: null,
+    autoPlayOnReady: false,
+    currentTimeSec: 0,
+    resumeTimeSec: 0,
+    playbackError: null,
+    hydrationStatus: "ready",
+    resumeLock: false,
+    isAudioPlaying: false,
+    durationSec: session.audioElement ? normalizeDuration(session.audioElement.duration) : 0,
+    bufferedUntilSec: 0,
+    isSeeking: false,
+    seekingPreviewTimeSec: null,
   };
 }
 
@@ -485,6 +523,75 @@ export function createPlaybackStoreApi(storage?: StateStorage, random = Math.ran
           resumeLock: false,
           hydrationStatus: "ready",
         }),
+      );
+    },
+    removeQueueTrack: (sessionKind, trackId) => {
+      const state = get();
+      const session = state.sessions[sessionKind];
+      const removedIndex = getQueueTrackIndex(session.queue, trackId);
+      if (removedIndex < 0) {
+        return;
+      }
+
+      const currentTrack = getCurrentTrackFromSession(session);
+      const isRemovingCurrent = currentTrack?.id === trackId;
+      const nextQueue = session.queue.filter((track) => track.id !== trackId);
+      const nextShuffleHistory = session.shuffleHistory.filter((track) => track.id !== trackId);
+
+      if (!isRemovingCurrent) {
+        set((current) =>
+          buildSessionUpdate(current, sessionKind, {
+            queue: nextQueue,
+            queueSourceKey: nextQueue.length > 0 ? session.queueSourceKey : null,
+            shuffleHistory: nextShuffleHistory,
+          }),
+        );
+        return;
+      }
+
+      const nextTrack =
+        sessionKind === "user" && session.playbackMode === "shuffle"
+          ? pickShuffleNextTrack({
+              queue: nextQueue,
+              trackId: null,
+              random,
+            })
+          : nextQueue[removedIndex] ?? null;
+
+      if (!nextTrack) {
+        if (session.audioElement) {
+          session.audioElement.pause();
+          session.audioElement.currentTime = 0;
+        }
+
+        set((current) =>
+          buildSessionUpdate(current, sessionKind, buildClearedQueueSessionState(current.sessions[sessionKind])),
+        );
+        return;
+      }
+
+      set((current) =>
+        buildSessionUpdate(current, sessionKind, {
+          queue: nextQueue,
+          queueSourceKey: session.queueSourceKey,
+          shuffleHistory: nextShuffleHistory,
+        }),
+      );
+      get().requestPlayTrack(sessionKind, nextTrack, {
+        profile: session.currentProfile ?? "mp3_192",
+        autoPlay: session.isAudioPlaying || session.autoPlayOnReady,
+        pushShuffleHistory: false,
+      });
+    },
+    clearQueue: (sessionKind) => {
+      const session = get().sessions[sessionKind];
+      if (session.audioElement) {
+        session.audioElement.pause();
+        session.audioElement.currentTime = 0;
+      }
+
+      set((current) =>
+        buildSessionUpdate(current, sessionKind, buildClearedQueueSessionState(current.sessions[sessionKind])),
       );
     },
     setPlaybackMode: (sessionKind, mode) => {

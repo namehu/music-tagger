@@ -2,7 +2,7 @@
 doc_type: baseline
 product: music-tagger
 module: current-capability-matrix
-version: 2026-04-05
+version: 2026-04-07
 source_refs:
   - web/app/(app)/admin/page.tsx
   - web/app/(app)/admin/jobs/page.tsx
@@ -36,6 +36,7 @@ source_refs:
 | Transcode Cache Ops | implemented | `/admin/cache` `/admin/settings` | `TranscodeCache`, `library.cacheOverview`, settings router | 已支持容量治理与失败分类 |
 | Dashboard Overview | partial | `/admin` | `library`, `jobs`, `tracks` 聚合查询 | 还不是独立定义的首页模块 |
 | Playback Modes | implemented | 用户播放器 | `playback-store`, `PlaybackRuntime`, `playback.resolve` | 用户会话已支持顺序、随机、单曲循环、实时进度 / 缓冲 / seek 与 localStorage 恢复；admin 试听保持线性 |
+| Playback Queue | implemented | 用户播放器详情抽屉 | `playback-store`, `global-player`, `playback.resolve` | 已支持当前队列、Up Next、队列内跳播、移除单首、清空队列与刷新后恢复 |
 | Plan Workflow | partial | `/admin/plans` `/admin/plans/[planId]` | `Plan` / `PlanItem`, `plans` router, `plan_execute` job | 当前保留历史记录读取与兼容执行器；不再承担日常元数据编辑主线 |
 | Playlist | implemented | `/playlists` `/playlists/[playlistId]` | `Playlist` / `PlaylistItem`, `playlists` router | 已支持个人歌单 CRUD、加歌、移歌与顺序点播 |
 | Ignored Tracks | implemented | `/ignored-tracks` `/admin/ignored-tracks` | `UserIgnoredTrack` / `GlobalIgnoredTrack`, `ignoredTracks` router | 已支持双层忽略、默认过滤与歌单忽略标记 |
@@ -52,6 +53,7 @@ source_refs:
 - 歌单已拥有独立数据模型与页面入口
 - 忽略曲目已拥有独立数据模型、用户页、管理页与过滤规则
 - 播放模式已拥有独立 store、runtime、底部控制入口与浏览器内恢复能力
+- 播放队列已拥有独立 store 动作、底部抽屉入口与用户侧队列编辑能力
 - 播放已拆成 `user` 持续播放会话与 `admin` 临时试听会话
 - `/admin/plans` 当前主要承担历史记录页角色
 

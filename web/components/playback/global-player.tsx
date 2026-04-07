@@ -12,10 +12,13 @@ import {
   Repeat1Icon,
   ShuffleIcon,
   SquareIcon,
+  Trash2Icon,
+  XIcon,
 } from "lucide-react";
 
 import { trpc } from "@/app/_trpc/provider";
 import { LyricsPanel } from "@/components/playback/lyrics-panel";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -147,6 +150,48 @@ function PlaybackProgress(props: {
   );
 }
 
+function QueueListItem(props: {
+  index: number;
+  title: string;
+  artist: string;
+  isActive: boolean;
+  isNext: boolean;
+  onPlay: () => void;
+  onRemove: () => void;
+}) {
+  return (
+    <div
+      className={cn(
+        "flex items-center gap-3 rounded-2xl border px-3 py-2",
+        props.isActive ? "border-foreground/20 bg-foreground/5" : "bg-background/70",
+      )}
+    >
+      <button
+        type="button"
+        onClick={props.onPlay}
+        className="flex min-w-0 flex-1 items-center gap-3 text-left"
+        aria-current={props.isActive ? "true" : undefined}
+      >
+        <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-muted text-xs text-muted-foreground">
+          {props.index + 1}
+        </div>
+        <div className="min-w-0 space-y-1">
+          <div className="truncate text-sm font-medium">{props.title}</div>
+          <div className="truncate text-xs text-muted-foreground">{props.artist}</div>
+        </div>
+      </button>
+
+      <div className="flex shrink-0 items-center gap-2">
+        {props.isActive ? <Badge variant="secondary">当前</Badge> : null}
+        {props.isNext ? <Badge variant="outline">下一首</Badge> : null}
+        <Button type="button" variant="ghost" size="icon-sm" onClick={props.onRemove} aria-label={`移除 ${props.title}`}>
+          <XIcon />
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 export function GlobalPlayer({
   sessionKind,
 }: {
@@ -158,6 +203,11 @@ export function GlobalPlayer({
   const currentSourceKind = usePlaybackSession(sessionKind, (state) => state.currentSourceKind);
   const playbackMode = usePlaybackSession(sessionKind, (state) => state.playbackMode);
   const queueSourceKey = usePlaybackSession(sessionKind, (state) => state.queueSourceKey);
+  const activeTrackId = usePlaybackSession(sessionKind, (state) => state.activeTrackId);
+  const nextTrack = usePlaybackSession(sessionKind, (state) => state.nextTrack);
+  const queueItems = usePlaybackSession(sessionKind, (state) => state.queueItems);
+  const queueSize = usePlaybackSession(sessionKind, (state) => state.queueSize);
+  const upNextItems = usePlaybackSession(sessionKind, (state) => state.upNextItems);
   const hydrationStatus = usePlaybackSession(sessionKind, (state) => state.hydrationStatus);
   const isPreparing = usePlaybackSession(sessionKind, (state) => state.isPreparing);
   const isAudioPlaying = usePlaybackSession(sessionKind, (state) => state.isAudioPlaying);
@@ -194,6 +244,8 @@ export function GlobalPlayer({
   const setMuted = usePlaybackStore((state) => state.setMuted);
   const clearPendingResumeTime = usePlaybackStore((state) => state.clearPendingResumeTime);
   const setPlaybackMode = usePlaybackStore((state) => state.setPlaybackMode);
+  const removeQueueTrack = usePlaybackStore((state) => state.removeQueueTrack);
+  const clearQueue = usePlaybackStore((state) => state.clearQueue);
   const [showDetails, setShowDetails] = React.useState(false);
 
   const mediaQuery = trpc.playback.getTrackMedia.useQuery(
@@ -230,11 +282,12 @@ export function GlobalPlayer({
         : isAudioPlaying
           ? "当前正在管理台试听，这不会改写用户侧歌单与进度。"
           : "试听已暂停；回到用户区后仍可手动继续原来的用户播放会话。"
-    : playbackError
-      ? playbackError
-      : isPreparing
-        ? "正在准备播放资源，完成后会按当前操作进入可播放状态。"
-        : restoreMessage;
+      : playbackError
+        ? playbackError
+        : isPreparing
+          ? "正在准备播放资源，完成后会按当前操作进入可播放状态。"
+          : restoreMessage;
+  const queueLabel = getPlaybackQueueLabel(queueSourceKey);
 
   React.useEffect(() => {
     if (!currentTrack) {
@@ -327,10 +380,10 @@ export function GlobalPlayer({
                 variant="outline"
                 size="sm"
                 onClick={() => setShowDetails(true)}
-                aria-label="打开播放详情"
+                aria-label={isAdminSession ? "打开播放详情" : "打开播放详情与队列"}
               >
                 <InfoIcon />
-                {showCompactButtons ? null : "详情"}
+                {showCompactButtons ? null : isAdminSession ? "详情" : "详情 / 队列"}
               </Button>
             </div>
           </div>
@@ -386,7 +439,7 @@ export function GlobalPlayer({
         <Sheet open={showDetails} onOpenChange={setShowDetails}>
           <SheetContent side="bottom" className="max-h-[88vh] overflow-y-auto rounded-t-3xl px-0">
             <SheetHeader className="px-6">
-              <SheetTitle>{isAdminSession ? "试听详情" : "播放详情"}</SheetTitle>
+              <SheetTitle>{isAdminSession ? "试听详情" : "播放详情与队列"}</SheetTitle>
               <SheetDescription>{detailStatusText}</SheetDescription>
             </SheetHeader>
 
@@ -412,6 +465,88 @@ export function GlobalPlayer({
                   ) : null}
                 </div>
               </div>
+
+              {!isAdminSession ? (
+                <div className="rounded-2xl border bg-muted/15 p-4">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="space-y-1">
+                      <div className="text-sm font-medium">当前队列</div>
+                      <div className="text-sm text-muted-foreground">
+                        {queueLabel}，共 {queueSize} 首
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge variant="outline">{getPlaybackModeLabel(playbackMode)}</Badge>
+                      <Badge variant="outline">Up Next {upNextItems.length}</Badge>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={queueSize === 0}
+                        onClick={() => clearQueue(sessionKind)}
+                      >
+                        <Trash2Icon data-icon="inline-start" />
+                        清空队列
+                      </Button>
+                    </div>
+                  </div>
+
+                  {queueSize === 0 ? (
+                    <div className="mt-4 rounded-2xl border border-dashed bg-background/70 px-4 py-6 text-sm text-muted-foreground">
+                      当前还没有可展示的播放队列。
+                    </div>
+                  ) : (
+                    <div className="mt-4 space-y-4">
+                      <div className="grid gap-3 md:grid-cols-2">
+                        <div className="rounded-2xl border bg-background/70 p-4">
+                          <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                            当前曲目
+                          </div>
+                          <div className="mt-2 text-sm font-medium">{detailTrack.title}</div>
+                          <div className="text-sm text-muted-foreground">{detailTrack.artist}</div>
+                        </div>
+                        <div className="rounded-2xl border bg-background/70 p-4">
+                          <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                            Up Next
+                          </div>
+                          {nextTrack ? (
+                            <div className="mt-2 space-y-1">
+                              <div className="text-sm font-medium">{nextTrack.title}</div>
+                              <div className="text-sm text-muted-foreground">{nextTrack.artist}</div>
+                            </div>
+                          ) : playbackMode === "shuffle" && queueSize > 1 ? (
+                            <div className="mt-2 text-sm text-muted-foreground">
+                              随机模式下将从剩余队列里随机挑选下一首。
+                            </div>
+                          ) : (
+                            <div className="mt-2 text-sm text-muted-foreground">当前已经是队列末尾。</div>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        {queueItems.map((track, index) => (
+                          <QueueListItem
+                            key={`${track.id}:${index}`}
+                            index={index}
+                            title={track.title}
+                            artist={track.artist}
+                            isActive={track.id === activeTrackId}
+                            isNext={track.id === nextTrack?.id && track.id !== activeTrackId}
+                            onPlay={() =>
+                              requestPlayTrack(sessionKind, track, {
+                                profile: currentProfile ?? "mp3_192",
+                                autoPlay: true,
+                              })
+                            }
+                            onRemove={() => removeQueueTrack(sessionKind, track.id)}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : null}
 
               {isAdminSession ? (
                 <div className="space-y-3">

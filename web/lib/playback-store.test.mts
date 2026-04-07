@@ -213,6 +213,56 @@ test("replacing queue from user intent clears shuffle history", () => {
   assert.equal(store.getState().sessions.user.queueSourceKey, "playlist:next");
 });
 
+test("removing a non-current queue item keeps the current track playing", () => {
+  const { store, first, second, third } = createStoreWithTracks();
+
+  store.getState().requestPlayTrack("user", second, { autoPlay: false });
+  store.getState().writeResolvedPlayback("user", {
+    seq: store.getState().sessions.user.resolveRequest!.seq,
+    url: "/stream/2",
+  });
+
+  store.getState().removeQueueTrack("user", first.id);
+
+  assert.deepEqual(store.getState().sessions.user.queue.map((track) => track.id), [second.id, third.id]);
+  assert.equal(store.getState().sessions.user.displayTrack?.id, second.id);
+  assert.equal(store.getState().sessionComputed.user.currentTrack?.id, second.id);
+});
+
+test("removing the current track advances to the next ordered track", () => {
+  const { store, first, second, third } = createStoreWithTracks();
+
+  store.getState().requestPlayTrack("user", second, { autoPlay: false });
+  store.getState().writeResolvedPlayback("user", {
+    seq: store.getState().sessions.user.resolveRequest!.seq,
+    url: "/stream/2",
+  });
+
+  store.getState().removeQueueTrack("user", second.id);
+
+  assert.deepEqual(store.getState().sessions.user.queue.map((track) => track.id), [first.id, third.id]);
+  assert.equal(store.getState().sessions.user.resolveRequest?.track.id, third.id);
+  assert.equal(store.getState().sessions.user.resolveRequest?.autoPlay, false);
+});
+
+test("clearing the queue resets the user session to an empty state", () => {
+  const { store, first } = createStoreWithTracks();
+
+  store.getState().requestPlayTrack("user", first, { autoPlay: false });
+  store.getState().writeResolvedPlayback("user", {
+    seq: store.getState().sessions.user.resolveRequest!.seq,
+    url: "/stream/1",
+  });
+
+  store.getState().clearQueue("user");
+
+  assert.equal(store.getState().sessions.user.queue.length, 0);
+  assert.equal(store.getState().sessions.user.queueSourceKey, null);
+  assert.equal(store.getState().sessions.user.displayTrack, null);
+  assert.equal(store.getState().sessions.user.activePlayback, null);
+  assert.equal(store.getState().sessionComputed.user.currentTrack, null);
+});
+
 test("admin playback pauses user audio but preserves user queue and progress", () => {
   const { store, first, second } = createStoreWithTracks();
   let pauseCount = 0;

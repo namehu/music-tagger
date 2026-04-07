@@ -2,7 +2,7 @@
 doc_type: baseline
 product: music-tagger
 module: current-system
-version: 2026-04-05
+version: 2026-04-07
 source_refs:
   - README.md
   - docs/architecture.md
@@ -63,6 +63,8 @@ source_refs:
 - 已有播放解析事件和缓存命中/未命中记录
 - 前端播放状态已迁到 `zustand` 全局 store
 - 已拆成 `user` 持续播放会话与 `admin` 临时试听会话
+- 已支持用户侧底部播放器打开当前队列抽屉，展示当前曲目、Up Next 与完整队列
+- 已支持用户侧在当前队列中点击任意项立即播放、移除单首与清空整个队列
 - 已支持把当前浏览器内的队列、曲目、模式、进度、音量持久化到 `localStorage`
 - 已支持刷新后重新动态签发播放 URL，并恢复到暂停状态
 - 已支持播放详情读取接口与普通登录用户可访问的封面读取接口，播放器详情层可显示封面与歌词
@@ -75,6 +77,7 @@ source_refs:
 - 当前恢复只覆盖单浏览器的用户侧会话，不做数据库持久化或多设备同步
 - 刷新恢复后默认暂停，不自动续播
 - admin 试听不做持久化恢复，只用于当前管理会话
+- 当前队列 v1 不支持拖拽排序、下一首播放或加入队列尾部
 
 ### 3.5 Track Editing Sync
 
