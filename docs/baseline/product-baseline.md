@@ -2,14 +2,18 @@
 doc_type: baseline
 product: music-tagger
 module: current-system
-version: 2026-04-07
+version: 2026-04-08
 source_refs:
   - README.md
   - docs/architecture.md
   - web/prisma/schema.prisma
   - web/server/trpc/root.ts
+  - web/server/trpc/routers/trackEdits.ts
+  - web/app/api/admin/tracks/[trackId]/cover/route.ts
   - web/app/api/stream/[trackId]/route.ts
   - worker/worker.py
+  - worker/scanner.py
+  - worker/track_edit_sync.py
 ---
 
 # 当前系统基线
@@ -48,7 +52,7 @@ source_refs:
 ### 3.3 曲库与搜索
 
 - `tracks` 表已保存曲目基础技术信息和扫描观察值
-- `scan_full` 当前也会提取已有嵌入歌词正文与封面观察资产
+- `scan_full` 当前也会提取已有嵌入歌词正文，并优先读取音频同目录 sidecar；没有 sidecar 时再从嵌入封面提取并落地 sidecar
 - 已新增 `TrackMetadataEdit`、`TrackLyricsEdit`、`TrackCoverEdit` 作为编辑真值层
 - 用户区 `/library` 已支持全文搜索、排序与播放
 - 管理区 `/admin/library` 已支持全文搜索、排序与单曲编辑
@@ -85,7 +89,7 @@ source_refs:
 - 已支持元数据、歌词、封面先写数据库，再异步写回音频文件
 - 已支持 `track_edit_sync` job 与 worker 执行器
 - 已支持编辑域级同步状态：`pending / syncing / synced / failed`
-- 已支持封面资产通过 `/api/admin/tracks/[trackId]/cover` 落到应用资产目录
+- 已支持封面通过 `/api/admin/tracks/[trackId]/cover` 落到音频同目录、同 basename 的 `.jpg/.png` sidecar，再由 worker 异步嵌回音频
 - `trackEdits.get` 当前会返回每个编辑域最近一次同步任务摘要，供编辑面板直接展示最近结果与排障建议
 - 已支持在没有 edit 真值时，从扫描观察值回显已有歌词和封面
 - 管理台歌词编辑已支持 `plain / lrc / elrc` 三种格式，并在保存时做基础格式校验
@@ -96,6 +100,7 @@ source_refs:
 - 歌词与封面写回当前优先支持常见嵌入格式，仍依赖 worker 环境安装 `mutagen`
 - 编辑真值与扫描观察值已解耦，`scan_full` 不再覆盖 edit 真值；没有 edit 真值时，编辑面板会回退显示扫描到的歌词与封面
 - 当前仍不提供可视化歌词打点编辑器；增强 LRC 需要直接编辑原文
+- 封面编辑和扫描观察当前都依赖音乐目录可写，以便写入同目录 sidecar
 
 ### 3.6 Plan Workflow
 
@@ -234,7 +239,7 @@ source_refs:
 ### 7.3 存储
 
 - SQLite 是当前唯一业务数据库
-- `/music` 是源文件读取根目录
+- `/music` 是源文件与封面 sidecar 的读写根目录
 - `/cache` 是转码缓存目录
 
 ## 8. 当前工程缺口

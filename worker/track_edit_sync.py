@@ -5,7 +5,6 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable
 
-from track_edit_assets import resolve_track_edit_asset_path
 from transcoder import JobCancelled
 
 
@@ -224,7 +223,7 @@ def _write_embedded_cover(path: Path, cover_edit: sqlite3.Row | None) -> None:
     suffix = path.suffix.lower()
     asset_path = cover_edit["assetPath"] if cover_edit is not None else None
     mime_type = cover_edit["mimeType"] if cover_edit is not None else None
-    resolved_asset_path = resolve_track_edit_asset_path(asset_path)
+    resolved_asset_path = Path(asset_path).resolve() if asset_path else None
     image_bytes = resolved_asset_path.read_bytes() if resolved_asset_path else None
 
     if suffix == ".mp3":
@@ -434,7 +433,7 @@ def _sync_cover(conn: sqlite3.Connection, track_id: str) -> None:
     if not source_path.exists() or not source_path.is_file():
         raise RuntimeError(f"源文件不存在: {source_path}")
 
-    resolved_asset_path = resolve_track_edit_asset_path(edit["assetPath"])
+    resolved_asset_path = Path(edit["assetPath"]).resolve() if edit["assetPath"] else None
     if edit["assetPath"] and (resolved_asset_path is None or not resolved_asset_path.exists()):
         raise RuntimeError(f"封面资产不存在: {edit['assetPath']}")
 

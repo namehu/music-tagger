@@ -14,7 +14,7 @@ services:
       - ${DB_DATA_DIR:-data}:/data
       # Default to a named volume. Set CACHE_DIR=/absolute/path to use a NAS host directory instead.
       - ${CACHE_DIR:-transcode_cache}:/cache
-      - ${NAS_MUSIC_DIR:?NAS_MUSIC_DIR is required}:/music:ro
+      - ${NAS_MUSIC_DIR:?NAS_MUSIC_DIR is required}:/music
     ports:
       - "${WEB_PORT:-3000}:3000"
     restart: unless-stopped

@@ -78,6 +78,7 @@ flowchart LR
   - 通过 tRPC 提供业务控制面
   - 通过 `library.dashboard` 聚合用户首页数据
   - 通过 `trackEdits` router 与 `/api/admin/tracks/[trackId]/cover` 处理 DB-first 编辑
+  - 管理员上传封面时，直接把文件写到音频同目录、同 basename 的 `.jpg/.png` sidecar
   - `trackEdits.get` 会一并返回每个编辑域最近一次同步任务摘要，供编辑面板直接展示最近结果与排障建议
   - 通过 Prisma 直接读写 SQLite
   - 通过 Route Handler 输出支持 `Range` 的音频流
@@ -88,12 +89,14 @@ flowchart LR
   - 执行 `track_edit_sync`
   - 执行 `plan_execute`
   - 回写 `jobs`、编辑同步状态、`plans`、`plan_items`、`transcode_cache`
+  - `scan_full` 优先读取音频同目录 sidecar；没有 sidecar 时，从嵌入封面提取并落地 sidecar
 - SQLite：
   - 作为当前唯一业务数据库
   - 保存认证数据、任务队列、曲库索引、歌单数据、忽略曲目关系、Plan 数据与转码缓存索引
 - 音乐目录 `/music`：
-  - Web 读取原始音频
+  - Web 读取原始音频，并把管理员上传的封面直接写成音频同目录 sidecar
   - Worker 扫描与转码读取源文件
+  - Worker 在没有 sidecar 时，会把已有嵌入封面提取为音频同目录 sidecar
 - 缓存目录 `/cache`：
   - Worker 写入转码结果
   - Web 读取缓存音频输出流
@@ -116,7 +119,7 @@ flowchart LR
 - `worker.py`：主循环、SQLite 重连、job dispatch
 - `jobs.py`：job claim / heartbeat / progress / done / failed
 - `scanner.py`：全量扫描与 `tracks` 写入
-- `scanner.py`：全量扫描与 `tracks` 写入，同时提取已有嵌入歌词 / 封面观察值
+- `scanner.py`：全量扫描与 `tracks` 写入，同时优先读取音频同目录 sidecar，并在没有 sidecar 时提取已有嵌入歌词 / 封面观察值
 - `plan_executor.py`：Plan 执行器，保留历史 `rename`、`move` 与基础 `tag_write`
 - `track_edit_sync.py`：DB-first 曲目编辑异步写回执行器
 - `transcoder.py`：`mp3_192` 转码、原子写入缓存、`transcode_cache` 回写
@@ -160,7 +163,7 @@ flowchart LR
 关键字段：
 
 - `trackId`
-- 元数据字段或歌词正文 / 封面资产指针
+- 元数据字段或歌词正文 / 音乐目录内封面 sidecar 路径
 - `syncStatus`
 - `syncErrorJson`
 - `syncRequestedAt / syncStartedAt / syncFinishedAt`
@@ -170,7 +173,7 @@ flowchart LR
 - Web 保存后先写 edit 表，前端立即以 edit 真值显示
 - worker 再通过 `track_edit_sync` 异步回写物理音频文件
 - `scan_full` 只更新扫描观察值，不覆盖 edit 真值
-- `scan_full` 会把已有嵌入歌词正文和封面资产同步到观察值，编辑面板在没有 edit 真值时回退展示这些扫描值
+- `scan_full` 会把已有嵌入歌词正文和封面同步到观察值；封面观察值优先使用音频同目录 sidecar，没有 sidecar 时才从嵌入封面提取，编辑面板在没有 edit 真值时回退展示这些扫描值
 
 ### 4.4 `plans`
 
@@ -609,8 +612,8 @@ flowchart TD
   WebC[web container]
   WorkerC[worker container]
 
-  NASMusic -->|bind ro| WebC
-  NASMusic -->|bind ro| WorkerC
+  NASMusic -->|bind rw| WebC
+  NASMusic -->|bind rw| WorkerC
   DBStore --> WebC
   DBStore --> WorkerC
   CacheStore --> WebC
@@ -630,11 +633,13 @@ flowchart TD
 - `web` 挂载 `/cache`
 - `worker` 也挂载 `/cache`
 - 二者共享同一份 `CACHE_DIR`
+- `web` 与 `worker` 都以读写方式挂载同一份 `/music`
 
 因此：
 
 - Worker 生成的缓存，Web 可以直接读取
 - 缓存与镜像层解耦，不依赖容器文件系统内部状态
+- 管理员上传的封面 sidecar 与 worker 提取/回写看到的是同一份音乐目录
 
 ## 9. 运维建议
 

@@ -48,6 +48,12 @@ INSERT INTO "jobs" (
 
 worker 领取后会调用 `scan_full`，遍历 `MUSIC_ROOT` 下支持的音频文件，并把基础元数据、已有嵌入歌词与封面观察值写入（或更新）`tracks` 表。
 
+封面观察值当前规则：
+
+- 优先读取音频同目录、同 basename 的 `.jpg/.png` sidecar
+- 没有 sidecar 时，才会从音频内嵌封面提取并落地为同名 sidecar
+- `track_edit_sync` 会继续把 sidecar 异步嵌回音频文件
+
 当前 worker 已支持两类任务：
 
 - `scan_full`

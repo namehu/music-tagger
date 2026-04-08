@@ -94,7 +94,7 @@ WEB_PORT="3000"
 - `BETTER_AUTH_SECRET`：必须替换成真实随机密钥
 - `BETTER_AUTH_URL`：用户实际访问 Web 的地址
 - `BETTER_AUTH_TRUSTED_ORIGINS`：反向代理、域名或额外访问入口
-- `NAS_MUSIC_DIR`：NAS 宿主机上的音乐目录绝对路径；现在会同时挂载给 `web` 和 `worker`。其中 `web` 只读，`worker` 需要可写以支持元数据 / 歌词 / 封面异步回写
+- `NAS_MUSIC_DIR`：NAS 宿主机上的音乐目录绝对路径；现在会同时挂载给 `web` 和 `worker`，且两者都需要可写。`web` 负责把管理员上传的封面直接写成音频同目录 sidecar，`worker` 负责元数据 / 歌词 / 封面异步回写
 - `DB_DATA_DIR`：数据库持久化位置。填 `data` 表示用 Docker named volume；填 `/volume1/docker/music-tagger/data` 表示直接挂到 NAS 目录
 - `CACHE_DIR`：缓存持久化位置。填 `transcode_cache` 表示用 Docker named volume；填 `/volume1/docker/music-tagger/cache` 表示直接挂到 NAS 目录
 - `WEB_PORT`：宿主机对外暴露端口
@@ -171,9 +171,11 @@ docker compose --env-file .env.prod -f docker-compose.prod.yml logs -f
 
 - `worker` 用它扫描音乐目录并写入索引
 - `worker` 也用它把元数据、歌词、封面异步写回源文件，因此这里必须是可写挂载
+- `worker` 在没有 sidecar 时，还会把嵌入封面提取为音频同目录 sidecar
 - `web` 用它直出原始音频流（`/api/stream/[trackId]`）
+- `web` 也用它把管理员上传的封面直接写为音频同目录、同 basename 的 `.jpg/.png` sidecar
 
-因此生产环境里，`web` 和 `worker` 必须指向同一份 `NAS_MUSIC_DIR`。
+因此生产环境里，`web` 和 `worker` 必须指向同一份 `NAS_MUSIC_DIR`，并且都要对其具备写权限。
 
 ## 关于转码缓存持久化
 

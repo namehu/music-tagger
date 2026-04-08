@@ -1,7 +1,7 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
-import { constants as fsConstants } from "node:fs";
-import { access } from "node:fs/promises";
 import path from "node:path";
+
+import { mapMountedPathToHostPath, resolveReadablePathCandidates } from "@/lib/mounted-paths";
 
 export const PLAYBACK_PROFILES = ["original", "mp3_192"] as const;
 export type PlaybackProfile = (typeof PLAYBACK_PROFILES)[number];
@@ -148,52 +148,15 @@ export function getPlaybackCachePath(input: {
   );
 }
 
-function mapMountedPathToHostPath(mountedPath: string, mountedPrefix: string, envVarName: string) {
-  const hostRoot = process.env[envVarName]?.trim();
-  if (!hostRoot) {
-    return null;
-  }
-
-  const absoluteHostRoot = path.resolve(hostRoot);
-  if (mountedPath === mountedPrefix) {
-    return absoluteHostRoot;
-  }
-
-  if (!mountedPath.startsWith(`${mountedPrefix}/`)) {
-    return null;
-  }
-
-  const relativePath = mountedPath.slice(mountedPrefix.length + 1);
-  return path.join(absoluteHostRoot, relativePath);
-}
-
 function getMountedPathCandidates(mountedPath: string, mountedPrefix: string, envVarName: string) {
   return [mountedPath, mapMountedPathToHostPath(mountedPath, mountedPrefix, envVarName)].filter(
     (candidate): candidate is string => Boolean(candidate),
   );
 }
 
-async function resolveReadablePath(mountedPath: string, hostPathCandidate: string | null) {
-  const candidates = [mountedPath, hostPathCandidate].filter(
-    (candidate): candidate is string => Boolean(candidate),
-  );
-
-  for (const candidate of candidates) {
-    try {
-      await access(candidate, fsConstants.R_OK);
-      return candidate;
-    } catch {
-      continue;
-    }
-  }
-
-  return null;
-}
-
 export async function resolveTrackSourcePath(trackPath: string) {
-  return resolveReadablePath(
-    trackPath,
-    mapMountedPathToHostPath(trackPath, STREAM_PATH_PREFIX, "MUSIC_ROOT_HOST_PATH"),
+  return resolveReadablePathCandidates(
+    getMountedPathCandidates(trackPath, STREAM_PATH_PREFIX, "MUSIC_ROOT_HOST_PATH"),
   );
 }
 
@@ -202,5 +165,7 @@ export function getPlaybackCachePathCandidates(cachePath: string) {
 }
 
 export async function resolvePlaybackCachePath(cachePath: string) {
-  return resolveReadablePath(cachePath, mapMountedPathToHostPath(cachePath, CACHE_PATH_PREFIX, "CACHE_ROOT_HOST_PATH"));
+  return resolveReadablePathCandidates(
+    getMountedPathCandidates(cachePath, CACHE_PATH_PREFIX, "CACHE_ROOT_HOST_PATH"),
+  );
 }

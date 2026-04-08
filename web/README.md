@@ -21,7 +21,7 @@ cp .env.example .env
 - `BETTER_AUTH_SECRET`: better-auth 密钥
 - `BETTER_AUTH_URL`: Web 控制台访问地址
 - `BETTER_AUTH_TRUSTED_ORIGINS`: 额外可信来源，多个值用英文逗号分隔
-- `MUSIC_ROOT_HOST_PATH`: 本地开发时把 `/music/...` 映射回宿主机音乐目录
+- `MUSIC_ROOT_HOST_PATH`: 本地开发时把 `/music/...` 映射回宿主机音乐目录；现在既用于原始音频读取，也用于同目录封面 sidecar 的读写，因此该目录必须可写
 - `CACHE_ROOT_HOST_PATH`: 本地开发时把 `/cache/...` 映射回宿主机转码缓存目录
 
 ## 开发命令
@@ -63,7 +63,7 @@ pnpm prisma:studio
 - 顺序 / 随机 / 单曲循环三种播放模式
 - `zustand` 全局播放状态与浏览器本地恢复
 - 个人歌单与双层忽略曲目
-- 管理员单曲编辑：元数据、歌词、封面先写数据库，再由 `track_edit_sync` 异步回写文件；没有 edit 真值时会回退显示 `scan_full` 提取到的已有歌词和封面
+- 管理员单曲编辑：元数据、歌词、封面先写数据库，再由 `track_edit_sync` 异步回写文件；封面会先写成音频同目录 sidecar，再异步嵌回；没有 edit 真值时会回退显示 `scan_full` 观察到的歌词和封面
 - `/api/admin/tracks/[trackId]/cover` 封面上传与预览接口
 - 转码缓存命中观测、失败分类、容量治理与按曲目清理
 - 冷缓存阈值、容量预算、单次清理上限的后台配置
@@ -95,6 +95,8 @@ pnpm prisma migrate deploy && pnpm start
 - `BETTER_AUTH_SECRET`
 - `BETTER_AUTH_URL`
 - `BETTER_AUTH_TRUSTED_ORIGINS`（可选）
+
+如果需要管理台封面上传，请确保 Web 容器挂载的 `/music` 具有写权限，因为封面 sidecar 由 Web 直接落盘。
 
 如果你需要完整启动说明：
 

@@ -40,7 +40,7 @@ MUSIC_ROOT_HOST_PATH="/absolute/path/to/your/music"
 CACHE_ROOT_HOST_PATH="/absolute/path/to/your/repo/.cache/transcode_cache"
 ```
 
-`MUSIC_ROOT_HOST_PATH` 用于播放原始音频时把数据库里的容器路径 `/music/...` 映射回宿主机真实路径；建议与 `.env.dev` 里的 `LOCAL_MUSIC_DIR` 保持一致。
+`MUSIC_ROOT_HOST_PATH` 用于把数据库里的容器路径 `/music/...` 映射回宿主机真实路径；现在既用于原始音频播放，也用于封面 sidecar 的读取与写入；建议与 `.env.dev` 里的 `LOCAL_MUSIC_DIR` 保持一致，并确保该目录可写。
 `CACHE_ROOT_HOST_PATH` 用于播放转码缓存时把数据库里的容器路径 `/cache/...` 映射回宿主机真实路径；建议与 `.env.dev` 里的 `LOCAL_CACHE_DIR` 保持一致。
 
 4. 准备 Docker worker 的环境文件：
@@ -118,4 +118,5 @@ docker compose --env-file .env.dev -f docker-compose.dev.yml down
 - Web 改代码后直接走 Next.js 本地开发体验
 - worker 改代码后重启容器即可生效
 - 数据仍然落在本地 `web/dev.db`，排查方便
+- 封面 sidecar 直接落在宿主机音乐目录，同目录持久化，不再依赖项目内资产目录
 - 转码缓存也会落在宿主机目录里，本地 Web 可直接读取并验证完整播放链路

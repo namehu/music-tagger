@@ -2,8 +2,14 @@ import { mkdir, readFile, stat, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import { auth } from "@/lib/auth";
-import { buildTrackCoverAssetKey, resolveTrackEditAssetPath, sha256Hex } from "@/lib/track-edit-assets";
+import { sha256Hex } from "@/lib/hash";
 import { ensureTrackEditSyncJob } from "@/lib/track-edit-jobs";
+import {
+  buildTrackCoverSidecarPath,
+  findReadableTrackCoverSidecar,
+  getTrackCoverSidecarFileCandidates,
+  resolveTrackCoverSidecarWritePath,
+} from "@/lib/track-cover-sidecar";
 import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
@@ -50,35 +56,43 @@ export async function GET(
   }
 
   const { trackId } = await context.params;
-  const coverEdit = await prisma.trackCoverEdit.findUnique({
-    where: { trackId },
-    select: {
-      assetPath: true,
-      mimeType: true,
-    },
-  });
+  const [track, coverEdit] = await Promise.all([
+    prisma.track.findUnique({
+      where: { id: trackId },
+      select: {
+        path: true,
+        observedArtworkAssetPath: true,
+        artworkMime: true,
+      },
+    }),
+    prisma.trackCoverEdit.findUnique({
+      where: { trackId },
+      select: {
+        assetPath: true,
+        mimeType: true,
+      },
+    }),
+  ]);
 
-  const track = await prisma.track.findUnique({
-    where: { id: trackId },
-    select: {
-      observedArtworkAssetPath: true,
-      artworkMime: true,
-    },
-  });
+  if (!track) {
+    return jsonError("曲目不存在", 404);
+  }
 
-  const assetPath =
-    coverEdit != null
-      ? (coverEdit.assetPath ? resolveTrackEditAssetPath(coverEdit.assetPath) : null)
-      : track?.observedArtworkAssetPath
-        ? resolveTrackEditAssetPath(track.observedArtworkAssetPath)
-        : null;
-  const mimeType = coverEdit != null ? coverEdit.mimeType : track?.artworkMime ?? null;
-
-  if (!assetPath || !mimeType) {
+  if (coverEdit != null && !coverEdit.assetPath) {
     return jsonError("封面不存在", 404);
   }
 
-  const payload = await readFile(assetPath).catch(() => null);
+  const sidecar =
+    coverEdit?.assetPath != null
+      ? await findReadableTrackCoverSidecar(track.path, coverEdit.assetPath)
+      : await findReadableTrackCoverSidecar(track.path, track.observedArtworkAssetPath);
+  const mimeType = coverEdit != null ? coverEdit.mimeType : sidecar?.mimeType ?? track.artworkMime ?? null;
+
+  if (!sidecar?.readablePath || !mimeType) {
+    return jsonError("封面不存在", 404);
+  }
+
+  const payload = await readFile(sidecar.readablePath).catch(() => null);
   if (!payload) {
     return jsonError("封面文件不存在", 404);
   }
@@ -105,7 +119,10 @@ export async function POST(
   const { trackId } = await context.params;
   const track = await prisma.track.findUnique({
     where: { id: trackId },
-    select: { id: true },
+    select: {
+      id: true,
+      path: true,
+    },
   });
 
   if (!track) {
@@ -127,25 +144,34 @@ export async function POST(
     return jsonError("封面文件不能为空", 400);
   }
 
-  const extension = EXTENSION_BY_MIME_TYPE[coverFile.type];
-  const assetKey = buildTrackCoverAssetKey(trackId, extension);
-  const assetPath = resolveTrackEditAssetPath(assetKey);
-  await mkdir(path.dirname(assetPath), { recursive: true });
-  await writeFile(assetPath, bytes);
-  const fileStat = await stat(assetPath);
-  const hash = sha256Hex(bytes);
   const previousCover = await prisma.trackCoverEdit.findUnique({
     where: { trackId },
     select: {
       assetPath: true,
     },
   });
+  const extension = EXTENSION_BY_MIME_TYPE[coverFile.type];
+  const assetPath = buildTrackCoverSidecarPath(track.path, extension);
+  const writableAssetPath = resolveTrackCoverSidecarWritePath(assetPath);
 
+  await Promise.all(
+    getTrackCoverSidecarFileCandidates(track.path, previousCover?.assetPath).map(async (candidate) => {
+      if (candidate !== writableAssetPath) {
+        await unlink(candidate).catch(() => undefined);
+      }
+    }),
+  );
+
+  await mkdir(path.dirname(writableAssetPath), { recursive: true });
+  await writeFile(writableAssetPath, bytes);
+  const fileStat = await stat(writableAssetPath);
+  const hash = sha256Hex(bytes);
   const now = new Date();
+
   await prisma.trackCoverEdit.upsert({
     where: { trackId },
     update: {
-      assetPath: assetKey,
+      assetPath,
       mimeType: coverFile.type,
       fileSize: Number(fileStat.size),
       hash,
@@ -155,23 +181,18 @@ export async function POST(
       syncStartedAt: null,
       syncFinishedAt: null,
     },
-      create: {
-        id: `track_cover_edit_${trackId}`,
-        trackId,
-        assetPath: assetKey,
-        mimeType: coverFile.type,
-        fileSize: Number(fileStat.size),
-        hash,
+    create: {
+      id: `track_cover_edit_${trackId}`,
+      trackId,
+      assetPath,
+      mimeType: coverFile.type,
+      fileSize: Number(fileStat.size),
+      hash,
       syncStatus: "pending",
       syncRequestedAt: now,
     },
     select: { id: true },
   });
-
-  const previousAssetPath = previousCover?.assetPath ? resolveTrackEditAssetPath(previousCover.assetPath) : null;
-  if (previousAssetPath && previousAssetPath !== assetPath) {
-    void unlink(previousAssetPath).catch(() => undefined);
-  }
 
   const job = await ensureTrackEditSyncJob(prisma, {
     trackId,

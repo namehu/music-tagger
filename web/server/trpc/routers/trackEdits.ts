@@ -4,8 +4,8 @@ import { randomUUID } from "node:crypto";
 import { z } from "zod";
 
 import { getJobErrorSummary, parseJobPayload } from "@/lib/jobs";
-import { resolveTrackEditAssetPath } from "@/lib/track-edit-assets";
 import { ensureTrackEditSyncJob } from "@/lib/track-edit-jobs";
+import { getTrackCoverSidecarFileCandidates } from "@/lib/track-cover-sidecar";
 import {
   getEffectiveTrackMetadata,
   getTrackDisplaySummary,
@@ -532,8 +532,13 @@ export const trackEditsRouter = router({
       },
       select: { id: true },
     });
-    if (track.coverEdit?.assetPath) {
-      void unlink(resolveTrackEditAssetPath(track.coverEdit.assetPath)).catch(() => undefined);
+    const coverAssetPath = track.coverEdit?.assetPath ?? track.observedArtworkAssetPath;
+    if (coverAssetPath) {
+      await Promise.all(
+        getTrackCoverSidecarFileCandidates(track.path, coverAssetPath).map((candidate) =>
+          unlink(candidate).catch(() => undefined),
+        ),
+      );
     }
 
     const job = await touchTrackEditJob(ctx, {

@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { resolveTrackEditAssetPath } from "@/lib/track-edit-assets";
+import { findReadableTrackCoverSidecar } from "@/lib/track-cover-sidecar";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -26,35 +26,43 @@ export async function GET(
   }
 
   const { trackId } = await context.params;
-  const coverEdit = await prisma.trackCoverEdit.findUnique({
-    where: { trackId },
-    select: {
-      assetPath: true,
-      mimeType: true,
-    },
-  });
+  const [track, coverEdit] = await Promise.all([
+    prisma.track.findUnique({
+      where: { id: trackId },
+      select: {
+        path: true,
+        observedArtworkAssetPath: true,
+        artworkMime: true,
+      },
+    }),
+    prisma.trackCoverEdit.findUnique({
+      where: { trackId },
+      select: {
+        assetPath: true,
+        mimeType: true,
+      },
+    }),
+  ]);
 
-  const track = await prisma.track.findUnique({
-    where: { id: trackId },
-    select: {
-      observedArtworkAssetPath: true,
-      artworkMime: true,
-    },
-  });
-
-  const assetPath =
-    coverEdit != null
-      ? (coverEdit.assetPath ? resolveTrackEditAssetPath(coverEdit.assetPath) : null)
-      : track?.observedArtworkAssetPath
-        ? resolveTrackEditAssetPath(track.observedArtworkAssetPath)
-        : null;
-  const mimeType = coverEdit != null ? coverEdit.mimeType : track?.artworkMime ?? null;
-
-  if (!assetPath || !mimeType) {
+  if (!track) {
     return jsonError("封面不存在", 404);
   }
 
-  const payload = await readFile(assetPath).catch(() => null);
+  if (coverEdit != null && !coverEdit.assetPath) {
+    return jsonError("封面不存在", 404);
+  }
+
+  const sidecar =
+    coverEdit?.assetPath != null
+      ? await findReadableTrackCoverSidecar(track.path, coverEdit.assetPath)
+      : await findReadableTrackCoverSidecar(track.path, track.observedArtworkAssetPath);
+  const mimeType = coverEdit != null ? coverEdit.mimeType : sidecar?.mimeType ?? track.artworkMime ?? null;
+
+  if (!sidecar?.readablePath || !mimeType) {
+    return jsonError("封面不存在", 404);
+  }
+
+  const payload = await readFile(sidecar.readablePath).catch(() => null);
   if (!payload) {
     return jsonError("封面文件不存在", 404);
   }

@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable
 
-from track_edit_assets import build_track_cover_asset_key, resolve_track_edit_asset_path
+from track_cover_sidecar import build_track_cover_sidecar_path, find_existing_track_cover_sidecar, get_track_cover_sidecar_candidates
 
 
 def _utc_now_sqlite() -> str:
@@ -245,31 +245,54 @@ def _extract_embedded_media(path: Path) -> dict[str, Any]:
     return result
 
 
-def _sync_observed_cover_asset(
-    track_id: str,
+def _delete_track_cover_sidecars(track_path: Path, preferred_asset_path: str | None = None) -> None:
+    for candidate in get_track_cover_sidecar_candidates(track_path, preferred_asset_path):
+        candidate.unlink(missing_ok=True)
+
+
+def _read_sidecar_cover(track_path: Path, preferred_asset_path: str | None = None) -> dict[str, Any] | None:
+    sidecar_path = find_existing_track_cover_sidecar(track_path, preferred_asset_path)
+    if sidecar_path is None:
+        return None
+
+    image_bytes = sidecar_path.read_bytes()
+    mime_type = _detect_image_mime(image_bytes)
+    if mime_type not in {"image/jpeg", "image/png"}:
+        return None
+
+    return {
+        "artwork_bytes": image_bytes,
+        "artwork_kind": "sidecar",
+        "artwork_mime": mime_type,
+        "artwork_hash": hashlib.sha256(image_bytes).hexdigest(),
+        "observed_artwork_asset_path": str(sidecar_path),
+    }
+
+
+def _write_embedded_cover_to_sidecar(
+    track_path: Path,
     artwork_bytes: bytes | None,
     artwork_mime: str | None,
     previous_asset_path: str | None,
-) -> str | None:
-    previous_asset = resolve_track_edit_asset_path(previous_asset_path)
-
+) -> dict[str, Any] | None:
     if not artwork_bytes:
-        if previous_asset and previous_asset.exists():
-            previous_asset.unlink(missing_ok=True)
         return None
 
-    asset_key = build_track_cover_asset_key(track_id, _cover_extension_for_mime(artwork_mime), basename="observed-cover")
-    asset_path = resolve_track_edit_asset_path(asset_key)
-    if asset_path is None:
-        return None
+    sidecar_path = Path(build_track_cover_sidecar_path(track_path, _cover_extension_for_mime(artwork_mime))).resolve()
+    sidecar_path.parent.mkdir(parents=True, exist_ok=True)
+    sidecar_path.write_bytes(artwork_bytes)
 
-    asset_path.parent.mkdir(parents=True, exist_ok=True)
-    asset_path.write_bytes(artwork_bytes)
+    for candidate in get_track_cover_sidecar_candidates(track_path, previous_asset_path):
+        if candidate != sidecar_path:
+            candidate.unlink(missing_ok=True)
 
-    if previous_asset and previous_asset != asset_path and previous_asset.exists():
-        previous_asset.unlink(missing_ok=True)
-
-    return asset_key
+    return {
+        "artwork_bytes": artwork_bytes,
+        "artwork_kind": "sidecar",
+        "artwork_mime": artwork_mime,
+        "artwork_hash": hashlib.sha256(artwork_bytes).hexdigest(),
+        "observed_artwork_asset_path": str(sidecar_path),
+    }
 
 
 def _lookup_existing_track(conn: sqlite3.Connection, path: Path) -> sqlite3.Row | None:
@@ -377,9 +400,7 @@ def _cleanup_stale_tracks(conn: sqlite3.Connection, root: Path, seen_paths: set[
         return 0
 
     for row in stale_rows:
-        asset_path = resolve_track_edit_asset_path(row["observedArtworkAssetPath"])
-        if asset_path and asset_path.exists():
-            asset_path.unlink(missing_ok=True)
+        _delete_track_cover_sidecars(Path(row["path"]), row["observedArtworkAssetPath"])
 
     conn.executemany(
         """
@@ -392,7 +413,12 @@ def _cleanup_stale_tracks(conn: sqlite3.Connection, root: Path, seen_paths: set[
     return len(stale_rows)
 
 
-def _build_track_record(path: Path, track_id: str, embedded_media: dict[str, Any], observed_artwork_asset_path: str | None) -> dict[str, Any]:
+def _build_track_record(
+    path: Path,
+    track_id: str,
+    embedded_media: dict[str, Any],
+    artwork_observation: dict[str, Any] | None,
+) -> dict[str, Any]:
     stat = path.stat()
     probe = _probe_audio_file(path)
     return {
@@ -417,10 +443,10 @@ def _build_track_record(path: Path, track_id: str, embedded_media: dict[str, Any
         "year": probe["year"],
         "genre": probe["genre"],
         "tagsJson": probe["tags_json"],
-        "artworkKind": embedded_media["artwork_kind"],
-        "artworkMime": embedded_media["artwork_mime"],
-        "artworkHash": embedded_media["artwork_hash"],
-        "observedArtworkAssetPath": observed_artwork_asset_path,
+        "artworkKind": artwork_observation["artwork_kind"] if artwork_observation is not None else None,
+        "artworkMime": artwork_observation["artwork_mime"] if artwork_observation is not None else None,
+        "artworkHash": artwork_observation["artwork_hash"] if artwork_observation is not None else None,
+        "observedArtworkAssetPath": artwork_observation["observed_artwork_asset_path"] if artwork_observation is not None else None,
         "lyricsKind": embedded_media["lyrics_kind"],
         "lyricsHash": embedded_media["lyrics_hash"],
         "observedLyricsText": embedded_media["lyrics_text"],
@@ -462,15 +488,19 @@ def scan_full(
             existing_track = _lookup_existing_track(conn, path)
             track_id = existing_track["id"] if existing_track is not None else uuid.uuid4().hex
             embedded_media = _extract_embedded_media(path)
+            previous_asset_path = existing_track["observedArtworkAssetPath"] if existing_track is not None else None
+            artwork_observation = _read_sidecar_cover(path, previous_asset_path)
+            if artwork_observation is None:
+                artwork_observation = _write_embedded_cover_to_sidecar(
+                    path,
+                    embedded_media["artwork_bytes"],
+                    embedded_media["artwork_mime"],
+                    previous_asset_path,
+                )
+            if artwork_observation is None:
+                _delete_track_cover_sidecars(path, previous_asset_path)
 
-            observed_artwork_asset_path = _sync_observed_cover_asset(
-                track_id,
-                embedded_media["artwork_bytes"],
-                embedded_media["artwork_mime"],
-                existing_track["observedArtworkAssetPath"] if existing_track is not None else None,
-            )
-
-            track = _build_track_record(path, track_id, embedded_media, observed_artwork_asset_path)
+            track = _build_track_record(path, track_id, embedded_media, artwork_observation)
             _upsert_track(conn, track)
             conn.commit()
             seen_paths.add(track["path"])
