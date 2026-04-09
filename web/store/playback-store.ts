@@ -28,6 +28,9 @@ export type ActivePlayback = PlaybackQueueTrack & {
   url: string;
   profile: PlaybackProfile;
   sourceKind: PlaybackSourceKind;
+  seekable: boolean;
+  liveTranscode: boolean;
+  jobId: string | null;
 };
 
 type ResolveRequest = {
@@ -124,7 +127,17 @@ type PlaybackStoreState = {
   ) => void;
   writeResolvedPlayback: (
     sessionKind: PlaybackSessionKind,
-    input: { seq: number; url: string },
+    input: {
+      seq: number;
+      url: string;
+      seekable?: boolean;
+      liveTranscode?: boolean;
+      jobId?: string | null;
+    },
+  ) => void;
+  markActivePlaybackReady: (
+    sessionKind: PlaybackSessionKind,
+    input: { jobId: string },
   ) => void;
   handleResolveFailure: (
     sessionKind: PlaybackSessionKind,
@@ -691,7 +704,7 @@ export function createPlaybackStoreApi(storage?: StateStorage, random = Math.ran
         }),
       );
     },
-    writeResolvedPlayback: (sessionKind, { seq, url }) => {
+    writeResolvedPlayback: (sessionKind, { seq, url, seekable = true, liveTranscode = false, jobId }) => {
       const session = get().sessions[sessionKind];
       const request = session.resolveRequest;
       if (!request || request.seq !== seq) {
@@ -707,6 +720,9 @@ export function createPlaybackStoreApi(storage?: StateStorage, random = Math.ran
             url,
             profile: request.profile,
             sourceKind: toSourceKind(request.profile),
+            seekable,
+            liveTranscode,
+            jobId: jobId ?? null,
           },
           displayTrack: request.track,
           pendingTrackId: null,
@@ -726,6 +742,28 @@ export function createPlaybackStoreApi(storage?: StateStorage, random = Math.ran
           seekingPreviewTimeSec: null,
         }),
       );
+    },
+    markActivePlaybackReady: (sessionKind, { jobId }) => {
+      const activePlayback = get().sessions[sessionKind].activePlayback;
+      if (!activePlayback || activePlayback.jobId !== jobId || !activePlayback.liveTranscode) {
+        return;
+      }
+
+      set((current) => {
+        const currentPlayback = current.sessions[sessionKind].activePlayback;
+        if (!currentPlayback || currentPlayback.jobId !== jobId || !currentPlayback.liveTranscode) {
+          return current;
+        }
+
+        return buildSessionUpdate(current, sessionKind, {
+          activePlayback: {
+            ...currentPlayback,
+            seekable: true,
+            liveTranscode: false,
+            jobId: null,
+          },
+        });
+      });
     },
     handleResolveFailure: (sessionKind, { seq, message, clearSession = false }) => {
       const session = get().sessions[sessionKind];

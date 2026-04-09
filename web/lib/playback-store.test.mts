@@ -419,3 +419,29 @@ test("buffered progress can be tracked independently from playback position", ()
   store.getState().setBufferedUntilSec("user", 64);
   assert.equal(store.getState().sessions.user.bufferedUntilSec, 64);
 });
+
+test("live transcode playback can be promoted to seekable without replacing the active URL", () => {
+  const { store, first } = createStoreWithTracks();
+
+  store.getState().requestPlayTrack("user", first, { autoPlay: true });
+  const seq = store.getState().sessions.user.resolveRequest!.seq;
+  store.getState().writeResolvedPlayback("user", {
+    seq,
+    url: "/stream/live",
+    seekable: false,
+    liveTranscode: true,
+    jobId: "job_live_1",
+  });
+
+  assert.equal(store.getState().sessions.user.activePlayback?.liveTranscode, true);
+  assert.equal(store.getState().sessions.user.activePlayback?.seekable, false);
+  assert.equal(store.getState().sessions.user.activePlayback?.jobId, "job_live_1");
+  assert.equal(store.getState().sessions.user.activePlayback?.url, "/stream/live");
+
+  store.getState().markActivePlaybackReady("user", { jobId: "job_live_1" });
+
+  assert.equal(store.getState().sessions.user.activePlayback?.liveTranscode, false);
+  assert.equal(store.getState().sessions.user.activePlayback?.seekable, true);
+  assert.equal(store.getState().sessions.user.activePlayback?.jobId, null);
+  assert.equal(store.getState().sessions.user.activePlayback?.url, "/stream/live");
+});

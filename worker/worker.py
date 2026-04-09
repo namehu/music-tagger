@@ -18,6 +18,27 @@ from transcoder import JobCancelled, transcode_prepare
 
 
 POLL_INTERVAL_S = 2
+SQLITE_BUSY_TIMEOUT_MS = 30_000
+
+
+def _should_use_development_sqlite_pragmas(db_path: str) -> bool:
+    return Path(db_path).name == "dev.db"
+
+
+def _configure_sqlite_connection(conn: sqlite3.Connection, db_path: str) -> None:
+    # 让外键生效（Prisma migration 中有外键）
+    conn.execute("PRAGMA foreign_keys = ON;")
+    conn.execute(f"PRAGMA busy_timeout = {SQLITE_BUSY_TIMEOUT_MS};")
+
+    if not _should_use_development_sqlite_pragmas(db_path):
+        return
+
+    # 开发环境里 web + worker 会并发访问同一个 bind-mounted SQLite 文件。
+    # 切到 WAL 并降低 fsync 强度，可以显著减少 DELETE journal 下的瞬时坏视图。
+    conn.execute("PRAGMA journal_mode = WAL;")
+    conn.execute("PRAGMA synchronous = NORMAL;")
+    conn.execute("PRAGMA wal_autocheckpoint = 1000;")
+    conn.execute("PRAGMA temp_store = MEMORY;")
 
 
 def _default_db_path() -> str:
@@ -48,9 +69,7 @@ def _default_worker_id() -> str:
 def _connect(db_path: str) -> sqlite3.Connection:
     conn = sqlite3.connect(db_path, timeout=30)
     conn.row_factory = sqlite3.Row
-    # 让外键生效（Prisma migration 中有外键）
-    conn.execute("PRAGMA foreign_keys = ON;")
-    conn.execute("PRAGMA busy_timeout = 30000;")
+    _configure_sqlite_connection(conn, db_path)
     return conn
 
 

@@ -35,7 +35,7 @@ source_refs:
 | User Dashboard | implemented | `/dashboard` | `library.dashboard`, `playback` components, `PlaybackResolveEvent` | 已支持继续收听、最近播放、最近更新歌单和最近更新曲目 |
 | Library Browse | implemented | `/library` `/admin/library` | `tracks.list`, `library.stats`, `Track` | 用户区与管理区共享浏览层，但分别驱动 `user/admin` 播放会话 |
 | Track Editing Sync | implemented | `/admin/library` | `TrackMetadataEdit` / `TrackLyricsEdit` / `TrackCoverEdit`, `trackEdits` router, `track_edit_sync` job | 元数据、歌词、封面先写数据库，再异步回写源文件；封面先落为音频同目录 sidecar，再异步嵌回；歌词编辑已支持 `plain / lrc / elrc`，没有 edit 真值时会回退显示扫描到的已有歌词和封面 |
-| Playback Resolve | implemented | 用户播放器 + admin 试听条 | `playback.resolve`, `playback.getPreparationStatus`, `playback.getTrackMedia`, `/api/stream/[trackId]`, `/api/tracks/[trackId]/cover` | 已支持原始与 `mp3_192`，并支持播放详情读取、歌词格式回传、实时 seek 与刷新后重新动态签发 |
+| Playback Resolve | implemented | 用户播放器 + admin 试听条 | `playback.resolve`, `playback.getPreparationStatus`, `playback.getTrackMedia`, `/api/stream/[trackId]`, `/api/tracks/[trackId]/cover` | 已支持原始与 `mp3_192`，冷缓存 `mp3_192` 可边转边播；live 阶段限制 seek，完成后恢复完整拖动能力，并支持播放详情读取、歌词格式回传、实时 seek 与刷新后重新动态签发 |
 | Transcode Cache Ops | implemented | `/admin/cache` `/admin/settings` | `TranscodeCache`, `library.cacheOverview`, settings router | 已支持容量治理与失败分类 |
 | Dashboard Overview | partial | `/admin` | `library`, `jobs`, `tracks` 聚合查询 | 还不是独立定义的首页模块 |
 | Playback Modes | implemented | 用户播放器 | `playback-store`, `PlaybackRuntime`, `playback.resolve` | 用户会话已支持顺序、随机、单曲循环、实时进度 / 缓冲 / seek 与 localStorage 恢复；admin 试听保持线性 |

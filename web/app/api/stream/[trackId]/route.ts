@@ -1,5 +1,5 @@
 import { createReadStream } from "node:fs";
-import { stat } from "node:fs/promises";
+import { open, stat } from "node:fs/promises";
 import path from "node:path";
 import { Readable } from "node:stream";
 
@@ -9,6 +9,7 @@ import {
   getPlaybackFilename,
   PLAYBACK_PROFILES,
   resolvePlaybackCachePath,
+  resolvePlaybackPartialCachePath,
   resolveTrackSourcePath,
   verifyPlaybackToken,
   type PlaybackProfile,
@@ -69,6 +70,86 @@ function parseRangeHeader(rangeHeader: string | null, size: number) {
   return { start, end };
 }
 
+function isAllowedLiveRange(rangeHeader: string | null) {
+  if (!rangeHeader) {
+    return true;
+  }
+
+  return /^bytes=0-$/i.test(rangeHeader.trim());
+}
+
+function wait(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function createLiveTranscodeStream(input: {
+  streamPath: string;
+  trackId: string;
+  profile: PlaybackProfile;
+  sourceMtimeMs: bigint;
+}) {
+  return new ReadableStream<Uint8Array>({
+    async start(controller) {
+      let fileHandle = await open(input.streamPath, "r");
+      let position = 0;
+
+      try {
+        while (true) {
+          const currentStat = await fileHandle.stat().catch(() => null);
+          const availableSize = currentStat?.size ?? position;
+          if (availableSize > position) {
+            const length = Math.min(64 * 1024, availableSize - position);
+            const buffer = Buffer.allocUnsafe(length);
+            const { bytesRead } = await fileHandle.read(buffer, 0, length, position);
+            if (bytesRead > 0) {
+              position += bytesRead;
+              controller.enqueue(buffer.subarray(0, bytesRead));
+              continue;
+            }
+          }
+
+          const cache = await prisma.transcodeCache.findUnique({
+            where: {
+              trackId_profile_sourceMtimeMs: {
+                trackId: input.trackId,
+                profile: input.profile,
+                sourceMtimeMs: input.sourceMtimeMs,
+              },
+            },
+            select: {
+              status: true,
+              errorJson: true,
+            },
+          });
+
+          if (cache?.status === "ready") {
+            break;
+          }
+
+          if (cache?.status === "failed" || cache?.status === "cancelled") {
+            const message =
+              cache.errorJson != null
+                ? "转码流已中断，请稍后重试"
+                : "转码流已中断";
+            controller.error(new Error(message));
+            return;
+          }
+
+          if (cache?.status !== "streaming" && cache?.status !== "pending") {
+            break;
+          }
+
+          await wait(250);
+        }
+      } finally {
+        await fileHandle.close().catch(() => undefined);
+      }
+
+      controller.close();
+    },
+  });
+}
+
 export async function GET(
   req: Request,
   context: {
@@ -120,6 +201,7 @@ export async function GET(
   let streamPath: string | null = null;
   let contentType = getPlaybackContentType(playbackProfile, track.filename);
   const filename = getPlaybackFilename(track.filename, playbackProfile);
+  const rangeHeader = req.headers.get("range");
 
   if (playbackProfile === "original") {
     streamPath = await resolveTrackSourcePath(track.path);
@@ -142,7 +224,46 @@ export async function GET(
       },
     });
 
-    if (!cache || cache.status !== "ready") {
+    if (!cache) {
+      return jsonError("转码缓存尚未准备完成", 404);
+    }
+
+    if (cache.status === "streaming") {
+      if (!isAllowedLiveRange(rangeHeader)) {
+        return new Response(null, {
+          status: 416,
+          headers: {
+            "Content-Range": "bytes */*",
+          },
+        });
+      }
+
+      streamPath = await resolvePlaybackPartialCachePath(cache.cachePath);
+      if (!streamPath) {
+        return jsonError("转码流尚未准备完成", 404);
+      }
+
+      contentType = cache.contentType;
+      const body = createLiveTranscodeStream({
+        streamPath,
+        trackId: track.id,
+        profile: playbackProfile,
+        sourceMtimeMs: track.mtimeMs,
+      });
+
+      return new Response(body, {
+        status: 200,
+        headers: {
+          "Accept-Ranges": "none",
+          "Cache-Control": "private, no-store, no-transform",
+          "Content-Disposition": buildContentDisposition(path.basename(filename)),
+          "Content-Type": contentType,
+          "X-Accel-Buffering": "no",
+        },
+      });
+    }
+
+    if (cache.status !== "ready") {
       return jsonError("转码缓存尚未准备完成", 404);
     }
 
@@ -159,7 +280,7 @@ export async function GET(
     return jsonError("音频文件不存在", 404);
   }
 
-  const range = parseRangeHeader(req.headers.get("range"), fileStat.size);
+  const range = parseRangeHeader(rangeHeader, fileStat.size);
   if (range === "invalid") {
     return new Response(null, {
       status: 416,

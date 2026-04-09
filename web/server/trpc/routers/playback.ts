@@ -8,6 +8,7 @@ import {
   getPlaybackCachePath,
   getPlaybackContentType,
   getPlaybackFilename,
+  LIVE_TRANSCODE_START_THRESHOLD_BYTES,
   PLAYBACK_PROFILES,
   resolvePlaybackCachePath,
   resolveTrackSourcePath,
@@ -81,6 +82,33 @@ async function recordPlaybackResolveEvent(input: {
     },
     select: { id: true },
   });
+}
+
+function buildReadyPlaybackResponse(input: {
+  trackId: string;
+  userId: string;
+  profile: (typeof PLAYBACK_PROFILES)[number];
+  filename: string;
+  contentType: string;
+  seekable: boolean;
+  liveTranscode: boolean;
+  jobId?: string | null;
+}) {
+  const token = createPlaybackToken({
+    trackId: input.trackId,
+    userId: input.userId,
+    profile: input.profile,
+  });
+
+  return {
+    status: "ready" as const,
+    url: `/api/stream/${input.trackId}?profile=${input.profile}&token=${encodeURIComponent(token)}`,
+    contentType: input.contentType,
+    filename: getPlaybackFilename(input.filename, input.profile),
+    seekable: input.seekable,
+    liveTranscode: input.liveTranscode,
+    jobId: input.jobId ?? null,
+  };
 }
 
 export const playbackRouter = router({
@@ -182,6 +210,7 @@ export const playbackRouter = router({
           id: true,
           type: true,
           status: true,
+          payloadJson: true,
           errorJson: true,
         },
       });
@@ -190,7 +219,39 @@ export const playbackRouter = router({
         throw new TRPCError({ code: "NOT_FOUND", message: "转码准备任务不存在" });
       }
 
-      return job;
+      const payload = parseJobPayload(job.payloadJson);
+      let streamStatus: string | null = null;
+      let bytesReady = 0;
+      let canStartPlayback = false;
+
+      if (payload?.trackId && payload.profile && payload.sourceMtimeMs) {
+        const cache = await ctx.prisma.transcodeCache.findUnique({
+          where: {
+            trackId_profile_sourceMtimeMs: {
+              trackId: payload.trackId,
+              profile: payload.profile,
+              sourceMtimeMs: BigInt(payload.sourceMtimeMs),
+            },
+          },
+          select: {
+            status: true,
+            fileSize: true,
+          },
+        });
+
+        streamStatus = cache?.status ?? null;
+        bytesReady = cache?.fileSize ?? 0;
+        canStartPlayback =
+          cache?.status === "ready" ||
+          (cache?.status === "streaming" && cache.fileSize >= LIVE_TRANSCODE_START_THRESHOLD_BYTES);
+      }
+
+      return {
+        ...job,
+        streamStatus,
+        bytesReady,
+        canStartPlayback,
+      };
     }),
 
   resolve: protectedProcedure.input(resolvePlaybackInputSchema).mutation(async ({ ctx, input }) => {
@@ -223,18 +284,15 @@ export const playbackRouter = router({
         });
       }
 
-      const token = createPlaybackToken({
+      return buildReadyPlaybackResponse({
         trackId: track.id,
         userId,
         profile: input.profile,
-      });
-
-      return {
-        status: "ready" as const,
-        url: `/api/stream/${track.id}?profile=${input.profile}&token=${encodeURIComponent(token)}`,
+        filename: track.filename,
         contentType: getPlaybackContentType(input.profile, track.filename),
-        filename: getPlaybackFilename(track.filename, input.profile),
-      };
+        seekable: true,
+        liveTranscode: false,
+      });
     }
 
     let sourceMtimeMs = track.mtimeMs;
@@ -268,6 +326,26 @@ export const playbackRouter = router({
       sourceMtimeMs,
       profile: input.profile,
     });
+    const payload = buildTranscodePayload({
+      trackId: track.id,
+      profile: input.profile,
+      sourcePath: track.path,
+      sourceMtimeMs,
+    });
+    const payloadJson = serializeTranscodePayload(payload);
+    const exactJob = await ctx.prisma.job.findFirst({
+      where: {
+        type: TRANSCODE_JOB_TYPE,
+        payloadJson,
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+      select: {
+        id: true,
+        status: true,
+      },
+    });
 
     const existingCache = await ctx.prisma.transcodeCache.findUnique({
       where: {
@@ -281,6 +359,7 @@ export const playbackRouter = router({
         id: true,
         cachePath: true,
         contentType: true,
+        fileSize: true,
         status: true,
       },
     });
@@ -307,19 +386,40 @@ export const playbackRouter = router({
           profile: input.profile,
           outcome: "cache_hit",
         });
-        const token = createPlaybackToken({
+        return buildReadyPlaybackResponse({
           trackId: track.id,
           userId,
           profile: input.profile,
-        });
-
-        return {
-          status: "ready" as const,
-          url: `/api/stream/${track.id}?profile=${input.profile}&token=${encodeURIComponent(token)}`,
+          filename: track.filename,
           contentType: existingCache.contentType,
-          filename: getPlaybackFilename(track.filename, input.profile),
-        };
+          seekable: true,
+          liveTranscode: false,
+        });
       }
+    }
+
+    const canStartLiveStream =
+      existingCache?.status === "streaming" &&
+      existingCache.fileSize >= LIVE_TRANSCODE_START_THRESHOLD_BYTES &&
+      (exactJob?.status === "pending" || exactJob?.status === "running");
+
+    if (canStartLiveStream) {
+      await recordPlaybackResolveEvent({
+        ctx,
+        trackId: track.id,
+        profile: input.profile,
+        outcome: "cache_miss",
+      });
+      return buildReadyPlaybackResponse({
+        trackId: track.id,
+        userId,
+        profile: input.profile,
+        filename: track.filename,
+        contentType: existingCache.contentType,
+        seekable: false,
+        liveTranscode: true,
+        jobId: exactJob?.id ?? null,
+      });
     }
 
     await recordPlaybackResolveEvent({
@@ -327,27 +427,6 @@ export const playbackRouter = router({
       trackId: track.id,
       profile: input.profile,
       outcome: "cache_miss",
-    });
-
-    const payload = buildTranscodePayload({
-      trackId: track.id,
-      profile: input.profile,
-      sourcePath: track.path,
-      sourceMtimeMs,
-    });
-    const payloadJson = serializeTranscodePayload(payload);
-    const exactJob = await ctx.prisma.job.findFirst({
-      where: {
-        type: TRANSCODE_JOB_TYPE,
-        payloadJson,
-      },
-      orderBy: {
-        createdAt: "desc",
-      },
-      select: {
-        id: true,
-        status: true,
-      },
     });
 
     if (exactJob?.status === "pending" || exactJob?.status === "running") {

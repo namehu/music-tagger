@@ -5,6 +5,7 @@ import { mapMountedPathToHostPath, resolveReadablePathCandidates } from "@/lib/m
 
 export const PLAYBACK_PROFILES = ["original", "mp3_192"] as const;
 export type PlaybackProfile = (typeof PLAYBACK_PROFILES)[number];
+export const LIVE_TRANSCODE_START_THRESHOLD_BYTES = 256 * 1024;
 
 const STREAM_TOKEN_TTL_SECONDS = 60 * 60;
 const STREAM_PATH_PREFIX = "/music";
@@ -148,6 +149,14 @@ export function getPlaybackCachePath(input: {
   );
 }
 
+export function getPlaybackPartialCachePath(input: {
+  trackId: string;
+  sourceMtimeMs: bigint | number;
+  profile: PlaybackProfile;
+}) {
+  return `${getPlaybackCachePath(input)}.partial`;
+}
+
 function getMountedPathCandidates(mountedPath: string, mountedPrefix: string, envVarName: string) {
   return [mountedPath, mapMountedPathToHostPath(mountedPath, mountedPrefix, envVarName)].filter(
     (candidate): candidate is string => Boolean(candidate),
@@ -168,4 +177,12 @@ export async function resolvePlaybackCachePath(cachePath: string) {
   return resolveReadablePathCandidates(
     getMountedPathCandidates(cachePath, CACHE_PATH_PREFIX, "CACHE_ROOT_HOST_PATH"),
   );
+}
+
+export function getPlaybackPartialCachePathCandidates(cachePath: string) {
+  return getPlaybackCachePathCandidates(`${cachePath}.partial`);
+}
+
+export async function resolvePlaybackPartialCachePath(cachePath: string) {
+  return resolveReadablePathCandidates(getPlaybackPartialCachePathCandidates(cachePath));
 }

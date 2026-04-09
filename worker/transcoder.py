@@ -8,6 +8,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable
 
+LIVE_TRANSCODE_START_THRESHOLD_BYTES = 256 * 1024
+
 
 def _utc_now_sqlite() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
@@ -40,6 +42,10 @@ def _content_type_for_profile(profile: str) -> str:
         return "audio/mpeg"
 
     raise RuntimeError(f"Unsupported transcode profile: {profile}")
+
+
+def _get_partial_cache_path(cache_path: str) -> str:
+    return f"{cache_path}.partial"
 
 
 def _upsert_transcode_cache(
@@ -127,6 +133,40 @@ def _wait_for_other_worker(
     raise RuntimeError("等待其他 worker 完成转码超时")
 
 
+def _safe_stat_size(path: Path) -> int:
+    try:
+        return int(path.stat().st_size)
+    except FileNotFoundError:
+        return 0
+
+
+def _sync_partial_cache_state(
+    conn: sqlite3.Connection,
+    *,
+    track_id: str,
+    profile: str,
+    source_mtime_ms: int,
+    cache_path: str,
+    content_type: str,
+    partial_size: int,
+) -> str:
+    next_status = (
+        "streaming" if partial_size >= LIVE_TRANSCODE_START_THRESHOLD_BYTES else "pending"
+    )
+    _upsert_transcode_cache(
+        conn,
+        track_id=track_id,
+        profile=profile,
+        source_mtime_ms=source_mtime_ms,
+        cache_path=cache_path,
+        content_type=content_type,
+        file_size=partial_size,
+        status=next_status,
+        error_json=None,
+    )
+    return next_status
+
+
 def transcode_prepare(
     conn: sqlite3.Connection,
     payload: dict[str, Any],
@@ -146,6 +186,7 @@ def transcode_prepare(
     cache_path = ""
     content_type = ""
     final_path = Path(cache_root) / "tracks" / track_id / str(source_mtime_ms) / "mp3_192.mp3"
+    partial_path = Path(f"{final_path}.partial")
     lock_path = final_path.with_name(f"{final_path.name}.lock")
     lock_fd: int | None = None
     process: subprocess.Popen[str] | None = None
@@ -204,7 +245,11 @@ def transcode_prepare(
             }
 
         final_path.parent.mkdir(parents=True, exist_ok=True)
-        temp_path = final_path.with_name(f"{final_path.name}.{uuid.uuid4().hex}.tmp")
+        try:
+            if partial_path.exists():
+                partial_path.unlink()
+        except FileNotFoundError:
+            pass
         try:
             lock_fd = os.open(lock_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
             os.write(lock_fd, f"{os.getpid()}\n".encode("utf-8"))
@@ -267,17 +312,37 @@ def transcode_prepare(
                 "192k",
                 "-f",
                 "mp3",
-                str(temp_path),
+                str(partial_path),
             ],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
         )
 
+        last_partial_size = -1
+        last_status = "pending"
         while process.poll() is None:
             _check_should_continue(should_continue, "转码任务已取消")
+            partial_size = _safe_stat_size(partial_path)
+            next_status = (
+                "streaming"
+                if partial_size >= LIVE_TRANSCODE_START_THRESHOLD_BYTES
+                else "pending"
+            )
+            if partial_size != last_partial_size or next_status != last_status:
+                _sync_partial_cache_state(
+                    conn,
+                    track_id=track_id,
+                    profile=profile,
+                    source_mtime_ms=source_mtime_ms,
+                    cache_path=cache_path,
+                    content_type=content_type,
+                    partial_size=partial_size,
+                )
+                last_partial_size = partial_size
+                last_status = next_status
             if on_progress:
-                on_progress(0.4)
+                on_progress(0.6 if next_status == "streaming" else 0.4)
             time.sleep(0.5)
 
         stdout_text, stderr_text = process.communicate()
@@ -286,7 +351,8 @@ def transcode_prepare(
             raise RuntimeError(f"ffmpeg transcode failed: {message}")
 
         _check_should_continue(should_continue, "转码任务已取消")
-        temp_path.replace(final_path)
+        file_size = _safe_stat_size(partial_path)
+        partial_path.replace(final_path)
         file_size = int(final_path.stat().st_size)
 
         _upsert_transcode_cache(
@@ -327,8 +393,8 @@ def transcode_prepare(
         raise
     finally:
         try:
-            if "temp_path" in locals() and temp_path.exists():
-                temp_path.unlink()
+            if partial_path.exists():
+                partial_path.unlink()
         except Exception:
             pass
         try:

@@ -230,6 +230,11 @@ export function GlobalPlayer({
   const volume = usePlaybackSession(sessionKind, (state) => state.volume);
   const muted = usePlaybackSession(sessionKind, (state) => state.muted);
   const activePlayback = usePlaybackSession(sessionKind, (state) => state.activePlayback);
+  const isSeekable = usePlaybackSession(sessionKind, (state) => state.activePlayback?.seekable ?? true);
+  const isLiveTranscode = usePlaybackSession(
+    sessionKind,
+    (state) => state.activePlayback?.liveTranscode ?? false,
+  );
   const bindAudioElement = usePlaybackStore((state) => state.bindAudioElement);
   const requestPlayTrack = usePlaybackStore((state) => state.requestPlayTrack);
   const toggleTrack = usePlaybackStore((state) => state.toggleTrack);
@@ -253,6 +258,7 @@ export function GlobalPlayer({
   const removeQueueTrack = usePlaybackStore((state) => state.removeQueueTrack);
   const clearQueue = usePlaybackStore((state) => state.clearQueue);
   const [showDetails, setShowDetails] = React.useState(false);
+  const liveFallbackAttemptRef = React.useRef<string | null>(null);
 
   const mediaQuery = trpc.playback.getTrackMedia.useQuery(
     {
@@ -283,17 +289,38 @@ export function GlobalPlayer({
   const detailStatusText = isAdminSession
     ? playbackError
       ? playbackError
-      : isPreparing
-        ? "正在准备试听资源，完成后会进入可试听状态。"
-        : isAudioPlaying
-          ? "当前正在管理台试听，这不会改写用户侧歌单与进度。"
-          : "试听已暂停；回到用户区后仍可手动继续原来的用户播放会话。"
+      : isLiveTranscode && !isSeekable
+        ? "当前正在边转边播，转码完成后会自动恢复完整拖动能力。"
+        : isPreparing
+          ? "正在准备试听资源，完成后会进入可试听状态。"
+          : isAudioPlaying
+            ? "当前正在管理台试听，这不会改写用户侧歌单与进度。"
+            : "试听已暂停；回到用户区后仍可手动继续原来的用户播放会话。"
       : playbackError
         ? playbackError
+        : isLiveTranscode && !isSeekable
+          ? "当前正在边转边播，暂不支持跳到尚未转码的位置。"
         : isPreparing
           ? "正在准备播放资源，完成后会按当前操作进入可播放状态。"
           : restoreMessage;
   const queueLabel = getPlaybackQueueLabel(queueSourceKey);
+  const seekDisabled = isPreparing || !isSeekable;
+  const handleCommitSeek = React.useCallback(
+    (nextTimeSec: number) => {
+      if (!isSeekable) {
+        return;
+      }
+
+      commitSeek(sessionKind, nextTimeSec);
+    },
+    [commitSeek, isSeekable, sessionKind],
+  );
+
+  React.useEffect(() => {
+    if (!activePlayback?.liveTranscode) {
+      liveFallbackAttemptRef.current = null;
+    }
+  }, [activePlayback?.id, activePlayback?.jobId, activePlayback?.liveTranscode, activePlayback?.url]);
 
   React.useEffect(() => {
     if (!currentTrack) {
@@ -401,11 +428,11 @@ export function GlobalPlayer({
               durationSec={durationSec}
               bufferedUntilSec={bufferedUntilSec}
               compact={isAdminSession}
-              disabled={isPreparing}
+              disabled={seekDisabled}
               isSeeking={isSeeking}
               onBeginSeek={(nextTimeSec) => beginSeek(sessionKind, nextTimeSec)}
               onUpdateSeekPreview={(nextTimeSec) => updateSeekPreview(sessionKind, nextTimeSec)}
-              onCommitSeek={(nextTimeSec) => commitSeek(sessionKind, nextTimeSec)}
+              onCommitSeek={handleCommitSeek}
             />
 
             {!isAdminSession ? (
@@ -570,7 +597,7 @@ export function GlobalPlayer({
                   lyricsFormat={(mediaQuery.data?.lyricsFormat as TrackLyricsFormat | undefined) ?? "plain"}
                   currentTimeSec={displayTimeSec}
                   isPlaying={isAudioPlaying}
-                  onSeekTo={(nextTimeSec) => commitSeek(sessionKind, nextTimeSec)}
+                  onSeekTo={handleCommitSeek}
                 />
               )}
 
@@ -596,7 +623,17 @@ export function GlobalPlayer({
                   </div>
                   {currentProfile ? <div>播放规格：{currentProfile}</div> : null}
                   {currentSourceKind ? (
-                    <div>当前流：{currentSourceKind === "transcode_cache" ? "转码缓存" : "原始直出"}</div>
+                    <div>
+                      当前流：
+                      {currentSourceKind === "transcode_cache"
+                        ? isLiveTranscode
+                          ? "转码缓存（边转边播）"
+                          : "转码缓存"
+                        : "原始直出"}
+                    </div>
+                  ) : null}
+                  {isLiveTranscode && !isSeekable ? (
+                    <div className="md:col-span-2">边转边播中，暂不支持跳到未转码的位置。</div>
                   ) : null}
                   {!isAdminSession ? <div>播放模式：{getPlaybackModeLabel(playbackMode)}</div> : null}
                   {!isAdminSession ? <div>恢复位置：{formatPlaybackTime(resumeTimeSec)}</div> : null}
@@ -627,7 +664,7 @@ export function GlobalPlayer({
               audio.muted = muted;
               setDurationSec(sessionKind, audio.duration);
 
-              if (typeof pendingResumeTimeSec === "number" && pendingResumeTimeSec > 0) {
+              if (isSeekable && typeof pendingResumeTimeSec === "number" && pendingResumeTimeSec > 0) {
                 const maxSeek = Number.isFinite(audio.duration) ? audio.duration : pendingResumeTimeSec;
                 audio.currentTime = Math.min(pendingResumeTimeSec, maxSeek);
               }
@@ -659,6 +696,23 @@ export function GlobalPlayer({
             }}
             onError={(event) => {
               const audio = event.currentTarget;
+              const fallbackKey =
+                activePlayback?.liveTranscode && currentTrack
+                  ? `${currentTrack.id}:${activePlayback.jobId ?? activePlayback.url}`
+                  : null;
+              if (
+                fallbackKey &&
+                liveFallbackAttemptRef.current !== fallbackKey &&
+                currentProfile === "mp3_192"
+              ) {
+                liveFallbackAttemptRef.current = fallbackKey;
+                requestPlayTrack(sessionKind, currentTrack, {
+                  profile: "original",
+                  autoPlay: true,
+                  resumeTimeSec: audio.currentTime,
+                });
+                return;
+              }
               const message = getPlaybackAudioErrorMessage(audio);
               setIsAudioPlaying(sessionKind, false);
               setPlaybackError(sessionKind, message);

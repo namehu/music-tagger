@@ -9,7 +9,11 @@ import {
 } from "@/lib/transcode-failure";
 import { selectRecentUniqueTrackPlays } from "@/lib/library-dashboard";
 import { getTrackDisplaySummary } from "@/lib/track-edits";
-import { doesCacheFileExist, removeCacheFile } from "@/lib/transcode-cache";
+import {
+  doesCacheFileExist,
+  doesPartialCacheFileExist,
+  removeCacheFile,
+} from "@/lib/transcode-cache";
 import { TRACK_VISIBILITY_SURFACES } from "@/lib/ignored-tracks";
 
 import { adminProcedure, protectedProcedure, router } from "../trpc";
@@ -346,7 +350,7 @@ export const libraryRouter = router({
       if (entry.status === "ready") {
         readyEntries += 1;
         totalBytes += entry.fileSize;
-      } else if (entry.status === "pending") {
+      } else if (entry.status === "pending" || entry.status === "streaming") {
         pendingEntries += 1;
       } else if (entry.status === "failed") {
         failedEntries += 1;
@@ -433,11 +437,13 @@ export const libraryRouter = router({
           const isStale = !!entry.track && entry.track.mtimeMs !== entry.sourceMtimeMs;
           const isMissingReadyFile =
             entry.status === "ready" ? !(await doesCacheFileExist(entry.cachePath)) : false;
+          const isMissingStreamingFile =
+            entry.status === "streaming" ? !(await doesPartialCacheFileExist(entry.cachePath)) : false;
           const failureCategory =
             entry.status === "failed" ? classifyTranscodeFailure(entry.errorJson) : null;
           const issues = [
             ...(isOrphan ? (["orphan"] as const) : []),
-            ...(isStale || isMissingReadyFile ? (["stale"] as const) : []),
+            ...(isStale || isMissingReadyFile || isMissingStreamingFile ? (["stale"] as const) : []),
             ...(entry.status === "failed" ? (["failed"] as const) : []),
           ];
           const searchText = [
@@ -482,6 +488,7 @@ export const libraryRouter = router({
               isOrphan,
               isStale,
               isMissingReadyFile,
+              isMissingStreamingFile,
               issues,
               failureCategory,
               failureLabel: failureCategory ? getTranscodeFailureCategoryLabel(failureCategory) : null,
@@ -818,8 +825,10 @@ export const libraryRouter = router({
         const isStale = !entry.track || entry.track.mtimeMs !== entry.sourceMtimeMs;
         const isMissingReadyFile =
           entry.status === "ready" ? !(await doesCacheFileExist(entry.cachePath)) : false;
+        const isMissingStreamingFile =
+          entry.status === "streaming" ? !(await doesPartialCacheFileExist(entry.cachePath)) : false;
 
-        if (isStale || isMissingReadyFile) {
+        if (isStale || isMissingReadyFile || isMissingStreamingFile) {
           targetEntries.push(entry);
         }
       }

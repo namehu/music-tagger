@@ -32,19 +32,23 @@ export function PlaybackRuntime({ sessionKind }: { sessionKind: PlaybackSessionK
   const resolveRequest = usePlaybackSession(sessionKind, (state) => state.resolveRequest);
   const preparingJobId = usePlaybackSession(sessionKind, (state) => state.preparingJobId);
   const preparingRequest = usePlaybackSession(sessionKind, (state) => state.preparingRequest);
+  const activePlayback = usePlaybackSession(sessionKind, (state) => state.activePlayback);
   const playbackError = usePlaybackSession(sessionKind, (state) => state.playbackError);
   const resolvePlayback = trpc.playback.resolve.useMutation();
+  const statusJobId =
+    preparingJobId ?? (activePlayback?.liveTranscode ? activePlayback.jobId : null) ?? "";
+  const isPollingPreparingJob = Boolean(preparingJobId);
   const preparingJobQuery = trpc.playback.getPreparationStatus.useQuery(
     {
-      jobId: preparingJobId ?? "",
+      jobId: statusJobId,
     },
     {
-      enabled: Boolean(preparingJobId),
+      enabled: Boolean(statusJobId),
       refetchOnWindowFocus: false,
       retry: false,
       refetchInterval: (query) => {
         const status = query.state.data?.status;
-        if (!preparingJobId || status === "done" || status === "failed" || status === "cancelled") {
+        if (!statusJobId || status === "done" || status === "failed" || status === "cancelled") {
           return false;
         }
 
@@ -93,6 +97,9 @@ export function PlaybackRuntime({ sessionKind }: { sessionKind: PlaybackSessionK
           state.writeResolvedPlayback(sessionKind, {
             seq: resolveRequest.seq,
             url: result.url,
+            seekable: result.seekable,
+            liveTranscode: result.liveTranscode,
+            jobId: result.jobId,
           });
         },
         onError: (error) => {
@@ -121,21 +128,30 @@ export function PlaybackRuntime({ sessionKind }: { sessionKind: PlaybackSessionK
   }, [preparingRequest]);
 
   React.useEffect(() => {
-    if (!preparingJobId || !preparingRequest) {
+    if (!statusJobId) {
       return;
     }
 
     const currentJob = preparingJobQuery.data;
-    if (!currentJob || currentJob.id !== preparingJobId) {
+    if (!currentJob || currentJob.id !== statusJobId) {
       return;
     }
 
-    if (currentJob.status === "done") {
-      getPlaybackStoreState().retryPreparingRequest(sessionKind);
-      return;
-    }
+    if (isPollingPreparingJob && preparingRequest) {
+      if (currentJob.canStartPlayback) {
+        getPlaybackStoreState().retryPreparingRequest(sessionKind);
+        return;
+      }
 
-    if (currentJob.status === "failed" || currentJob.status === "cancelled") {
+      if (currentJob.status === "done") {
+        getPlaybackStoreState().retryPreparingRequest(sessionKind);
+        return;
+      }
+
+      if (currentJob.status !== "failed" && currentJob.status !== "cancelled") {
+        return;
+      }
+
       const retryKey = `${preparingRequest.track.id}:${preparingRequest.profile}`;
       const failureCategory = classifyTranscodeFailure(currentJob.errorJson);
       if (failureCategory === "source_changed" && staleSourceRetriedKeyRef.current !== `retried:${retryKey}`) {
@@ -148,19 +164,52 @@ export function PlaybackRuntime({ sessionKind }: { sessionKind: PlaybackSessionK
         sessionKind,
         getJobErrorMessage(currentJob.errorJson),
       );
-    }
-  }, [preparingJobId, preparingJobQuery.data, preparingRequest, sessionKind]);
-
-  React.useEffect(() => {
-    if (!preparingJobId || !preparingJobQuery.error) {
       return;
     }
 
-    getPlaybackStoreState().handlePreparingFailure(
+    if (activePlayback?.liveTranscode && activePlayback.jobId === currentJob.id) {
+      if (currentJob.status === "done") {
+        getPlaybackStoreState().markActivePlaybackReady(sessionKind, {
+          jobId: currentJob.id,
+        });
+        return;
+      }
+
+      if (currentJob.status === "failed" || currentJob.status === "cancelled") {
+        getPlaybackStoreState().setPlaybackError(
+          sessionKind,
+          getJobErrorMessage(currentJob.errorJson),
+        );
+      }
+    }
+  }, [
+    activePlayback?.jobId,
+    activePlayback?.liveTranscode,
+    isPollingPreparingJob,
+    preparingJobQuery.data,
+    preparingRequest,
+    sessionKind,
+    statusJobId,
+  ]);
+
+  React.useEffect(() => {
+    if (!statusJobId || !preparingJobQuery.error) {
+      return;
+    }
+
+    if (isPollingPreparingJob) {
+      getPlaybackStoreState().handlePreparingFailure(
+        sessionKind,
+        preparingJobQuery.error.message ?? "转码任务状态查询失败",
+      );
+      return;
+    }
+
+    getPlaybackStoreState().setPlaybackError(
       sessionKind,
       preparingJobQuery.error.message ?? "转码任务状态查询失败",
     );
-  }, [preparingJobId, preparingJobQuery.error, sessionKind]);
+  }, [isPollingPreparingJob, preparingJobQuery.error, sessionKind, statusJobId]);
 
   React.useEffect(() => {
     if (!playbackError || playbackError === lastToastedErrorRef.current) {

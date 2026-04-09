@@ -1,7 +1,10 @@
 import { access, rm } from "node:fs/promises";
 import { constants as fsConstants } from "node:fs";
 
-import { getPlaybackCachePathCandidates } from "@/lib/playback";
+import {
+  getPlaybackCachePathCandidates,
+  getPlaybackPartialCachePathCandidates,
+} from "@/lib/playback";
 export {
   classifyTranscodeFailure,
   getTranscodeFailureCategoryLabel,
@@ -22,10 +25,26 @@ export async function doesCacheFileExist(cachePath: string) {
   return false;
 }
 
+export async function doesPartialCacheFileExist(cachePath: string) {
+  for (const candidate of getPlaybackPartialCachePathCandidates(cachePath)) {
+    try {
+      await access(candidate, fsConstants.F_OK);
+      return true;
+    } catch {
+      continue;
+    }
+  }
+
+  return false;
+}
+
 export async function removeCacheFile(cachePath: string) {
   let removed = 0;
 
-  for (const candidate of getPlaybackCachePathCandidates(cachePath)) {
+  for (const candidate of [
+    ...getPlaybackCachePathCandidates(cachePath),
+    ...getPlaybackPartialCachePathCandidates(cachePath),
+  ]) {
     try {
       await rm(candidate, { force: true });
       removed += 1;

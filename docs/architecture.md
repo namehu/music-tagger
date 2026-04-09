@@ -3,7 +3,7 @@
 本文档描述当前仓库的真实运行架构，重点覆盖：
 
 - Web、Worker、SQLite、音乐目录、转码缓存之间的关系
-- `scan_full`、曲库浏览、原始播放、`mp3_192` 转码缓存播放的完整流转
+- `scan_full`、曲库浏览、原始播放、`mp3_192` 转码缓存播放 / 边转边播的完整流转
 - Docker 部署下的数据与缓存持久化边界
 
 如果你要先快速掌握项目全貌，建议按这个顺序阅读：
@@ -26,6 +26,7 @@
 - SQLite 曲库索引与搜索
 - 全局原始音频播放
 - `mp3_192` 转码缓存播放
+- 冷缓存 `mp3_192` 达到最小起播阈值后的边转边播
 - `zustand` 全局播放状态、顺序 / 随机 / 单曲循环模式
 - 用户侧当前队列抽屉、Up Next、队列跳播、单首移除与清空队列
 - 浏览器本地播放会话恢复（刷新后默认暂停）
@@ -81,7 +82,8 @@ flowchart LR
   - 管理员上传封面时，直接把文件写到音频同目录、同 basename 的 `.jpg/.png` sidecar
   - `trackEdits.get` 会一并返回每个编辑域最近一次同步任务摘要，供编辑面板直接展示最近结果与排障建议
   - 通过 Prisma 直接读写 SQLite
-  - 通过 Route Handler 输出支持 `Range` 的音频流
+- 通过 Route Handler 输出支持 `Range` 的音频流
+- 对完整缓存和原始流继续输出支持 `Range` 的音频流；对 live transcode 输出 chunked `audio/mpeg`
 - Worker：
   - 轮询 `jobs`
   - 执行 `scan_full`
@@ -122,7 +124,7 @@ flowchart LR
 - `scanner.py`：全量扫描与 `tracks` 写入，同时优先读取音频同目录 sidecar，并在没有 sidecar 时提取已有嵌入歌词 / 封面观察值
 - `plan_executor.py`：Plan 执行器，保留历史 `rename`、`move` 与基础 `tag_write`
 - `track_edit_sync.py`：DB-first 曲目编辑异步写回执行器
-- `transcoder.py`：`mp3_192` 转码、原子写入缓存、`transcode_cache` 回写
+- `transcoder.py`：`mp3_192` 转码、`.partial` 持续写入、完成后原子切换为正式缓存、`transcode_cache` 回写
 
 ## 4. 关键数据表
 
@@ -189,6 +191,7 @@ flowchart LR
 - `previewSummaryJson`
 - `warningsJson`
 - `status`
+- `status`：当前可能为 `pending | streaming | ready | failed | cancelled`
 - `executionJobId`
 
 ### 4.5 `playlists` / `playlist_items`
@@ -258,6 +261,7 @@ flowchart LR
 - 同一首歌、同一档位、同一源文件版本，只会有一条有效缓存记录
 - 源文件 `mtimeMs` 变化后，旧缓存自然失效，新版本重新生成
 - `lastAccessedAt` 用于区分冷缓存与近期命中缓存，支撑容量治理
+- `streaming` 表示 worker 正在写 `.partial`，web 可以在 `fileSize` 达到阈值后直接边读边播
 
 ### 4.9 `admin_settings`
 

@@ -96,6 +96,9 @@ function statusBadge(status: string | null | undefined) {
   if (normalized === "ready") {
     return { variant: "secondary" as const, text: "ready" };
   }
+  if (normalized === "streaming") {
+    return { variant: "default" as const, text: "streaming" };
+  }
   if (normalized === "pending") {
     return { variant: "outline" as const, text: "pending" };
   }
@@ -106,10 +109,15 @@ function issueBadges(entry: {
   isOrphan: boolean;
   isStale: boolean;
   isMissingReadyFile: boolean;
+  isMissingStreamingFile?: boolean;
   status: string;
   failureLabel: string | null;
 }) {
-  const badges: Array<{ key: string; label: string; variant?: "destructive" | "outline" | "secondary" }> = [];
+  const badges: Array<{
+    key: string;
+    label: string;
+    variant?: "default" | "destructive" | "outline" | "secondary";
+  }> = [];
 
   if (entry.status === "failed") {
     badges.push({
@@ -124,8 +132,14 @@ function issueBadges(entry: {
   if (entry.isMissingReadyFile) {
     badges.push({ key: "missing", label: "缓存文件缺失", variant: "outline" });
   }
+  if (entry.isMissingStreamingFile) {
+    badges.push({ key: "streaming-missing", label: "partial 文件缺失", variant: "outline" });
+  }
   if (entry.isOrphan) {
     badges.push({ key: "orphan", label: "孤儿记录", variant: "outline" });
+  }
+  if (entry.status === "streaming" && badges.length === 0) {
+    badges.push({ key: "streaming", label: "边转边播中", variant: "default" as const });
   }
 
   if (badges.length === 0) {
@@ -219,7 +233,9 @@ export default function AdminCachePage() {
     }
   }, [transcodeMetricsQuery.error]);
 
-  const hasPendingEntries = (cacheEntriesQuery.data ?? []).some((entry) => entry.status === "pending");
+  const hasPendingEntries = (cacheEntriesQuery.data ?? []).some(
+    (entry) => entry.status === "pending" || entry.status === "streaming",
+  );
 
   React.useEffect(() => {
     if (!hasPendingEntries) {
@@ -259,7 +275,7 @@ export default function AdminCachePage() {
     {
       title: "待处理转码",
       value: cacheOverview?.pendingEntries ?? 0,
-      description: "仍在 worker 中准备或排队",
+      description: "仍在 worker 中准备、排队或边转边播",
     },
   ];
 

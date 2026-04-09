@@ -62,8 +62,10 @@ source_refs:
 
 - 已支持 `original` 原始音频播放
 - 已支持 `mp3_192` 转码缓存播放
+- 冷缓存 `mp3_192` 已支持达到最小起播阈值后边转边播，转码完成后恢复完整 seek
 - 已支持 `ordered / shuffle / repeat_one` 三种全局播放模式
 - `/api/stream/[trackId]` 已支持 `Range`
+- `/api/stream/[trackId]` 对 live transcode 额外支持 chunked `audio/mpeg` 输出
 - 已有播放解析事件和缓存命中/未命中记录
 - 前端播放状态已迁到 `zustand` 全局 store
 - 已拆成 `user` 持续播放会话与 `admin` 临时试听会话
@@ -82,6 +84,7 @@ source_refs:
 - 刷新恢复后默认暂停，不自动续播
 - admin 试听不做持久化恢复，只用于当前管理会话
 - 当前队列 v1 不支持拖拽排序、下一首播放或加入队列尾部
+- 边转边播阶段暂不支持跳到尚未转码的位置；完整缓存就绪后恢复完整 seek
 
 ### 3.5 Track Editing Sync
 

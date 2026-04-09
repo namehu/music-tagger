@@ -88,6 +88,11 @@ export function CurrentPlaybackSummary({
   const playbackError = usePlaybackSession(sessionKind, (state) => state.playbackError);
   const activeTrackId = usePlaybackSession(sessionKind, (state) => state.activeTrackId);
   const currentProfile = usePlaybackSession(sessionKind, (state) => state.currentProfile);
+  const isLiveTranscode = usePlaybackSession(
+    sessionKind,
+    (state) => state.activePlayback?.liveTranscode ?? false,
+  );
+  const isSeekable = usePlaybackSession(sessionKind, (state) => state.activePlayback?.seekable ?? true);
   const resumeTimeSec = usePlaybackSession(sessionKind, (state) => state.resumeTimeSec);
   const pendingResumeTimeSec = usePlaybackSession(sessionKind, (state) => state.pendingResumeTimeSec);
   const autoPlayOnReady = usePlaybackSession(sessionKind, (state) => state.autoPlayOnReady);
@@ -123,6 +128,8 @@ export function CurrentPlaybackSummary({
   const summaryMessage = isAdminSession
     ? playbackError
       ? playbackError
+      : isLiveTranscode && !isSeekable
+        ? "当前正在边转边播，完成后会自动恢复完整拖动能力。"
       : currentTrack
         ? isPreparing
           ? "正在准备试听资源，完成后会进入可试听状态。"
@@ -130,6 +137,8 @@ export function CurrentPlaybackSummary({
         : "从管理曲库点一下试听后，这里会显示当前试听状态。"
     : playbackError
       ? playbackError
+      : isLiveTranscode && !isSeekable
+        ? "当前正在边转边播，暂不支持跳到未转码的位置。"
       : currentTrack
         ? restoreMessage
         : "从用户音乐库、歌单或最近播放点播后，这里会显示继续收听入口。";
