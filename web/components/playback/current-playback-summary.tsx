@@ -30,14 +30,12 @@ function CoverThumb({
       <img
         src={coverUrl}
         alt={`${title} 封面`}
-        className="size-14 rounded-xl border object-cover shadow-sm"
+        className="size-14 rounded-[1.25rem] border border-white/70 object-cover shadow-[0_18px_40px_-24px_rgba(25,28,30,0.35)]"
       />
     );
   }
 
-  return (
-    <div className="size-14 rounded-xl border bg-muted/40" />
-  );
+  return <div className="size-14 rounded-[1.25rem] border border-white/70 bg-[color:var(--surface-container-low)]" />;
 }
 
 function getPlaybackStatusText(input: {
@@ -148,7 +146,7 @@ export function CurrentPlaybackSummary({
 
   return (
     <Card className={className}>
-      <CardHeader className="border-b">
+      <CardHeader className="pb-1">
         <div className="space-y-1">
           <CardTitle>{resolvedTitle}</CardTitle>
           <CardDescription>{resolvedDescription}</CardDescription>
@@ -179,15 +177,17 @@ export function CurrentPlaybackSummary({
             </div>
           </div>
         ) : (
-          <div className="text-sm text-muted-foreground">当前还没有选中的播放曲目。</div>
+          <div className="rounded-[1.25rem] bg-[color:var(--surface-container-low)] px-4 py-4 text-sm text-muted-foreground">
+            当前还没有选中的播放曲目。
+          </div>
         )}
 
         <div
           className={cn(
-            "rounded-xl border p-3 text-sm",
+            "rounded-[1.25rem] px-4 py-3 text-sm leading-6",
             playbackError
-              ? "border-destructive/30 bg-destructive/5 text-destructive"
-              : "bg-muted/20 text-muted-foreground",
+              ? "border border-destructive/20 bg-destructive/5 text-destructive"
+              : "bg-[color:var(--surface-container-low)] text-muted-foreground",
           )}
         >
           {summaryMessage}

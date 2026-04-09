@@ -69,7 +69,7 @@ export default function AdminPlansPage() {
           <select
             value={status}
             onChange={(event) => setStatus(event.target.value as "all" | PlanStatus)}
-            className="h-9 rounded-md border bg-background px-3 text-sm"
+            className="azure-field h-10"
           >
             <option value="all">全部状态</option>
             <option value="draft">draft</option>

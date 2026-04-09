@@ -227,7 +227,7 @@ export default function AdminPlanDetailPage() {
               <select
                 value={itemStatus}
                 onChange={(event) => setItemStatus(event.target.value as "all" | PlanItemStatus)}
-                className="h-9 rounded-md border bg-background px-3 text-sm"
+                className="azure-field h-10"
               >
                 <option value="all">全部状态</option>
                 <option value="pending">pending</option>

@@ -9,7 +9,7 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--app-font-sans);
   --font-mono: var(--app-font-mono);
-  --font-heading: var(--app-font-sans);
+  --font-heading: var(--app-font-heading);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -39,98 +39,151 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
-  --radius-sm: calc(var(--radius) * 0.6);
-  --radius-md: calc(var(--radius) * 0.8);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.4);
-  --radius-2xl: calc(var(--radius) * 1.8);
-  --radius-3xl: calc(var(--radius) * 2.2);
-  --radius-4xl: calc(var(--radius) * 2.6);
+  --radius-sm: 0.5rem;
+  --radius-md: 0.875rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.5rem;
+  --radius-2xl: 1.75rem;
+  --radius-3xl: 2rem;
+  --radius-4xl: 999px;
 }
 
 :root {
-  --app-font-sans:
-    "SF Pro Text", "SF Pro SC", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei",
-    "Noto Sans CJK SC", "Source Han Sans SC", system-ui, sans-serif;
+  --app-font-sans: "Manrope", "SF Pro Text", "SF Pro SC", "PingFang SC", "Hiragino Sans GB",
+    "Microsoft YaHei", "Noto Sans CJK SC", "Source Han Sans SC", system-ui, sans-serif;
+  --app-font-heading: "Plus Jakarta Sans", "Manrope", "SF Pro Display", "SF Pro Text", "PingFang SC",
+    "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
   --app-font-mono:
     "SF Mono", "JetBrains Mono", "Cascadia Code", "Fira Code", "Menlo", "Monaco",
     "Courier New", monospace;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
-}
-
-.dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --surface: #f7f9fb;
+  --surface-container-low: #f2f4f6;
+  --surface-container: #eef3f8;
+  --surface-container-high: #e5edf5;
+  --surface-container-highest: #d6e5f4;
+  --surface-container-lowest: #ffffff;
+  --foreground: #191c1e;
+  --card: rgba(255, 255, 255, 0.88);
+  --card-foreground: #191c1e;
+  --popover: rgba(255, 255, 255, 0.88);
+  --popover-foreground: #191c1e;
+  --background: var(--surface);
+  --primary: #0096fa;
+  --primary-strong: #0061a4;
+  --primary-foreground: #ffffff;
+  --primary-container: #dff1ff;
+  --primary-container-foreground: #0c3a67;
+  --secondary: #5879a1;
+  --secondary-foreground: #ffffff;
+  --secondary-container: #dbe6f4;
+  --secondary-container-foreground: #27496f;
+  --tertiary: #e27400;
+  --tertiary-foreground: #ffffff;
+  --tertiary-container: #ffe8d3;
+  --tertiary-container-foreground: #7b4300;
+  --muted: var(--surface-container-low);
+  --muted-foreground: #66717d;
+  --accent: #edf5fb;
+  --accent-foreground: #214b72;
+  --destructive: #c83c2d;
+  --destructive-foreground: #ffffff;
+  --border: color-mix(in srgb, var(--secondary) 16%, transparent);
+  --border-strong: color-mix(in srgb, var(--secondary) 28%, transparent);
+  --input: var(--surface-container-low);
+  --ring: color-mix(in srgb, var(--primary) 34%, white);
+  --chart-1: var(--primary);
+  --chart-2: var(--secondary);
+  --chart-3: var(--tertiary);
+  --chart-4: #83b5de;
+  --chart-5: #aab9c8;
+  --radius: 1rem;
+  --ghost-border: color-mix(in srgb, var(--secondary) 15%, transparent);
+  --ghost-border-strong: color-mix(in srgb, var(--primary) 30%, transparent);
+  --surface-shadow: 0 32px 80px -42px rgba(25, 28, 30, 0.22);
+  --surface-shadow-lg: 0 36px 120px -54px rgba(25, 28, 30, 0.28);
+  --glass-surface: rgba(255, 255, 255, 0.72);
+  --sidebar: rgba(242, 244, 246, 0.88);
+  --sidebar-foreground: #191c1e;
+  --sidebar-primary: #0096fa;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: rgba(255, 255, 255, 0.72);
+  --sidebar-accent-foreground: #214b72;
+  --sidebar-border: color-mix(in srgb, var(--secondary) 12%, transparent);
+  --sidebar-ring: color-mix(in srgb, var(--primary) 34%, white);
 }
 
 @layer base {
   * {
     @apply border-border outline-ring/50;
   }
-  body {
-    @apply bg-background text-foreground;
-  }
   html {
     @apply font-sans;
+    background: var(--surface);
+  }
+  body {
+    @apply bg-background text-foreground;
+    background-image:
+      radial-gradient(circle at top, rgba(0, 150, 250, 0.09), transparent 34%),
+      radial-gradient(circle at 85% 12%, rgba(226, 116, 0, 0.08), transparent 28%);
+  }
+  ::selection {
+    background: color-mix(in srgb, var(--primary) 18%, white);
+  }
+  input::placeholder,
+  textarea::placeholder {
+    color: color-mix(in srgb, var(--foreground) 44%, white);
+  }
+  textarea,
+  select {
+    font: inherit;
+  }
+}
+
+@layer components {
+  .azure-shell-bg {
+    background-image:
+      radial-gradient(circle at top left, rgba(0, 150, 250, 0.12), transparent 34%),
+      radial-gradient(circle at 82% 10%, rgba(226, 116, 0, 0.08), transparent 24%);
+  }
+
+  .azure-panel {
+    background: color-mix(in srgb, var(--surface-container-lowest) 88%, transparent);
+    border: 1px solid var(--ghost-border);
+    border-radius: 1.5rem;
+    box-shadow: var(--surface-shadow);
+    backdrop-filter: blur(18px);
+  }
+
+  .azure-panel-soft {
+    background: color-mix(in srgb, var(--surface-container-low) 78%, white);
+    border: 1px solid color-mix(in srgb, var(--secondary) 10%, transparent);
+    border-radius: 1.5rem;
+  }
+
+  .azure-glass {
+    background: var(--glass-surface);
+    border: 1px solid color-mix(in srgb, white 72%, transparent);
+    backdrop-filter: blur(24px);
+    box-shadow: var(--surface-shadow);
+  }
+
+  .azure-field {
+    min-height: 2.5rem;
+    width: 100%;
+    border-radius: 1rem;
+    border: 1px solid color-mix(in srgb, var(--secondary) 14%, transparent);
+    background: color-mix(in srgb, var(--surface-container-low) 88%, white);
+    padding: 0.625rem 0.875rem;
+    font-size: 0.875rem;
+    line-height: 1.4;
+    color: var(--foreground);
+    transition: background-color 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+  }
+
+  .azure-field:focus {
+    outline: none;
+    background: var(--surface-container-lowest);
+    border-color: var(--ghost-border-strong);
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--primary) 10%, transparent);
   }
 }

@@ -76,7 +76,11 @@ function CoverThumb({
       <img
         src={coverUrl}
         alt={`${title} 封面`}
-        className={cn(sizeClass, "rounded-xl border object-cover shadow-sm", className)}
+        className={cn(
+          sizeClass,
+          "rounded-[1.25rem] border border-white/70 object-cover shadow-[0_20px_45px_-26px_rgba(25,28,30,0.32)]",
+          className,
+        )}
       />
     );
   }
@@ -85,7 +89,7 @@ function CoverThumb({
     <div
       className={cn(
         sizeClass,
-        "flex items-center justify-center rounded-xl border bg-muted/50 text-muted-foreground shadow-sm",
+        "flex items-center justify-center rounded-[1.25rem] border border-white/70 bg-[color:var(--surface-container-low)] text-muted-foreground shadow-[0_16px_36px_-28px_rgba(25,28,30,0.28)]",
         className,
       )}
     >
@@ -132,12 +136,12 @@ function PlaybackProgress(props: {
         className="w-full"
       >
         <SliderControl>
-          <SliderTrack className={cn("h-2.5 bg-muted/90", props.compact && "h-2")}>
+          <SliderTrack className={cn("h-1 bg-[color:var(--surface-container-highest)]", props.compact && "h-1")}>
             <div
               className="absolute inset-y-0 left-0 rounded-full bg-foreground/20"
               style={{ width: `${bufferedPercent}%` }}
             />
-            <SliderIndicator className="bg-foreground" />
+            <SliderIndicator />
           </SliderTrack>
           <SliderThumb />
         </SliderControl>
@@ -162,8 +166,10 @@ function QueueListItem(props: {
   return (
     <div
       className={cn(
-        "flex items-center gap-3 rounded-2xl border px-3 py-2",
-        props.isActive ? "border-foreground/20 bg-foreground/5" : "bg-background/70",
+        "flex items-center gap-3 rounded-[1.4rem] border border-[color:var(--ghost-border)] px-3.5 py-3",
+        props.isActive
+          ? "bg-[color:color-mix(in_srgb,var(--primary-container)_72%,white)] shadow-[0_22px_48px_-34px_rgba(0,150,250,0.55)]"
+          : "bg-white/60",
       )}
     >
       <button
@@ -172,7 +178,7 @@ function QueueListItem(props: {
         className="flex min-w-0 flex-1 items-center gap-3 text-left"
         aria-current={props.isActive ? "true" : undefined}
       >
-        <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-muted text-xs text-muted-foreground">
+        <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-[color:var(--surface-container-low)] text-xs text-muted-foreground">
           {props.index + 1}
         </div>
         <div className="min-w-0 space-y-1">
@@ -308,9 +314,9 @@ export function GlobalPlayer({
   const showCompactButtons = isAdminSession;
 
   return (
-    <div className="sticky bottom-0 z-20 border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+    <div className="sticky bottom-0 z-20 px-4 pb-4 md:px-6 md:pb-6">
       <div className={cn("mx-auto w-full px-4 py-3 md:px-6", isAdminSession ? "max-w-6xl" : "max-w-7xl")}>
-        <div className="flex flex-col gap-3">
+        <div className="azure-glass flex flex-col gap-4 rounded-[2rem] px-4 py-4 md:px-5 md:py-5">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex min-w-0 items-center gap-3">
               <CoverThumb coverUrl={mediaQuery.data?.coverUrl} title={detailTrack.title} compact={isAdminSession} />
@@ -379,6 +385,7 @@ export function GlobalPlayer({
                 type="button"
                 variant="outline"
                 size="sm"
+                className="bg-white/72"
                 onClick={() => setShowDetails(true)}
                 aria-label={isAdminSession ? "打开播放详情" : "打开播放详情与队列"}
               >
@@ -467,7 +474,7 @@ export function GlobalPlayer({
               </div>
 
               {!isAdminSession ? (
-                <div className="rounded-2xl border bg-muted/15 p-4">
+                <div className="azure-panel-soft p-4">
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div className="space-y-1">
                       <div className="text-sm font-medium">当前队列</div>
@@ -492,20 +499,20 @@ export function GlobalPlayer({
                   </div>
 
                   {queueSize === 0 ? (
-                    <div className="mt-4 rounded-2xl border border-dashed bg-background/70 px-4 py-6 text-sm text-muted-foreground">
+                    <div className="mt-4 rounded-[1.4rem] border border-dashed border-[color:var(--ghost-border)] bg-white/72 px-4 py-6 text-sm text-muted-foreground">
                       当前还没有可展示的播放队列。
                     </div>
                   ) : (
                     <div className="mt-4 space-y-4">
                       <div className="grid gap-3 md:grid-cols-2">
-                        <div className="rounded-2xl border bg-background/70 p-4">
+                        <div className="rounded-[1.4rem] border border-[color:var(--ghost-border)] bg-white/72 p-4">
                           <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                             当前曲目
                           </div>
                           <div className="mt-2 text-sm font-medium">{detailTrack.title}</div>
                           <div className="text-sm text-muted-foreground">{detailTrack.artist}</div>
                         </div>
-                        <div className="rounded-2xl border bg-background/70 p-4">
+                        <div className="rounded-[1.4rem] border border-[color:var(--ghost-border)] bg-white/72 p-4">
                           <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                             Up Next
                           </div>
@@ -551,7 +558,7 @@ export function GlobalPlayer({
               {isAdminSession ? (
                 <div className="space-y-3">
                   <div className="text-sm font-medium">歌词预览</div>
-                  <div className="max-h-[40vh] overflow-y-auto whitespace-pre-wrap rounded-2xl border bg-muted/15 px-4 py-4 text-sm leading-7 text-foreground/90">
+                  <div className="max-h-[40vh] overflow-y-auto whitespace-pre-wrap rounded-[1.4rem] border border-[color:var(--ghost-border)] bg-white/72 px-4 py-4 text-sm leading-7 text-foreground/90">
                     {mediaQuery.data?.lyricsText?.trim()
                       ? mediaQuery.data.lyricsText
                       : "当前曲目还没有可显示的歌词。"}
@@ -567,7 +574,7 @@ export function GlobalPlayer({
                 />
               )}
 
-              <div className="rounded-2xl border bg-muted/15 p-4">
+              <div className="azure-panel-soft p-4">
                 <div className="mb-3 text-sm font-medium">播放信息</div>
                 <div className="grid gap-2 text-sm text-muted-foreground md:grid-cols-2">
                   <div>当前上下文：{getPlaybackQueueLabel(queueSourceKey)}</div>
@@ -658,7 +665,7 @@ export function GlobalPlayer({
             }}
           />
         ) : isPreparing ? (
-          <div className="mt-3 flex items-center gap-2 rounded-xl border border-dashed bg-muted/20 px-3 py-2 text-sm text-muted-foreground">
+          <div className="mt-1 flex items-center gap-2 rounded-[1.2rem] border border-dashed border-[color:var(--ghost-border)] bg-white/60 px-3 py-2 text-sm text-muted-foreground">
             <LoaderCircleIcon className="size-4 animate-spin" />
             <span>正在准备播放资源…</span>
           </div>

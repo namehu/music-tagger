@@ -44,7 +44,7 @@ export const Checkbox = React.forwardRef<HTMLInputElement, CheckboxProps>(
         <span
           aria-hidden="true"
           className={cn(
-            "flex size-4 items-center justify-center rounded-[5px] border border-border bg-background text-primary transition-all peer-focus-visible:border-ring peer-focus-visible:ring-3 peer-focus-visible:ring-ring/40 peer-checked:border-primary/50 peer-checked:bg-primary/10 peer-disabled:opacity-50",
+            "flex size-4 items-center justify-center rounded-[6px] border border-[color:var(--ghost-border)] bg-[color:var(--surface-container-low)] text-primary transition-all peer-focus-visible:border-[color:var(--ghost-border-strong)] peer-focus-visible:ring-3 peer-focus-visible:ring-ring/40 peer-checked:border-primary/40 peer-checked:bg-primary/12 peer-disabled:opacity-50",
             className,
           )}
         >

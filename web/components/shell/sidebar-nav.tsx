@@ -64,9 +64,14 @@ function SidebarNavContent({
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="flex h-14 items-center px-4 font-semibold">{brand}</div>
-      <Separator />
-      <nav className="flex flex-1 flex-col gap-1 overflow-auto p-2">
+      <div className="px-5 pb-4 pt-6">
+        <div className="font-heading text-lg font-semibold tracking-[-0.03em]">{brand}</div>
+        <div className="mt-1 text-xs uppercase tracking-[0.12em] text-muted-foreground">Azure Stream</div>
+      </div>
+      <div className="px-4">
+        <Separator />
+      </div>
+      <nav className="flex flex-1 flex-col gap-2 overflow-auto px-4 pb-5 pt-4">
         {navItems.map((item) => {
           const active = isActivePath(pathname, item.href);
           const Icon = item.icon;
@@ -82,7 +87,8 @@ function SidebarNavContent({
                   variant: active ? "secondary" : "ghost",
                   size: "sm",
                 }),
-                "w-full justify-start gap-2"
+                "h-11 w-full justify-start gap-3 px-4 text-sm",
+                active && "shadow-[0_18px_40px_-28px_rgba(0,150,250,0.55)]"
               )}
             >
               <Icon className="size-4" />
@@ -109,7 +115,7 @@ export function ShellSidebarNav({
   return (
     <aside
       className={cn(
-        "hidden md:fixed md:inset-y-0 md:left-0 md:z-40 md:flex md:w-64 md:flex-col md:border-r md:bg-background",
+        "hidden md:fixed md:inset-y-3 md:left-3 md:z-40 md:flex md:w-[15.5rem] md:flex-col md:overflow-hidden md:rounded-[2rem] md:border md:border-white/70 md:bg-sidebar md:shadow-[var(--surface-shadow)] md:backdrop-blur-xl",
         className
       )}
     >

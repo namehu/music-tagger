@@ -45,9 +45,9 @@ function SignInPageContent() {
   const callbackURL = resolveSignInCallbackPath(nextFromQuery);
 
   return (
-    <main className="flex min-h-dvh items-center justify-center p-4">
+    <main className="azure-shell-bg flex min-h-dvh items-center justify-center p-4">
       <Card className="w-full max-w-md">
-        <CardHeader className="border-b">
+        <CardHeader className="pb-1">
           <CardTitle>登录</CardTitle>
           <CardDescription>
             {nextFromQuery
@@ -132,9 +132,9 @@ function SignInPageContent() {
 
 function SignInPageFallback() {
   return (
-    <main className="flex min-h-dvh items-center justify-center p-4">
+    <main className="azure-shell-bg flex min-h-dvh items-center justify-center p-4">
       <Card className="w-full max-w-md">
-        <CardHeader className="border-b">
+        <CardHeader className="pb-1">
           <CardTitle>登录</CardTitle>
           <CardDescription>正在准备登录页面…</CardDescription>
         </CardHeader>

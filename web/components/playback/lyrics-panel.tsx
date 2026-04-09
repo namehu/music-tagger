@@ -149,7 +149,7 @@ export function LyricsPanel(props: {
   const normalizedText = props.lyricsText?.trim() ?? "";
   if (normalizedText.length === 0) {
     return (
-      <div className={cn("rounded-2xl border bg-muted/20 px-4 py-6 text-sm text-muted-foreground", props.className)}>
+      <div className={cn("rounded-[1.4rem] border border-[color:var(--ghost-border)] bg-white/72 px-4 py-6 text-sm text-muted-foreground", props.className)}>
         当前曲目还没有可显示的歌词。
       </div>
     );
@@ -159,7 +159,7 @@ export function LyricsPanel(props: {
     return (
       <div className={cn("space-y-3", props.className)}>
         <Badge variant="outline">纯文本歌词</Badge>
-        <div className="max-h-[50vh] overflow-y-auto whitespace-pre-wrap rounded-2xl border bg-muted/20 px-4 py-4 text-sm leading-7 text-foreground/90">
+        <div className="max-h-[50vh] overflow-y-auto whitespace-pre-wrap rounded-[1.4rem] border border-[color:var(--ghost-border)] bg-white/72 px-4 py-4 text-sm leading-7 text-foreground/90">
           {normalizedText}
         </div>
       </div>
@@ -170,10 +170,10 @@ export function LyricsPanel(props: {
     return (
       <div className={cn("space-y-3", props.className)}>
         <Badge variant="destructive">歌词同步异常</Badge>
-        <div className="rounded-2xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+        <div className="rounded-[1.4rem] border border-destructive/20 bg-destructive/5 px-4 py-3 text-sm text-destructive">
           {syncState.parseError}
         </div>
-        <div className="max-h-[50vh] overflow-y-auto whitespace-pre-wrap rounded-2xl border bg-muted/20 px-4 py-4 text-sm leading-7 text-foreground/90">
+        <div className="max-h-[50vh] overflow-y-auto whitespace-pre-wrap rounded-[1.4rem] border border-[color:var(--ghost-border)] bg-white/72 px-4 py-4 text-sm leading-7 text-foreground/90">
           {normalizedText}
         </div>
       </div>
@@ -201,7 +201,7 @@ export function LyricsPanel(props: {
           {isEnhanced ? "支持逐字高亮与点击跳播" : "支持逐行高亮与自动滚动"}
         </span>
       </div>
-      <div className="h-[50vh] overflow-hidden rounded-2xl border bg-muted/15">
+      <div className="h-[50vh] overflow-hidden rounded-[1.5rem] border border-[color:var(--ghost-border)] bg-white/70">
         <Virtuoso
           ref={virtuosoRef}
           data={lyricsData.lines}
@@ -213,8 +213,8 @@ export function LyricsPanel(props: {
             return (
               <div
                 className={cn(
-                  "w-full px-4 py-2 text-center transition-colors",
-                  isActiveLine && "bg-accent/40",
+                  "w-full px-4 py-3 text-center transition-colors",
+                  isActiveLine && "bg-[color:color-mix(in_srgb,var(--accent)_72%,white)]",
                 )}
               >
                 {isEnhanced && line.words && line.words.length > 0 ? (

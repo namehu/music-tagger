@@ -160,7 +160,7 @@ export function LibraryBrowser({ mode }: { mode: LibraryBrowserMode }) {
       <div className="grid gap-4 md:grid-cols-3">
         {statCards.map((card) => (
           <Card key={card.title}>
-            <CardHeader className="border-b">
+            <CardHeader className="pb-1">
               <CardTitle>{card.title}</CardTitle>
               <CardDescription>当前已索引的 {card.title} 数量</CardDescription>
             </CardHeader>
@@ -172,7 +172,7 @@ export function LibraryBrowser({ mode }: { mode: LibraryBrowserMode }) {
       </div>
 
       <Card>
-        <CardHeader className="border-b">
+        <CardHeader className="pb-1">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <CardTitle>曲目列表</CardTitle>
@@ -246,9 +246,9 @@ export function LibraryBrowser({ mode }: { mode: LibraryBrowserMode }) {
             </div>
           ) : null}
 
-          <div className="overflow-hidden rounded-2xl border bg-card/60 shadow-sm">
+          <div className="overflow-hidden rounded-[1.5rem] border border-[color:var(--ghost-border)] bg-white/64 shadow-[var(--surface-shadow)]">
             <Table>
-              <TableHeader className="bg-muted/[0.45]">
+              <TableHeader className="bg-[color:color-mix(in_srgb,var(--surface-container-low)_86%,white)]">
                 <TableRow>
                   <TableHead>播放</TableHead>
                   {isAdminMode ? <TableHead>编辑</TableHead> : null}
@@ -296,8 +296,8 @@ export function LibraryBrowser({ mode }: { mode: LibraryBrowserMode }) {
                     <TableRow
                       key={track.id}
                       className={cn(
-                        "border-b border-border/70 odd:bg-muted/[0.04] hover:bg-accent/40",
-                        isActiveTrack && "bg-muted/30",
+                        "odd:bg-white/25",
+                        isActiveTrack && "bg-[color:color-mix(in_srgb,var(--primary-container)_78%,white)]",
                       )}
                     >
                       <TableCell className="w-16">

@@ -76,7 +76,7 @@ function TrackEditStatusPanel(props: {
         : null;
 
   return (
-    <div className="rounded-2xl border bg-muted/20 p-4">
+    <div className="rounded-[1.5rem] border border-[color:var(--ghost-border)] bg-white/68 p-4">
       <div className="flex items-start justify-between gap-3">
         <div className="space-y-1">
           <div className="flex items-center gap-2">
@@ -280,18 +280,18 @@ export function TrackEditSheet(props: {
 
         <div className="space-y-6 px-5 pb-6 pt-2">
           {trackQuery.isLoading ? (
-            <div className="rounded-2xl border bg-muted/20 p-4 text-sm text-muted-foreground">正在加载曲目编辑数据…</div>
+            <div className="rounded-[1.5rem] border border-[color:var(--ghost-border)] bg-white/68 p-4 text-sm text-muted-foreground">正在加载曲目编辑数据…</div>
           ) : null}
 
           {track ? (
             <>
-              <div className="rounded-2xl border bg-muted/20 p-4 text-sm">
+              <div className="rounded-[1.5rem] border border-[color:var(--ghost-border)] bg-white/68 p-4 text-sm">
                 <div className="font-medium">{track.display.title}</div>
                 <div className="mt-1 text-muted-foreground">{track.display.artist}</div>
                 <div className="mt-2 truncate font-mono text-xs text-muted-foreground">{track.path}</div>
               </div>
 
-              <section className="space-y-4 rounded-2xl border p-4">
+              <section className="space-y-4 rounded-[1.5rem] border border-[color:var(--ghost-border)] bg-white/68 p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <h3 className="font-medium">元数据</h3>
@@ -425,7 +425,7 @@ export function TrackEditSheet(props: {
                 </SheetFooter>
               </section>
 
-              <section className="space-y-4 rounded-2xl border p-4">
+              <section className="space-y-4 rounded-[1.5rem] border border-[color:var(--ghost-border)] bg-white/68 p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <h3 className="font-medium">歌词</h3>
@@ -457,7 +457,7 @@ export function TrackEditSheet(props: {
                     id="track-lyrics-format"
                     value={lyricsFormat}
                     onChange={(event) => setLyricsFormat(event.target.value as TrackLyricsFormat)}
-                    className="h-9 w-full rounded-xl border bg-transparent px-3 text-sm outline-none"
+                    className="azure-field h-10"
                   >
                     {TRACK_LYRICS_FORMATS.map((format) => (
                       <option key={format} value={format}>
@@ -472,7 +472,7 @@ export function TrackEditSheet(props: {
                     id="track-lyrics"
                     value={lyricsText}
                     onChange={(event) => setLyricsText(event.target.value)}
-                    className="min-h-48 w-full rounded-xl border bg-transparent px-3 py-2 text-sm outline-none"
+                    className="azure-field min-h-48"
                     placeholder="这里填写要保存到数据库并异步写回文件的歌词文本；LRC / 增强 LRC 也可以直接贴原文。"
                   />
                 </div>
@@ -507,7 +507,7 @@ export function TrackEditSheet(props: {
                 </SheetFooter>
               </section>
 
-              <section className="space-y-4 rounded-2xl border p-4">
+              <section className="space-y-4 rounded-[1.5rem] border border-[color:var(--ghost-border)] bg-white/68 p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <h3 className="font-medium">封面</h3>
@@ -534,7 +534,7 @@ export function TrackEditSheet(props: {
                   />
                 ) : null}
                 {cover?.assetUrl ? (
-                  <div className="overflow-hidden rounded-2xl border">
+                  <div className="overflow-hidden rounded-[1.5rem] border border-[color:var(--ghost-border)]">
                     <Image
                       src={cover.assetUrl}
                       alt={`${track.display.title} 封面`}
@@ -545,7 +545,7 @@ export function TrackEditSheet(props: {
                     />
                   </div>
                 ) : (
-                  <div className="rounded-2xl border border-dashed px-4 py-10 text-center text-sm text-muted-foreground">
+                  <div className="rounded-[1.5rem] border border-dashed border-[color:var(--ghost-border)] px-4 py-10 text-center text-sm text-muted-foreground">
                     当前没有封面
                   </div>
                 )}
@@ -576,7 +576,7 @@ export function TrackEditSheet(props: {
 
               <Separator />
 
-              <div className="rounded-2xl border bg-muted/20 p-4">
+              <div className="rounded-[1.5rem] border border-[color:var(--ghost-border)] bg-white/68 p-4">
                 <div className="text-sm font-medium">扫描观察</div>
                 <div className="mt-2 grid gap-2 text-xs text-muted-foreground sm:grid-cols-2">
                   <div>歌词：{track.lyricsObservation.kind ? "已扫描到" : "未扫描到"}</div>

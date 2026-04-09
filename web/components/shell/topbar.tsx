@@ -17,7 +17,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 
 import type { ShellKind } from "./shell-config";
@@ -87,16 +86,25 @@ export function Topbar({
   const canEnterAdmin = viewer.role === "admin";
 
   return (
-    <header className={cn("sticky top-0 z-30 bg-background/80 backdrop-blur", className)}>
-      <div className="flex h-14 items-center gap-3 px-4 md:px-6">
+    <header className={cn("sticky top-0 z-30 px-4 pt-4 md:px-6 md:pt-6", className)}>
+      <div className="azure-glass flex h-16 items-center gap-3 rounded-[1.75rem] px-4 md:px-5">
         <SidebarNavSheet shellKind={shellKind} brand={SHELL_BRAND[shellKind]} />
-        <h1 className="text-base font-semibold">{title}</h1>
+        <div className="min-w-0">
+          <div className="font-heading text-lg font-semibold tracking-[-0.03em]">{title}</div>
+          <div className="hidden text-xs uppercase tracking-[0.12em] text-muted-foreground md:block">
+            {SHELL_SECTION_LABEL[shellKind]}
+          </div>
+        </div>
         <div className="ml-auto flex items-center gap-3">
-          <div className="hidden text-sm text-muted-foreground md:block">{SHELL_SECTION_LABEL[shellKind]}</div>
           <DropdownMenu>
             <DropdownMenuTrigger
               render={
-                <Button type="button" variant="ghost" size="sm" className="h-10 gap-2 px-2" />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-11 gap-2 px-2.5"
+                />
               }
             >
               <Avatar size="sm">
@@ -139,7 +147,6 @@ export function Topbar({
           </DropdownMenu>
         </div>
       </div>
-      <Separator />
     </header>
   );
 }

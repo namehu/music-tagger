@@ -102,7 +102,7 @@ export default function UserDashboardPage() {
       <div className="grid gap-4 md:grid-cols-3">
         {stats.map((item) => (
           <Card key={item.title}>
-            <CardHeader className="border-b">
+            <CardHeader className="pb-1">
               <CardTitle>{item.title}</CardTitle>
               <CardDescription>当前对你可见的库内数量</CardDescription>
             </CardHeader>
@@ -124,7 +124,7 @@ export default function UserDashboardPage() {
         />
 
         <Card>
-          <CardHeader className="border-b">
+          <CardHeader className="pb-1">
             <CardTitle>快捷入口</CardTitle>
             <CardDescription>常用入口保留在这里，首页主视觉优先给最近使用。</CardDescription>
           </CardHeader>
@@ -140,7 +140,7 @@ export default function UserDashboardPage() {
                     "flex h-auto w-full items-start justify-start gap-3 px-4 py-4 text-left",
                   )}
                 >
-                  <div className="rounded-lg border bg-muted/50 p-2 text-muted-foreground">
+                  <div className="rounded-[1rem] bg-[color:var(--surface-container-low)] p-2.5 text-muted-foreground">
                     <Icon className="size-4" />
                   </div>
                   <div className="space-y-1">
@@ -156,7 +156,7 @@ export default function UserDashboardPage() {
 
       <div className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
         <Card>
-          <CardHeader className="border-b">
+          <CardHeader className="pb-1">
             <div className="space-y-1">
               <CardTitle>最近播放</CardTitle>
               <CardDescription>这里只展示最近点播过的曲目，不区分缓存命中还是未命中。</CardDescription>
@@ -164,7 +164,7 @@ export default function UserDashboardPage() {
           </CardHeader>
           <CardContent className="space-y-3 pt-4">
             {dashboardQuery.isLoading ? (
-              <div className="rounded-xl border border-dashed bg-muted/20 px-4 py-8 text-center text-sm text-muted-foreground">
+              <div className="rounded-[1.4rem] border border-dashed border-[color:var(--ghost-border)] bg-[color:var(--surface-container-low)] px-4 py-8 text-center text-sm text-muted-foreground">
                 正在加载最近播放…
               </div>
             ) : (dashboardQuery.data?.recentPlays.length ?? 0) > 0 ? (
@@ -182,8 +182,8 @@ export default function UserDashboardPage() {
                   <div
                     key={track.trackId}
                     className={cn(
-                      "flex items-center justify-between gap-3 rounded-xl border px-4 py-3",
-                      isActiveTrack && "bg-muted/30",
+                      "flex items-center justify-between gap-3 rounded-[1.4rem] border border-[color:var(--ghost-border)] bg-white/68 px-4 py-3",
+                      isActiveTrack && "bg-[color:color-mix(in_srgb,var(--primary-container)_78%,white)]",
                     )}
                   >
                     <div className="min-w-0 space-y-1">
@@ -236,7 +236,7 @@ export default function UserDashboardPage() {
                 );
               })
             ) : (
-              <div className="rounded-xl border border-dashed bg-muted/20 px-4 py-8 text-center text-sm text-muted-foreground">
+              <div className="rounded-[1.4rem] border border-dashed border-[color:var(--ghost-border)] bg-[color:var(--surface-container-low)] px-4 py-8 text-center text-sm text-muted-foreground">
                 还没有最近播放记录。先去音乐库点播几首曲目吧。
               </div>
             )}
@@ -245,7 +245,7 @@ export default function UserDashboardPage() {
 
         <div className="flex flex-col gap-6">
           <Card>
-            <CardHeader className="border-b">
+            <CardHeader className="pb-1">
               <div className="space-y-1">
                 <CardTitle>最近更新的歌单</CardTitle>
                 <CardDescription>这里按歌单更新时间排序，表示最近维护过的歌单。</CardDescription>
@@ -253,7 +253,7 @@ export default function UserDashboardPage() {
             </CardHeader>
             <CardContent className="space-y-3 pt-4">
               {dashboardQuery.isLoading ? (
-                <div className="rounded-xl border border-dashed bg-muted/20 px-4 py-8 text-center text-sm text-muted-foreground">
+                <div className="rounded-[1.4rem] border border-dashed border-[color:var(--ghost-border)] bg-[color:var(--surface-container-low)] px-4 py-8 text-center text-sm text-muted-foreground">
                   正在加载歌单…
                 </div>
               ) : (dashboardQuery.data?.recentPlaylists.length ?? 0) > 0 ? (
@@ -263,11 +263,11 @@ export default function UserDashboardPage() {
                     href={`/playlists/${playlist.id}`}
                     className={cn(
                       buttonVariants({ variant: "ghost" }),
-                      "flex h-auto w-full items-center justify-between rounded-xl border px-4 py-3",
+                      "flex h-auto w-full items-center justify-between rounded-[1.4rem] border border-[color:var(--ghost-border)] bg-white/68 px-4 py-3",
                     )}
                   >
                     <div className="flex items-center gap-3">
-                      <div className="rounded-lg border bg-muted/50 p-2 text-muted-foreground">
+                      <div className="rounded-[1rem] bg-[color:var(--surface-container-low)] p-2.5 text-muted-foreground">
                         <Music4Icon className="size-4" />
                       </div>
                       <div className="space-y-1 text-left">
@@ -282,7 +282,7 @@ export default function UserDashboardPage() {
                   </Link>
                 ))
               ) : (
-                <div className="rounded-xl border border-dashed bg-muted/20 px-4 py-8 text-center text-sm text-muted-foreground">
+                <div className="rounded-[1.4rem] border border-dashed border-[color:var(--ghost-border)] bg-[color:var(--surface-container-low)] px-4 py-8 text-center text-sm text-muted-foreground">
                   你还没有歌单。先创建一个，再从详情页往里加歌吧。
                 </div>
               )}
@@ -290,7 +290,7 @@ export default function UserDashboardPage() {
           </Card>
 
           <Card>
-            <CardHeader className="border-b">
+            <CardHeader className="pb-1">
               <div className="space-y-1">
                 <CardTitle>最近更新的曲目</CardTitle>
                 <CardDescription>这里反映曲库最近写入或最近变更的内容，完整浏览仍然去音乐库。</CardDescription>
@@ -298,13 +298,13 @@ export default function UserDashboardPage() {
             </CardHeader>
             <CardContent className="space-y-3 pt-4">
               {dashboardQuery.isLoading ? (
-                <div className="rounded-xl border border-dashed bg-muted/20 px-4 py-8 text-center text-sm text-muted-foreground">
+                <div className="rounded-[1.4rem] border border-dashed border-[color:var(--ghost-border)] bg-[color:var(--surface-container-low)] px-4 py-8 text-center text-sm text-muted-foreground">
                   正在加载最近更新曲目…
                 </div>
               ) : (dashboardQuery.data?.recentTracks.length ?? 0) > 0 ? (
                 <>
                   {(dashboardQuery.data?.recentTracks ?? []).map((track) => (
-                    <div key={track.id} className="rounded-xl border px-4 py-3">
+                    <div key={track.id} className="rounded-[1.4rem] border border-[color:var(--ghost-border)] bg-white/68 px-4 py-3">
                       <div className="font-medium">{track.title}</div>
                       <div className="text-sm text-muted-foreground">
                         {[track.artist, track.album ?? "-"].join(" · ")}
@@ -318,7 +318,7 @@ export default function UserDashboardPage() {
                   </Link>
                 </>
               ) : (
-                <div className="rounded-xl border border-dashed bg-muted/20 px-4 py-8 text-center text-sm text-muted-foreground">
+                <div className="rounded-[1.4rem] border border-dashed border-[color:var(--ghost-border)] bg-[color:var(--surface-container-low)] px-4 py-8 text-center text-sm text-muted-foreground">
                   还没有可展示的曲库更新，先触发一次扫描吧。
                 </div>
               )}

@@ -20,12 +20,12 @@ export function AppShell({
   className?: string;
 }) {
   return (
-    <div className="min-h-full">
+    <div className="azure-shell-bg min-h-full">
       <ShellSidebarNav shellKind={shellKind} brand={shellKind === "admin" ? "Music Tagger Admin" : "Music Tagger"} />
 
       <div className="flex min-h-full flex-col md:pl-64">
         <Topbar shellKind={shellKind} viewer={viewer} />
-        <main className={cn("flex-1 p-4 md:p-6", className)}>{children}</main>
+        <main className={cn("flex-1 px-4 pb-28 pt-5 md:px-6 md:pb-32 md:pt-7", className)}>{children}</main>
         <GlobalPlayer sessionKind={shellKind === "admin" ? "admin" : "user"} />
       </div>
     </div>

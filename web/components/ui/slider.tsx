@@ -38,7 +38,7 @@ function SliderTrack({
   return (
     <SliderPrimitive.Track
       data-slot="slider-track"
-      className={cn("relative h-2 w-full overflow-hidden rounded-full bg-muted", className)}
+      className={cn("relative h-1 w-full overflow-hidden rounded-full bg-[color:var(--surface-container-high)]", className)}
       {...props}
     />
   );
@@ -51,7 +51,7 @@ function SliderIndicator({
   return (
     <SliderPrimitive.Indicator
       data-slot="slider-indicator"
-      className={cn("absolute inset-y-0 left-0 rounded-full bg-foreground", className)}
+      className={cn("absolute inset-y-0 left-0 rounded-full bg-[linear-gradient(135deg,var(--primary-strong),var(--primary))]", className)}
       {...props}
     />
   );
@@ -65,7 +65,7 @@ function SliderThumb({
     <SliderPrimitive.Thumb
       data-slot="slider-thumb"
       className={cn(
-        "block size-4 rounded-full border border-background bg-foreground shadow-sm outline-none transition focus-visible:ring-4 focus-visible:ring-ring/40 active:scale-95",
+        "block size-4 rounded-full border-2 border-white bg-primary shadow-[0_8px_24px_-10px_rgba(0,150,250,0.65)] opacity-0 outline-none transition group-hover/slider:opacity-100 group-focus-within/slider:opacity-100 focus-visible:opacity-100 focus-visible:ring-4 focus-visible:ring-ring/40 active:scale-95",
         className,
       )}
       {...props}

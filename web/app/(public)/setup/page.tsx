@@ -105,9 +105,9 @@ export default function SetupPage() {
         : "/sign-in";
 
     return (
-      <main className="flex min-h-dvh items-center justify-center p-4">
+      <main className="azure-shell-bg flex min-h-dvh items-center justify-center p-4">
         <Card className="w-full max-w-md">
-          <CardHeader className="border-b">
+          <CardHeader className="pb-1">
             <div className="flex items-center justify-between gap-2">
               <CardTitle>{redirectEmail ? "初始化完成" : "入口已关闭"}</CardTitle>
               <Badge variant="secondary">完成</Badge>
@@ -134,9 +134,9 @@ export default function SetupPage() {
   }
 
   return (
-    <main className="flex min-h-dvh items-center justify-center p-4">
+    <main className="azure-shell-bg flex min-h-dvh items-center justify-center p-4">
       <Card className="w-full max-w-md">
-        <CardHeader className="border-b">
+        <CardHeader className="pb-1">
           <div className="flex items-center justify-between gap-2">
             <CardTitle>初始化管理员</CardTitle>
             <Badge variant={statusBadge.variant}>{statusBadge.text}</Badge>
@@ -221,7 +221,7 @@ export default function SetupPage() {
                 {createAdmin.isPending ? "创建中..." : "创建首个管理员"}
               </button>
 
-              <p className="text-xs text-muted-foreground">
+              <p className="rounded-[1.1rem] bg-[color:var(--surface-container-low)] px-3 py-2 text-xs text-muted-foreground">
                 提示：初始化成功后会显示“初始化已完成，入口已关闭”，随后自动跳转到登录页。
               </p>
             </form>
