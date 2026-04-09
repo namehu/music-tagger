@@ -2,55 +2,62 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-  formatPlaybackTime,
-  getPlaybackModeLabel,
-  getPlaybackQueueLabel,
-  getPlaybackRestoreMessage,
+  resolveDisplayedPlaybackTimeSec,
+  resolvePlaybackDurationSec,
 } from "./playback-ui.ts";
 
-test("getPlaybackModeLabel formats all supported modes", () => {
-  assert.equal(getPlaybackModeLabel("ordered"), "顺序");
-  assert.equal(getPlaybackModeLabel("shuffle"), "随机");
-  assert.equal(getPlaybackModeLabel("repeat_one"), "单曲循环");
-});
-
-test("getPlaybackQueueLabel formats known queue sources", () => {
-  assert.equal(getPlaybackQueueLabel("user-library"), "当前队列：音乐库");
-  assert.equal(getPlaybackQueueLabel("admin:library"), "当前队列：管理曲库");
-  assert.equal(getPlaybackQueueLabel("dashboard:recent-plays"), "当前队列：最近播放");
-  assert.equal(getPlaybackQueueLabel("playlist:123"), "当前队列：歌单");
-  assert.equal(getPlaybackQueueLabel(null), "未绑定播放队列");
-});
-
-test("getPlaybackRestoreMessage prefers restore and preparing states", () => {
+test("resolvePlaybackDurationSec prefers browser metadata when it is finite", () => {
   assert.equal(
-    getPlaybackRestoreMessage({
-      hydrationStatus: "resolving",
-      isPreparing: false,
-      isAudioPlaying: false,
-      activePlayback: false,
-      autoPlayOnReady: false,
-      pendingResumeTimeSec: null,
-      resumeTimeSec: 0,
+    resolvePlaybackDurationSec({
+      elementDurationSec: 123.4,
+      mediaDurationSec: 98.7,
     }),
-    "正在恢复上次播放会话，新的播放地址准备好后会停在上次进度。",
-  );
-
-  assert.equal(
-    getPlaybackRestoreMessage({
-      hydrationStatus: "ready",
-      isPreparing: true,
-      isAudioPlaying: false,
-      activePlayback: false,
-      autoPlayOnReady: true,
-      pendingResumeTimeSec: null,
-      resumeTimeSec: 0,
-    }),
-    "正在准备转码播放，完成后会自动开始。",
+    123.4,
   );
 });
 
-test("formatPlaybackTime renders a stable mm:ss string", () => {
-  assert.equal(formatPlaybackTime(0), "00:00");
-  assert.equal(formatPlaybackTime(65.9), "01:05");
+test("resolvePlaybackDurationSec falls back to media duration when browser metadata is unavailable", () => {
+  assert.equal(
+    resolvePlaybackDurationSec({
+      elementDurationSec: Infinity,
+      mediaDurationSec: 245.5,
+    }),
+    245.5,
+  );
+
+  assert.equal(
+    resolvePlaybackDurationSec({
+      elementDurationSec: Number.NaN,
+      mediaDurationSec: 245.5,
+    }),
+    245.5,
+  );
+
+  assert.equal(
+    resolvePlaybackDurationSec({
+      elementDurationSec: 0,
+      mediaDurationSec: 245.5,
+    }),
+    245.5,
+  );
+});
+
+test("resolveDisplayedPlaybackTimeSec keeps current time visible when total duration is unknown", () => {
+  assert.equal(
+    resolveDisplayedPlaybackTimeSec({
+      currentTimeSec: 37.25,
+      durationSec: 0,
+    }),
+    37.25,
+  );
+});
+
+test("resolveDisplayedPlaybackTimeSec clamps current time when duration is known", () => {
+  assert.equal(
+    resolveDisplayedPlaybackTimeSec({
+      currentTimeSec: 85,
+      durationSec: 60,
+    }),
+    60,
+  );
 });

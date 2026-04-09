@@ -1,5 +1,13 @@
 import type { PlaybackHydrationStatus, PlaybackMode } from "./playback-state";
 
+function normalizePlaybackSeconds(value: number | null | undefined) {
+  if (typeof value !== "number" || !Number.isFinite(value) || value < 0) {
+    return 0;
+  }
+
+  return value;
+}
+
 export function formatPlaybackTime(value: number) {
   if (!Number.isFinite(value) || value < 0) {
     return "00:00";
@@ -44,6 +52,32 @@ export function getPlaybackQueueLabel(queueSourceKey: string | null) {
   }
 
   return "当前队列：其他上下文";
+}
+
+export function resolvePlaybackDurationSec(input: {
+  elementDurationSec: number | null | undefined;
+  mediaDurationSec: number | null | undefined;
+}) {
+  const elementDurationSec = normalizePlaybackSeconds(input.elementDurationSec);
+  if (elementDurationSec > 0) {
+    return elementDurationSec;
+  }
+
+  return normalizePlaybackSeconds(input.mediaDurationSec);
+}
+
+export function resolveDisplayedPlaybackTimeSec(input: {
+  currentTimeSec: number | null | undefined;
+  durationSec: number | null | undefined;
+}) {
+  const currentTimeSec = normalizePlaybackSeconds(input.currentTimeSec);
+  const durationSec = normalizePlaybackSeconds(input.durationSec);
+
+  if (durationSec > 0) {
+    return Math.min(durationSec, currentTimeSec);
+  }
+
+  return currentTimeSec;
 }
 
 export function getPlaybackRestoreMessage(input: {

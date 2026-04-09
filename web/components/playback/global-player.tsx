@@ -39,6 +39,8 @@ import {
   getPlaybackModeLabel,
   getPlaybackQueueLabel,
   getPlaybackRestoreMessage,
+  resolveDisplayedPlaybackTimeSec,
+  resolvePlaybackDurationSec,
 } from "@/lib/playback-ui";
 import type { TrackLyricsFormat } from "@/lib/lyrics";
 import { cn } from "@/lib/utils";
@@ -110,7 +112,12 @@ function PlaybackProgress(props: {
   onCommitSeek: (nextTimeSec: number) => void;
 }) {
   const maxValue = props.durationSec > 0 ? props.durationSec : 0;
-  const safeValue = Math.min(maxValue, Math.max(0, props.currentTimeSec));
+  const displayedCurrentTimeSec = resolveDisplayedPlaybackTimeSec({
+    currentTimeSec: props.currentTimeSec,
+    durationSec: props.durationSec,
+  });
+  const safeValue =
+    maxValue > 0 ? Math.min(maxValue, Math.max(0, displayedCurrentTimeSec)) : 0;
   const bufferedPercent =
     maxValue > 0 ? Math.min(100, Math.max(0, (props.bufferedUntilSec / maxValue) * 100)) : 0;
 
@@ -147,7 +154,7 @@ function PlaybackProgress(props: {
         </SliderControl>
       </Slider>
       <div className="flex items-center justify-between text-[11px] text-muted-foreground">
-        <span>{formatPlaybackTime(safeValue)}</span>
+        <span>{formatPlaybackTime(displayedCurrentTimeSec)}</span>
         <span>{maxValue > 0 ? formatPlaybackTime(maxValue) : "--:--"}</span>
       </div>
     </div>
@@ -276,6 +283,10 @@ export function GlobalPlayer({
     },
     [bindAudioElement, sessionKind],
   );
+  const resolvedDurationSec = resolvePlaybackDurationSec({
+    elementDurationSec: durationSec,
+    mediaDurationSec: mediaQuery.data?.durationSec,
+  });
 
   const restoreMessage = getPlaybackRestoreMessage({
     hydrationStatus,
@@ -425,7 +436,7 @@ export function GlobalPlayer({
           <div className="grid gap-3 lg:grid-cols-[1fr_auto] lg:items-center">
             <PlaybackProgress
               currentTimeSec={displayTimeSec}
-              durationSec={durationSec}
+              durationSec={resolvedDurationSec}
               bufferedUntilSec={bufferedUntilSec}
               compact={isAdminSession}
               disabled={seekDisabled}

@@ -117,6 +117,7 @@ export const playbackRouter = router({
       where: { id: input.trackId },
       select: {
         id: true,
+        durationMs: true,
         filename: true,
         title: true,
         artist: true,
@@ -181,6 +182,7 @@ export const playbackRouter = router({
 
     return {
       trackId: track.id,
+      durationSec: track.durationMs / 1000,
       display: {
         title: display.title,
         artist: display.artist,
