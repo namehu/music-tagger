@@ -1318,6 +1318,7 @@ export type JobCreateManyArgs<ExtArgs extends runtime.Types.Extensions.InternalA
    * The data used to create many Jobs.
    */
   data: Prisma.JobCreateManyInput | Prisma.JobCreateManyInput[]
+  skipDuplicates?: boolean
 }
 
 /**
@@ -1336,6 +1337,7 @@ export type JobCreateManyAndReturnArgs<ExtArgs extends runtime.Types.Extensions.
    * The data used to create many Jobs.
    */
   data: Prisma.JobCreateManyInput | Prisma.JobCreateManyInput[]
+  skipDuplicates?: boolean
 }
 
 /**

@@ -988,6 +988,7 @@ export type PlaybackResolveEventCreateManyArgs<ExtArgs extends runtime.Types.Ext
    * The data used to create many PlaybackResolveEvents.
    */
   data: Prisma.PlaybackResolveEventCreateManyInput | Prisma.PlaybackResolveEventCreateManyInput[]
+  skipDuplicates?: boolean
 }
 
 /**
@@ -1006,6 +1007,7 @@ export type PlaybackResolveEventCreateManyAndReturnArgs<ExtArgs extends runtime.
    * The data used to create many PlaybackResolveEvents.
    */
   data: Prisma.PlaybackResolveEventCreateManyInput | Prisma.PlaybackResolveEventCreateManyInput[]
+  skipDuplicates?: boolean
 }
 
 /**

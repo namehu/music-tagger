@@ -2,7 +2,7 @@
 doc_type: baseline
 product: music-tagger
 module: current-capability-matrix
-version: 2026-04-08
+version: 2026-04-09
 source_refs:
   - web/app/(app)/admin/page.tsx
   - web/app/(app)/admin/jobs/page.tsx
@@ -31,7 +31,7 @@ source_refs:
 | 模块 | 状态 | 当前入口 | 主要接口/模型 | 备注 |
 | --- | --- | --- | --- | --- |
 | Setup / Auth | implemented | `/setup` `/sign-in` | `setup` router, better-auth models | 首个管理员初始化已落地 |
-| Jobs Queue | implemented | `/admin` `/admin/jobs` | `Job`, `jobs` router, `worker.py` | 已支持 scan 与转码任务 |
+| Jobs Queue | implemented | `/admin` `/admin/jobs` | `Job`, `jobs` router, `worker.py` | 已支持 scan 与转码任务，worker 通过 PostgreSQL jobs 队列表领取任务 |
 | User Dashboard | implemented | `/dashboard` | `library.dashboard`, `playback` components, `PlaybackResolveEvent` | 已支持继续收听、最近播放、最近更新歌单和最近更新曲目 |
 | Library Browse | implemented | `/library` `/admin/library` | `tracks.list`, `library.stats`, `Track` | 用户区与管理区共享浏览层，但分别驱动 `user/admin` 播放会话 |
 | Track Editing Sync | implemented | `/admin/library` | `TrackMetadataEdit` / `TrackLyricsEdit` / `TrackCoverEdit`, `trackEdits` router, `track_edit_sync` job | 元数据、歌词、封面先写数据库，再异步回写源文件；封面先落为音频同目录 sidecar，再异步嵌回；歌词编辑已支持 `plain / lrc / elrc`，没有 edit 真值时会回退显示扫描到的已有歌词和封面 |
@@ -50,7 +50,7 @@ source_refs:
 
 - Web 端以 tRPC 为业务控制面
 - `/api/stream/[trackId]` 作为流媒体例外接口
-- worker 通过 SQLite jobs 队列表领取任务
+- worker 通过 PostgreSQL jobs 队列表领取任务
 - 曲库编辑当前以独立 edit 表作为真值层，并由 worker 异步回写文件
 - 已登录用户默认进入用户区
 - 歌单已拥有独立数据模型与页面入口

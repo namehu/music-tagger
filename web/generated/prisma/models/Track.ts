@@ -4067,6 +4067,7 @@ export type TrackCreateManyArgs<ExtArgs extends runtime.Types.Extensions.Interna
    * The data used to create many Tracks.
    */
   data: Prisma.TrackCreateManyInput | Prisma.TrackCreateManyInput[]
+  skipDuplicates?: boolean
 }
 
 /**
@@ -4085,6 +4086,7 @@ export type TrackCreateManyAndReturnArgs<ExtArgs extends runtime.Types.Extension
    * The data used to create many Tracks.
    */
   data: Prisma.TrackCreateManyInput | Prisma.TrackCreateManyInput[]
+  skipDuplicates?: boolean
 }
 
 /**

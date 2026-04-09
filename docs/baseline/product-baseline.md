@@ -2,7 +2,7 @@
 doc_type: baseline
 product: music-tagger
 module: current-system
-version: 2026-04-08
+version: 2026-04-09
 source_refs:
   - README.md
   - docs/architecture.md
@@ -44,7 +44,7 @@ source_refs:
 
 ### 3.2 Jobs 与 Worker
 
-- 后台 job 队列已落在 SQLite `jobs` 表
+- 后台 job 队列已落在 PostgreSQL `jobs` 表
 - Python worker 轮询并原子 claim job
 - 已支持 `scan_full`、`transcode_prepare` 与 `track_edit_sync`
 - 已支持 heartbeat、失败回写、重复转码任务取消、重试和取消接口
@@ -230,18 +230,18 @@ source_refs:
 
 - Next.js 16 App Router
 - tRPC 控制面
-- Prisma 直接操作 SQLite
+- Prisma 直接操作 PostgreSQL
 - 负责用户页面、管理页面、登录、播放 URL 解析与流输出
 
 ### 7.2 Worker
 
 - Python 单 worker 主循环
 - 负责扫描与转码
-- 通过 SQLite 领取和回写 jobs
+- 通过 PostgreSQL 领取和回写 jobs
 
 ### 7.3 存储
 
-- SQLite 是当前唯一业务数据库
+- PostgreSQL 是当前唯一业务数据库
 - `/music` 是源文件与封面 sidecar 的读写根目录
 - `/cache` 是转码缓存目录
 

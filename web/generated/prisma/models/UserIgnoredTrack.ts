@@ -406,6 +406,7 @@ export type UserIgnoredTrackCreateOrConnectWithoutUserInput = {
 
 export type UserIgnoredTrackCreateManyUserInputEnvelope = {
   data: Prisma.UserIgnoredTrackCreateManyUserInput | Prisma.UserIgnoredTrackCreateManyUserInput[]
+  skipDuplicates?: boolean
 }
 
 export type UserIgnoredTrackUpsertWithWhereUniqueWithoutUserInput = {
@@ -453,6 +454,7 @@ export type UserIgnoredTrackCreateOrConnectWithoutTrackInput = {
 
 export type UserIgnoredTrackCreateManyTrackInputEnvelope = {
   data: Prisma.UserIgnoredTrackCreateManyTrackInput | Prisma.UserIgnoredTrackCreateManyTrackInput[]
+  skipDuplicates?: boolean
 }
 
 export type UserIgnoredTrackUpsertWithWhereUniqueWithoutTrackInput = {
@@ -1243,6 +1245,7 @@ export type UserIgnoredTrackCreateManyArgs<ExtArgs extends runtime.Types.Extensi
    * The data used to create many UserIgnoredTracks.
    */
   data: Prisma.UserIgnoredTrackCreateManyInput | Prisma.UserIgnoredTrackCreateManyInput[]
+  skipDuplicates?: boolean
 }
 
 /**
@@ -1261,6 +1264,7 @@ export type UserIgnoredTrackCreateManyAndReturnArgs<ExtArgs extends runtime.Type
    * The data used to create many UserIgnoredTracks.
    */
   data: Prisma.UserIgnoredTrackCreateManyInput | Prisma.UserIgnoredTrackCreateManyInput[]
+  skipDuplicates?: boolean
   /**
    * Choose, which related nodes to fetch as well
    */

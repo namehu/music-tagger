@@ -1,9 +1,10 @@
 import hashlib
 import json
-import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable
+
+from psycopg import Connection, sql
 
 from transcoder import JobCancelled
 
@@ -20,8 +21,8 @@ METADATA_FIELDS = (
 )
 
 
-def _utc_now_sqlite() -> str:
-    return datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+def _utc_now_sqlite() -> datetime:
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
 def _error_json(message: str, error_type: str) -> str:
@@ -41,43 +42,45 @@ def _assert_should_continue(should_continue: Callable[[], bool] | None) -> None:
 
 
 def _set_domain_status(
-    conn: sqlite3.Connection,
+    conn: Connection,
     *,
     table: str,
     track_id: str,
     status: str,
     error_json: str | None = None,
-    started_at: str | None = None,
-    finished_at: str | None = None,
+    started_at: datetime | None = None,
+    finished_at: datetime | None = None,
 ) -> None:
     now = _utc_now_sqlite()
     conn.execute(
-        f"""
-        UPDATE "{table}"
-        SET
-          "syncStatus" = ?,
-          "syncErrorJson" = ?,
-          "syncStartedAt" = COALESCE(?, "syncStartedAt"),
-          "syncFinishedAt" = ?,
-          "updatedAt" = ?
-        WHERE "trackId" = ?
-        """,
+        sql.SQL(
+            """
+            UPDATE {table}
+            SET
+              "syncStatus" = %s,
+              "syncErrorJson" = %s,
+              "syncStartedAt" = COALESCE(%s, "syncStartedAt"),
+              "syncFinishedAt" = %s,
+              "updatedAt" = %s
+            WHERE "trackId" = %s
+            """
+        ).format(table=sql.Identifier(table)),
         (status, error_json, started_at, finished_at, now, track_id),
     )
     conn.commit()
 
 
-def _refresh_track_file_snapshot(conn: sqlite3.Connection, track_id: str, source_path: Path) -> None:
+def _refresh_track_file_snapshot(conn: Connection, track_id: str, source_path: Path) -> None:
     stat = source_path.stat()
     now = _utc_now_sqlite()
     conn.execute(
         """
         UPDATE "tracks"
         SET
-          "fileSize" = ?,
-          "mtimeMs" = ?,
-          "updatedAt" = ?
-        WHERE "id" = ?
+          "fileSize" = %s,
+          "mtimeMs" = %s,
+          "updatedAt" = %s
+        WHERE "id" = %s
         """,
         (int(stat.st_size), int(stat.st_mtime_ns // 1_000_000), now, track_id),
     )
@@ -126,7 +129,7 @@ def _write_tag_values(path: Path, tag_diff: list[dict[str, Any]]) -> None:
     media.save()
 
 
-def _metadata_from_track_row(row: sqlite3.Row) -> dict[str, Any]:
+def _metadata_from_track_row(row: dict[str, Any]) -> dict[str, Any]:
     return {
         "title": row["title"],
         "artist": row["artist"],
@@ -139,7 +142,7 @@ def _metadata_from_track_row(row: sqlite3.Row) -> dict[str, Any]:
     }
 
 
-def _metadata_from_edit_row(row: sqlite3.Row | None) -> dict[str, Any] | None:
+def _metadata_from_edit_row(row: dict[str, Any] | None) -> dict[str, Any] | None:
     if row is None:
         return None
 
@@ -219,7 +222,7 @@ def _write_embedded_lyrics(path: Path, lyrics_text: str | None) -> None:
     raise RuntimeError(f"当前格式暂不支持歌词嵌入: {path.suffix or path.name}")
 
 
-def _write_embedded_cover(path: Path, cover_edit: sqlite3.Row | None) -> None:
+def _write_embedded_cover(path: Path, cover_edit: dict[str, Any] | None) -> None:
     suffix = path.suffix.lower()
     asset_path = cover_edit["assetPath"] if cover_edit is not None else None
     mime_type = cover_edit["mimeType"] if cover_edit is not None else None
@@ -286,7 +289,7 @@ def _write_embedded_cover(path: Path, cover_edit: sqlite3.Row | None) -> None:
     raise RuntimeError(f"当前格式暂不支持封面嵌入: {path.suffix or path.name}")
 
 
-def _load_track(conn: sqlite3.Connection, track_id: str) -> sqlite3.Row:
+def _load_track(conn: Connection, track_id: str) -> dict[str, Any]:
     row = conn.execute(
         """
         SELECT
@@ -301,7 +304,7 @@ def _load_track(conn: sqlite3.Connection, track_id: str) -> sqlite3.Row:
           "year",
           "genre"
         FROM "tracks"
-        WHERE "id" = ?
+        WHERE "id" = %s
         """,
         (track_id,),
     ).fetchone()
@@ -310,7 +313,7 @@ def _load_track(conn: sqlite3.Connection, track_id: str) -> sqlite3.Row:
     return row
 
 
-def _load_metadata_edit(conn: sqlite3.Connection, track_id: str) -> sqlite3.Row | None:
+def _load_metadata_edit(conn: Connection, track_id: str) -> dict[str, Any] | None:
     return conn.execute(
         """
         SELECT
@@ -324,35 +327,35 @@ def _load_metadata_edit(conn: sqlite3.Connection, track_id: str) -> sqlite3.Row 
           "year",
           "genre"
         FROM "track_metadata_edits"
-        WHERE "trackId" = ?
+        WHERE "trackId" = %s
         """,
         (track_id,),
     ).fetchone()
 
 
-def _load_lyrics_edit(conn: sqlite3.Connection, track_id: str) -> sqlite3.Row | None:
+def _load_lyrics_edit(conn: Connection, track_id: str) -> dict[str, Any] | None:
     return conn.execute(
         """
         SELECT "trackId", "lyricsText"
         FROM "track_lyrics_edits"
-        WHERE "trackId" = ?
+        WHERE "trackId" = %s
         """,
         (track_id,),
     ).fetchone()
 
 
-def _load_cover_edit(conn: sqlite3.Connection, track_id: str) -> sqlite3.Row | None:
+def _load_cover_edit(conn: Connection, track_id: str) -> dict[str, Any] | None:
     return conn.execute(
         """
         SELECT "trackId", "assetPath", "mimeType", "hash"
         FROM "track_cover_edits"
-        WHERE "trackId" = ?
+        WHERE "trackId" = %s
         """,
         (track_id,),
     ).fetchone()
 
 
-def _sync_metadata(conn: sqlite3.Connection, track_id: str) -> None:
+def _sync_metadata(conn: Connection, track_id: str) -> None:
     track = _load_track(conn, track_id)
     edit = _load_metadata_edit(conn, track_id)
     source_path = Path(track["path"])
@@ -369,7 +372,7 @@ def _sync_metadata(conn: sqlite3.Connection, track_id: str) -> None:
             conn.execute(
                 """
                 DELETE FROM "track_metadata_edits"
-                WHERE "trackId" = ?
+                WHERE "trackId" = %s
                 """,
                 (track_id,),
             )
@@ -385,7 +388,7 @@ def _sync_metadata(conn: sqlite3.Connection, track_id: str) -> None:
             )
 
 
-def _sync_lyrics(conn: sqlite3.Connection, track_id: str) -> None:
+def _sync_lyrics(conn: Connection, track_id: str) -> None:
     track = _load_track(conn, track_id)
     edit = _load_lyrics_edit(conn, track_id)
     if edit is None:
@@ -404,11 +407,11 @@ def _sync_lyrics(conn: sqlite3.Connection, track_id: str) -> None:
         """
         UPDATE "tracks"
         SET
-          "lyricsKind" = ?,
-          "lyricsHash" = ?,
-          "observedLyricsText" = ?,
-          "updatedAt" = ?
-        WHERE "id" = ?
+          "lyricsKind" = %s,
+          "lyricsHash" = %s,
+          "observedLyricsText" = %s,
+          "updatedAt" = %s
+        WHERE "id" = %s
         """,
         ("embedded" if lyrics_text else None, lyrics_hash, lyrics_text, now, track_id),
     )
@@ -423,7 +426,7 @@ def _sync_lyrics(conn: sqlite3.Connection, track_id: str) -> None:
     )
 
 
-def _sync_cover(conn: sqlite3.Connection, track_id: str) -> None:
+def _sync_cover(conn: Connection, track_id: str) -> None:
     track = _load_track(conn, track_id)
     edit = _load_cover_edit(conn, track_id)
     if edit is None:
@@ -444,12 +447,12 @@ def _sync_cover(conn: sqlite3.Connection, track_id: str) -> None:
         """
         UPDATE "tracks"
         SET
-          "artworkKind" = ?,
-          "artworkMime" = ?,
-          "artworkHash" = ?,
-          "observedArtworkAssetPath" = ?,
-          "updatedAt" = ?
-        WHERE "id" = ?
+          "artworkKind" = %s,
+          "artworkMime" = %s,
+          "artworkHash" = %s,
+          "observedArtworkAssetPath" = %s,
+          "updatedAt" = %s
+        WHERE "id" = %s
         """,
         (
             "embedded" if edit["assetPath"] else None,
@@ -472,7 +475,7 @@ def _sync_cover(conn: sqlite3.Connection, track_id: str) -> None:
 
 
 def execute_track_edit_sync(
-    conn: sqlite3.Connection,
+    conn: Connection,
     payload: dict[str, Any],
     *,
     on_progress: Callable[[float], None] | None = None,
@@ -483,7 +486,6 @@ def execute_track_edit_sync(
     if not track_id or domain not in {"metadata", "lyrics", "cover"}:
         raise RuntimeError("Invalid track_edit_sync payload")
 
-    conn.row_factory = sqlite3.Row
     table = (
         "track_metadata_edits"
         if domain == "metadata"

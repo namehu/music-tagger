@@ -1,6 +1,5 @@
 import json
 import os
-import sqlite3
 import subprocess
 import time
 import uuid
@@ -8,11 +7,13 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable
 
+from psycopg import Connection
+
 LIVE_TRANSCODE_START_THRESHOLD_BYTES = 256 * 1024
 
 
-def _utc_now_sqlite() -> str:
-    return datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+def _utc_now_sqlite() -> datetime:
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
 def _parse_error_json(exc: Exception) -> str:
@@ -49,7 +50,7 @@ def _get_partial_cache_path(cache_path: str) -> str:
 
 
 def _upsert_transcode_cache(
-    conn: sqlite3.Connection,
+    conn: Connection,
     *,
     track_id: str,
     profile: str,
@@ -67,8 +68,8 @@ def _upsert_transcode_cache(
           "id","trackId","profile","sourceMtimeMs","cachePath","contentType",
           "fileSize","status","errorJson","updatedAt"
         )
-        VALUES (?,?,?,?,?,?,?,?,?,?)
-        ON CONFLICT("trackId","profile","sourceMtimeMs") DO UPDATE SET
+        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+        ON CONFLICT ("trackId","profile","sourceMtimeMs") DO UPDATE SET
           "cachePath" = excluded."cachePath",
           "contentType" = excluded."contentType",
           "fileSize" = excluded."fileSize",
@@ -141,7 +142,7 @@ def _safe_stat_size(path: Path) -> int:
 
 
 def _sync_partial_cache_state(
-    conn: sqlite3.Connection,
+    conn: Connection,
     *,
     track_id: str,
     profile: str,
@@ -168,7 +169,7 @@ def _sync_partial_cache_state(
 
 
 def transcode_prepare(
-    conn: sqlite3.Connection,
+    conn: Connection,
     payload: dict[str, Any],
     *,
     cache_root: str = "/cache",
@@ -198,12 +199,11 @@ def transcode_prepare(
         _check_should_continue(should_continue, "转码任务已取消")
         cache_path = _get_cache_path(track_id, source_mtime_ms, profile)
         content_type = _content_type_for_profile(profile)
-        conn.row_factory = sqlite3.Row
         track = conn.execute(
             """
             SELECT "id","path","filename","mtimeMs"
             FROM "tracks"
-            WHERE "id" = ?
+            WHERE "id" = %s
             """,
             (track_id,),
         ).fetchone()

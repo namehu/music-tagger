@@ -605,6 +605,7 @@ export type TranscodeCacheCreateOrConnectWithoutTrackInput = {
 
 export type TranscodeCacheCreateManyTrackInputEnvelope = {
   data: Prisma.TranscodeCacheCreateManyTrackInput | Prisma.TranscodeCacheCreateManyTrackInput[]
+  skipDuplicates?: boolean
 }
 
 export type TranscodeCacheUpsertWithWhereUniqueWithoutTrackInput = {
@@ -1461,6 +1462,7 @@ export type TranscodeCacheCreateManyArgs<ExtArgs extends runtime.Types.Extension
    * The data used to create many TranscodeCaches.
    */
   data: Prisma.TranscodeCacheCreateManyInput | Prisma.TranscodeCacheCreateManyInput[]
+  skipDuplicates?: boolean
 }
 
 /**
@@ -1479,6 +1481,7 @@ export type TranscodeCacheCreateManyAndReturnArgs<ExtArgs extends runtime.Types.
    * The data used to create many TranscodeCaches.
    */
   data: Prisma.TranscodeCacheCreateManyInput | Prisma.TranscodeCacheCreateManyInput[]
+  skipDuplicates?: boolean
   /**
    * Choose, which related nodes to fetch as well
    */

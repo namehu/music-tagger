@@ -592,6 +592,7 @@ export type PlanItemCreateOrConnectWithoutTrackInput = {
 
 export type PlanItemCreateManyTrackInputEnvelope = {
   data: Prisma.PlanItemCreateManyTrackInput | Prisma.PlanItemCreateManyTrackInput[]
+  skipDuplicates?: boolean
 }
 
 export type PlanItemUpsertWithWhereUniqueWithoutTrackInput = {
@@ -663,6 +664,7 @@ export type PlanItemCreateOrConnectWithoutPlanInput = {
 
 export type PlanItemCreateManyPlanInputEnvelope = {
   data: Prisma.PlanItemCreateManyPlanInput | Prisma.PlanItemCreateManyPlanInput[]
+  skipDuplicates?: boolean
 }
 
 export type PlanItemUpsertWithWhereUniqueWithoutPlanInput = {
@@ -1565,6 +1567,7 @@ export type PlanItemCreateManyArgs<ExtArgs extends runtime.Types.Extensions.Inte
    * The data used to create many PlanItems.
    */
   data: Prisma.PlanItemCreateManyInput | Prisma.PlanItemCreateManyInput[]
+  skipDuplicates?: boolean
 }
 
 /**
@@ -1583,6 +1586,7 @@ export type PlanItemCreateManyAndReturnArgs<ExtArgs extends runtime.Types.Extens
    * The data used to create many PlanItems.
    */
   data: Prisma.PlanItemCreateManyInput | Prisma.PlanItemCreateManyInput[]
+  skipDuplicates?: boolean
   /**
    * Choose, which related nodes to fetch as well
    */

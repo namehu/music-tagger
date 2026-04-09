@@ -1,57 +1,45 @@
-import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
-import Database from "better-sqlite3";
-import path from "node:path";
+import { PrismaPg } from "@prisma/adapter-pg";
 
 // Prisma ORM v7: import PrismaClient from the generated output (NOT from @prisma/client).
 import { PrismaClient } from "@/generated/prisma/client";
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
 
-function getSqliteConnectionPath() {
+function getPostgresConnectionString() {
   const configuredUrl = process.env.DATABASE_URL?.trim();
-  if (configuredUrl) {
-    if (configuredUrl.startsWith("file:")) {
-      const rawPath = configuredUrl.slice("file:".length);
-      return path.isAbsolute(rawPath)
-        ? rawPath
-        : path.resolve(/* turbopackIgnore: true */ process.cwd(), rawPath);
-    }
-
-    throw new Error("DATABASE_URL must use the file: SQLite protocol");
+  if (!configuredUrl) {
+    throw new Error("DATABASE_URL is required for PostgreSQL");
   }
 
-  return path.resolve(/* turbopackIgnore: true */ process.cwd(), "dev.db");
-}
-
-function shouldUseDevelopmentSqlitePragmas(dbPath: string) {
-  return path.basename(dbPath) === "dev.db";
-}
-
-function initializeDevelopmentSqlitePragmas(dbPath: string) {
-  if (!shouldUseDevelopmentSqlitePragmas(dbPath)) {
-    return;
+  if (configuredUrl.startsWith("file:")) {
+    throw new Error("DATABASE_URL must point to PostgreSQL, not SQLite");
   }
 
-  const bootstrapDb = new Database(dbPath);
+  let parsed: URL;
   try {
-    bootstrapDb.pragma("journal_mode = WAL");
-    bootstrapDb.pragma("synchronous = NORMAL");
-    bootstrapDb.pragma("wal_autocheckpoint = 1000");
-  } finally {
-    bootstrapDb.close();
+    parsed = new URL(configuredUrl);
+  } catch {
+    throw new Error("DATABASE_URL must be a valid PostgreSQL connection string");
   }
+
+  if (parsed.protocol !== "postgresql:" && parsed.protocol !== "postgres:") {
+    throw new Error("DATABASE_URL must use the postgresql:// protocol");
+  }
+
+  if (!parsed.username || !parsed.password) {
+    throw new Error("DATABASE_URL must include both username and password");
+  }
+
+  return configuredUrl;
 }
 
-const sqliteDbPath = getSqliteConnectionPath();
-initializeDevelopmentSqlitePragmas(sqliteDbPath);
-const sqliteConnectionString = `file:${sqliteDbPath}`;
+const postgresConnectionString = getPostgresConnectionString();
 
 export const prisma =
   globalForPrisma.prisma ??
   new PrismaClient({
-    adapter: new PrismaBetterSqlite3({
-      url: sqliteConnectionString,
-      timeout: 30_000,
+    adapter: new PrismaPg({
+      connectionString: postgresConnectionString,
     }),
   });
 

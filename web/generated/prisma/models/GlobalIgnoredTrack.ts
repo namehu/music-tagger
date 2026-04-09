@@ -419,6 +419,7 @@ export type GlobalIgnoredTrackCreateOrConnectWithoutCreatedByInput = {
 
 export type GlobalIgnoredTrackCreateManyCreatedByInputEnvelope = {
   data: Prisma.GlobalIgnoredTrackCreateManyCreatedByInput | Prisma.GlobalIgnoredTrackCreateManyCreatedByInput[]
+  skipDuplicates?: boolean
 }
 
 export type GlobalIgnoredTrackUpsertWithWhereUniqueWithoutCreatedByInput = {
@@ -1250,6 +1251,7 @@ export type GlobalIgnoredTrackCreateManyArgs<ExtArgs extends runtime.Types.Exten
    * The data used to create many GlobalIgnoredTracks.
    */
   data: Prisma.GlobalIgnoredTrackCreateManyInput | Prisma.GlobalIgnoredTrackCreateManyInput[]
+  skipDuplicates?: boolean
 }
 
 /**
@@ -1268,6 +1270,7 @@ export type GlobalIgnoredTrackCreateManyAndReturnArgs<ExtArgs extends runtime.Ty
    * The data used to create many GlobalIgnoredTracks.
    */
   data: Prisma.GlobalIgnoredTrackCreateManyInput | Prisma.GlobalIgnoredTrackCreateManyInput[]
+  skipDuplicates?: boolean
   /**
    * Choose, which related nodes to fetch as well
    */

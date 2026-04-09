@@ -408,6 +408,7 @@ export type PlaylistCreateOrConnectWithoutUserInput = {
 
 export type PlaylistCreateManyUserInputEnvelope = {
   data: Prisma.PlaylistCreateManyUserInput | Prisma.PlaylistCreateManyUserInput[]
+  skipDuplicates?: boolean
 }
 
 export type PlaylistUpsertWithWhereUniqueWithoutUserInput = {
@@ -1272,6 +1273,7 @@ export type PlaylistCreateManyArgs<ExtArgs extends runtime.Types.Extensions.Inte
    * The data used to create many Playlists.
    */
   data: Prisma.PlaylistCreateManyInput | Prisma.PlaylistCreateManyInput[]
+  skipDuplicates?: boolean
 }
 
 /**
@@ -1290,6 +1292,7 @@ export type PlaylistCreateManyAndReturnArgs<ExtArgs extends runtime.Types.Extens
    * The data used to create many Playlists.
    */
   data: Prisma.PlaylistCreateManyInput | Prisma.PlaylistCreateManyInput[]
+  skipDuplicates?: boolean
   /**
    * Choose, which related nodes to fetch as well
    */

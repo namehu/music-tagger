@@ -2,7 +2,7 @@
 
 这套方案面向 NAS 生产部署：
 
-- Web 和 worker 都跑 Docker
+- Web、worker 和 PostgreSQL 都跑 Docker
 - NAS 只负责拉取镜像和启动容器
 - NAS 不执行构建
 
@@ -77,11 +77,14 @@ cp .env.prod.example .env.prod
 ```dotenv
 WEB_IMAGE="ghcr.io/namehu/music-tagger-web:v0.1.0"
 WORKER_IMAGE="ghcr.io/namehu/music-tagger-worker:v0.1.0"
+POSTGRES_USER="music_tagger"
+POSTGRES_PASSWORD="replace-me-with-a-long-random-password"
+POSTGRES_DB="music_tagger"
 BETTER_AUTH_SECRET="replace-me-with-a-long-random-secret"
 BETTER_AUTH_URL="http://nas-or-domain:3000"
 BETTER_AUTH_TRUSTED_ORIGINS="http://nas-ip:3000,https://music.example.com"
 NAS_MUSIC_DIR="/volume1/music"
-DB_DATA_DIR="data"
+DB_DATA_DIR="db_data"
 CACHE_DIR="transcode_cache"
 WORKER_ID="worker-1"
 WEB_PORT="3000"
@@ -91,23 +94,25 @@ WEB_PORT="3000"
 
 - `WEB_IMAGE`：Web 生产镜像
 - `WORKER_IMAGE`：worker 生产镜像
+- `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB`：生产 PostgreSQL 连接参数，`web` 和 `worker` 会通过 compose 连接同一个数据库服务
 - `BETTER_AUTH_SECRET`：必须替换成真实随机密钥
 - `BETTER_AUTH_URL`：用户实际访问 Web 的地址
 - `BETTER_AUTH_TRUSTED_ORIGINS`：反向代理、域名或额外访问入口
 - `NAS_MUSIC_DIR`：NAS 宿主机上的音乐目录绝对路径；现在会同时挂载给 `web` 和 `worker`，且两者都需要可写。`web` 负责把管理员上传的封面直接写成音频同目录 sidecar，`worker` 负责元数据 / 歌词 / 封面异步回写
-- `DB_DATA_DIR`：数据库持久化位置。填 `data` 表示用 Docker named volume；填 `/volume1/docker/music-tagger/data` 表示直接挂到 NAS 目录
+- `DB_DATA_DIR`：PostgreSQL 数据持久化位置。填 `db_data` 表示用 Docker named volume；填 `/volume1/docker/music-tagger/data` 表示直接挂到 NAS 目录
 - `CACHE_DIR`：缓存持久化位置。填 `transcode_cache` 表示用 Docker named volume；填 `/volume1/docker/music-tagger/cache` 表示直接挂到 NAS 目录
 - `WEB_PORT`：宿主机对外暴露端口
 
 ## 数据库初始化原则
 
-生产环境不需要提供 `example.db` 或预置 SQLite 文件。
+生产环境不需要提供 `example.db` 或预置数据库文件。
 
 正确做法是：
 
 - 提交 Prisma schema 和 migrations
 - 容器启动时执行 `pnpm prisma migrate deploy`
-- 首次启动时自动创建 `/data/app.db`
+- 首次启动时自动初始化 PostgreSQL schema
+- 数据落在 PostgreSQL 容器的数据卷中，而不是 `web` 或 `worker` 容器里
 
 因此仓库里应该保留：
 
@@ -116,10 +121,7 @@ WEB_PORT="3000"
 
 而不应该提交：
 
-- `web/dev.db`
-- `app.db`
-- `*.db-wal`
-- `*.db-shm`
+- 任何本地数据库快照或导出文件
 
 ## 第三步：在 NAS 登录 GHCR
 
@@ -177,17 +179,21 @@ docker compose --env-file .env.prod -f docker-compose.prod.yml logs -f
 
 因此生产环境里，`web` 和 `worker` 必须指向同一份 `NAS_MUSIC_DIR`，并且都要对其具备写权限。
 
-## 关于转码缓存持久化
+## 关于数据库与缓存持久化
 
 结论先说：
 
 - 可以持久化
 - 当前生产 compose 已经支持持久化
-- 只要 `CACHE_DIR` 指向 named volume 或 NAS 宿主机目录，容器重建和镜像升级都不会清掉转码缓存
+- 只要 `DB_DATA_DIR` 和 `CACHE_DIR` 指向 named volume 或 NAS 宿主机目录，容器重建和镜像升级都不会清掉 PostgreSQL 数据或转码缓存
 
-当前生产 compose 中，两个服务都挂载了同一份 `/cache`：
+当前生产 compose 中：
 
 ```yaml
+postgres:
+  volumes:
+    - ${DB_DATA_DIR:-db_data}:/var/lib/postgresql/data
+
 web:
   volumes:
     - ${CACHE_DIR:-transcode_cache}:/cache
@@ -199,22 +205,26 @@ worker:
 
 这意味着：
 
+- `postgres` 负责持久化所有业务数据
 - `worker` 负责向 `/cache` 写入转码文件
 - `web` 负责从同一份 `/cache` 读取缓存并输出流
-- 缓存数据不保存在容器镜像层里，而是保存在 Docker volume 或宿主机目录里
+- 数据和缓存都不保存在容器镜像层里，而是保存在 Docker volume 或宿主机目录里
 
 ### 两种持久化方案
 
 #### 方案 A：Docker named volume
 
 ```dotenv
+DB_DATA_DIR="db_data"
 CACHE_DIR="transcode_cache"
 ```
 
 特点：
 
 - 配置简单
+- 容器删除后 PostgreSQL 数据仍保留
 - 容器删除后缓存仍保留
+- 镜像升级后数据仍保留
 - 镜像升级后缓存仍保留
 - 但备份和直接查看文件不如宿主机目录直观
 
@@ -226,6 +236,7 @@ CACHE_DIR="transcode_cache"
 #### 方案 B：NAS 宿主机目录
 
 ```dotenv
+DB_DATA_DIR="/volume1/docker/music-tagger/data"
 CACHE_DIR="/volume1/docker/music-tagger/cache"
 ```
 
@@ -233,7 +244,7 @@ CACHE_DIR="/volume1/docker/music-tagger/cache"
 
 - 最直观
 - 最容易做备份
-- 最容易观察实际缓存文件占用
+- 最容易观察实际数据库与缓存文件占用
 - 更适合生产长期运行
 
 适合：
@@ -351,11 +362,11 @@ docker compose --env-file .env.prod -f docker-compose.prod.yml up -d
 
 ## 持久化与备份
 
-- SQLite 数据库存放在 `/data/app.db`
-- 默认情况下，compose 会使用 `data` named volume 持久化数据库
+- PostgreSQL 数据库存放在 `/var/lib/postgresql/data`
+- 默认情况下，compose 会使用 `db_data` named volume 持久化数据库
 - 如果你希望在 NAS 文件系统里直接看到数据库文件，可以把 `DB_DATA_DIR` 改成宿主机绝对路径，例如 `/volume1/docker/music-tagger/data`
 - `CACHE_DIR` 也支持同样的写法，而且当前已经真实用于 `mp3_192` 转码缓存
-- 如果你重视持久化与备份，建议把 `CACHE_DIR` 也改成宿主机绝对路径
+- 如果你重视持久化与备份，建议把 `DB_DATA_DIR` 和 `CACHE_DIR` 都改成宿主机绝对路径
 
 如果你需要备份，优先备份：
 

@@ -1,15 +1,16 @@
 import json
 import os
-import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable
 
+from psycopg import Connection
+
 from transcoder import JobCancelled
 
 
-def _utc_now_sqlite() -> str:
-    return datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+def _utc_now_sqlite() -> datetime:
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
 def _error_json(message: str, error_type: str) -> str:
@@ -54,25 +55,25 @@ def _parse_tag_diff(value: str | None) -> list[dict[str, Any]]:
 
 
 def _set_plan_status(
-    conn: sqlite3.Connection,
+    conn: Connection,
     *,
     plan_id: str,
     status: str,
     error_json: str | None = None,
-    started_at: str | None = None,
-    completed_at: str | None = None,
+    started_at: datetime | None = None,
+    completed_at: datetime | None = None,
 ) -> None:
     now = _utc_now_sqlite()
     conn.execute(
         """
         UPDATE "plans"
         SET
-          "status" = ?,
-          "errorJson" = ?,
-          "startedAt" = COALESCE(?, "startedAt"),
-          "completedAt" = ?,
-          "updatedAt" = ?
-        WHERE "id" = ?
+          "status" = %s,
+          "errorJson" = %s,
+          "startedAt" = COALESCE(%s, "startedAt"),
+          "completedAt" = %s,
+          "updatedAt" = %s
+        WHERE "id" = %s
         """,
         (status, error_json, started_at, completed_at, now, plan_id),
     )
@@ -80,7 +81,7 @@ def _set_plan_status(
 
 
 def _set_plan_item_state(
-    conn: sqlite3.Connection,
+    conn: Connection,
     *,
     item_id: str,
     status: str,
@@ -91,10 +92,10 @@ def _set_plan_item_state(
         """
         UPDATE "plan_items"
         SET
-          "status" = ?,
-          "errorJson" = ?,
-          "updatedAt" = ?
-        WHERE "id" = ?
+          "status" = %s,
+          "errorJson" = %s,
+          "updatedAt" = %s
+        WHERE "id" = %s
         """,
         (status, error_json, now, item_id),
     )
@@ -115,7 +116,7 @@ def _is_path_within_root(candidate: Path, root: Path) -> bool:
     return resolved_candidate == root or root in resolved_candidate.parents
 
 
-def _execute_rename_item(conn: sqlite3.Connection, item: sqlite3.Row) -> None:
+def _execute_rename_item(conn: Connection, item: dict[str, Any]) -> None:
     track_id = item["trackId"]
     from_path_text = item["fromPath"]
     to_path_text = item["toPath"]
@@ -134,7 +135,7 @@ def _execute_rename_item(conn: sqlite3.Connection, item: sqlite3.Row) -> None:
         """
         SELECT "id", "path", "dirPath", "filename", "fileSize", "mtimeMs"
         FROM "tracks"
-        WHERE "id" = ?
+        WHERE "id" = %s
         """,
         (track_id,),
     ).fetchone()
@@ -149,13 +150,13 @@ def _execute_rename_item(conn: sqlite3.Connection, item: sqlite3.Row) -> None:
             """
             UPDATE "tracks"
             SET
-              "path" = ?,
-              "dirPath" = ?,
-              "filename" = ?,
-              "fileSize" = ?,
-              "mtimeMs" = ?,
-              "updatedAt" = ?
-            WHERE "id" = ?
+              "path" = %s,
+              "dirPath" = %s,
+              "filename" = %s,
+              "fileSize" = %s,
+              "mtimeMs" = %s,
+              "updatedAt" = %s
+            WHERE "id" = %s
             """,
             (
                 str(to_path),
@@ -185,13 +186,13 @@ def _execute_rename_item(conn: sqlite3.Connection, item: sqlite3.Row) -> None:
         """
         UPDATE "tracks"
         SET
-          "path" = ?,
-          "dirPath" = ?,
-          "filename" = ?,
-          "fileSize" = ?,
-          "mtimeMs" = ?,
-          "updatedAt" = ?
-        WHERE "id" = ?
+          "path" = %s,
+          "dirPath" = %s,
+          "filename" = %s,
+          "fileSize" = %s,
+          "mtimeMs" = %s,
+          "updatedAt" = %s
+        WHERE "id" = %s
         """,
         (
             str(to_path),
@@ -206,7 +207,7 @@ def _execute_rename_item(conn: sqlite3.Connection, item: sqlite3.Row) -> None:
     conn.commit()
 
 
-def _execute_move_item(conn: sqlite3.Connection, item: sqlite3.Row) -> None:
+def _execute_move_item(conn: Connection, item: dict[str, Any]) -> None:
     from_path_text = item["fromPath"]
     to_path_text = item["toPath"]
     if not from_path_text or not to_path_text:
@@ -301,7 +302,7 @@ def _merge_track_tags_json(existing_json: str | None, tag_diff: list[dict[str, A
     return json.dumps(base, ensure_ascii=False) if base else None
 
 
-def _execute_tag_write_item(conn: sqlite3.Connection, item: sqlite3.Row) -> None:
+def _execute_tag_write_item(conn: Connection, item: dict[str, Any]) -> None:
     track_id = item["trackId"]
     from_path_text = item["fromPath"]
     if not track_id or not from_path_text:
@@ -325,6 +326,14 @@ def _execute_tag_write_item(conn: sqlite3.Connection, item: sqlite3.Row) -> None
         """
         SELECT
           "id",
+          "title",
+          "artist",
+          "album",
+          "albumArtist",
+          "trackNo",
+          "discNo",
+          "year",
+          "genre",
           "titleOverride",
           "artistOverride",
           "albumOverride",
@@ -333,9 +342,10 @@ def _execute_tag_write_item(conn: sqlite3.Connection, item: sqlite3.Row) -> None
           "discNoOverride",
           "yearOverride",
           "genreOverride",
-          "tagsJson"
+          "tagsJson",
+          "metadataEditedAt"
         FROM "tracks"
-        WHERE "id" = ?
+        WHERE "id" = %s
         """,
         (track_id,),
     ).fetchone()
@@ -343,17 +353,14 @@ def _execute_tag_write_item(conn: sqlite3.Connection, item: sqlite3.Row) -> None
     if track is None:
         raise RuntimeError("关联曲目不存在")
 
-    updates: dict[str, Any] = {
-        "title": None,
-        "artist": None,
-        "album": None,
-        "albumArtist": None,
-        "trackNo": None,
-        "discNo": None,
-        "year": None,
-        "genre": None,
-    }
-    clear_override_fields = {
+    touched_fields: set[str] = set()
+    for entry in tag_diff:
+        field = entry.get("field")
+        if not isinstance(field, str) or field not in METADATA_FIELDS:
+            continue
+        touched_fields.add(field)
+
+    field_to_override = {
         "title": "titleOverride",
         "artist": "artistOverride",
         "album": "albumOverride",
@@ -363,79 +370,69 @@ def _execute_tag_write_item(conn: sqlite3.Connection, item: sqlite3.Row) -> None
         "year": "yearOverride",
         "genre": "genreOverride",
     }
+    next_values = {field: track[field] for field in METADATA_FIELDS}
+    next_overrides = {
+        "titleOverride": track["titleOverride"],
+        "artistOverride": track["artistOverride"],
+        "albumOverride": track["albumOverride"],
+        "albumArtistOverride": track["albumArtistOverride"],
+        "trackNoOverride": track["trackNoOverride"],
+        "discNoOverride": track["discNoOverride"],
+        "yearOverride": track["yearOverride"],
+        "genreOverride": track["genreOverride"],
+    }
 
-    touched_fields: set[str] = set()
-    for entry in tag_diff:
-        field = entry.get("field")
-        if not isinstance(field, str) or field not in updates:
-            continue
-        updates[field] = entry.get("to")
-        touched_fields.add(field)
+    for field in touched_fields:
+        next_values[field] = next((entry.get("to") for entry in tag_diff if entry.get("field") == field), track[field])
+        next_overrides[field_to_override[field]] = None
+
+    new_metadata_edited_at = None if all(value is None for value in next_overrides.values()) else track["metadataEditedAt"]
 
     now = _utc_now_sqlite()
     conn.execute(
         """
         UPDATE "tracks"
         SET
-          "title" = CASE WHEN ? THEN ? ELSE "title" END,
-          "artist" = CASE WHEN ? THEN ? ELSE "artist" END,
-          "album" = CASE WHEN ? THEN ? ELSE "album" END,
-          "albumArtist" = CASE WHEN ? THEN ? ELSE "albumArtist" END,
-          "trackNo" = CASE WHEN ? THEN ? ELSE "trackNo" END,
-          "discNo" = CASE WHEN ? THEN ? ELSE "discNo" END,
-          "year" = CASE WHEN ? THEN ? ELSE "year" END,
-          "genre" = CASE WHEN ? THEN ? ELSE "genre" END,
-          "titleOverride" = CASE WHEN ? THEN NULL ELSE "titleOverride" END,
-          "artistOverride" = CASE WHEN ? THEN NULL ELSE "artistOverride" END,
-          "albumOverride" = CASE WHEN ? THEN NULL ELSE "albumOverride" END,
-          "albumArtistOverride" = CASE WHEN ? THEN NULL ELSE "albumArtistOverride" END,
-          "trackNoOverride" = CASE WHEN ? THEN NULL ELSE "trackNoOverride" END,
-          "discNoOverride" = CASE WHEN ? THEN NULL ELSE "discNoOverride" END,
-          "yearOverride" = CASE WHEN ? THEN NULL ELSE "yearOverride" END,
-          "genreOverride" = CASE WHEN ? THEN NULL ELSE "genreOverride" END,
-          "tagsJson" = ?,
-          "metadataEditedAt" = CASE
-            WHEN (
-              CASE WHEN ? THEN NULL ELSE "titleOverride" END IS NULL
-              AND CASE WHEN ? THEN NULL ELSE "artistOverride" END IS NULL
-              AND CASE WHEN ? THEN NULL ELSE "albumOverride" END IS NULL
-              AND CASE WHEN ? THEN NULL ELSE "albumArtistOverride" END IS NULL
-              AND CASE WHEN ? THEN NULL ELSE "trackNoOverride" END IS NULL
-              AND CASE WHEN ? THEN NULL ELSE "discNoOverride" END IS NULL
-              AND CASE WHEN ? THEN NULL ELSE "yearOverride" END IS NULL
-              AND CASE WHEN ? THEN NULL ELSE "genreOverride" END IS NULL
-            ) THEN NULL
-            ELSE "metadataEditedAt"
-          END,
-          "updatedAt" = ?
-        WHERE "id" = ?
+          "title" = %s,
+          "artist" = %s,
+          "album" = %s,
+          "albumArtist" = %s,
+          "trackNo" = %s,
+          "discNo" = %s,
+          "year" = %s,
+          "genre" = %s,
+          "titleOverride" = %s,
+          "artistOverride" = %s,
+          "albumOverride" = %s,
+          "albumArtistOverride" = %s,
+          "trackNoOverride" = %s,
+          "discNoOverride" = %s,
+          "yearOverride" = %s,
+          "genreOverride" = %s,
+          "tagsJson" = %s,
+          "metadataEditedAt" = %s,
+          "updatedAt" = %s
+        WHERE "id" = %s
         """,
         (
-            "title" in touched_fields, updates["title"],
-            "artist" in touched_fields, updates["artist"],
-            "album" in touched_fields, updates["album"],
-            "albumArtist" in touched_fields, updates["albumArtist"],
-            "trackNo" in touched_fields, updates["trackNo"],
-            "discNo" in touched_fields, updates["discNo"],
-            "year" in touched_fields, updates["year"],
-            "genre" in touched_fields, updates["genre"],
-            "title" in touched_fields,
-            "artist" in touched_fields,
-            "album" in touched_fields,
-            "albumArtist" in touched_fields,
-            "trackNo" in touched_fields,
-            "discNo" in touched_fields,
-            "year" in touched_fields,
-            "genre" in touched_fields,
+            next_values["title"],
+            next_values["artist"],
+            next_values["album"],
+            next_values["albumArtist"],
+            next_values["trackNo"],
+            next_values["discNo"],
+            next_values["year"],
+            next_values["genre"],
+            next_overrides["titleOverride"],
+            next_overrides["artistOverride"],
+            next_overrides["albumOverride"],
+            next_overrides["albumArtistOverride"],
+            next_overrides["trackNoOverride"],
+            next_overrides["discNoOverride"],
+            next_overrides["yearOverride"],
+            next_overrides["genreOverride"],
             _merge_track_tags_json(track["tagsJson"], tag_diff),
-            "title" in touched_fields,
-            "artist" in touched_fields,
-            "album" in touched_fields,
-            "albumArtist" in touched_fields,
-            "trackNo" in touched_fields,
-            "discNo" in touched_fields,
-            "year" in touched_fields,
-            "genre" in touched_fields,
+            new_metadata_edited_at,
             now,
             track_id,
         ),
@@ -444,7 +441,7 @@ def _execute_tag_write_item(conn: sqlite3.Connection, item: sqlite3.Row) -> None
 
 
 def execute_plan(
-    conn: sqlite3.Connection,
+    conn: Connection,
     payload: dict[str, Any],
     *,
     on_progress: Callable[[float], None] | None = None,
@@ -454,12 +451,11 @@ def execute_plan(
     if not plan_id:
         raise RuntimeError("Invalid plan_execute payload")
 
-    conn.row_factory = sqlite3.Row
     plan = conn.execute(
         """
         SELECT "id", "type", "status"
         FROM "plans"
-        WHERE "id" = ?
+        WHERE "id" = %s
         """,
         (plan_id,),
     ).fetchone()
@@ -480,7 +476,7 @@ def execute_plan(
           "warningsJson",
           "status"
         FROM "plan_items"
-        WHERE "planId" = ?
+        WHERE "planId" = %s
         ORDER BY "createdAt" ASC
         """,
         (plan_id,),

@@ -932,6 +932,7 @@ export type AdminSettingsCreateManyArgs<ExtArgs extends runtime.Types.Extensions
    * The data used to create many AdminSettings.
    */
   data: Prisma.AdminSettingsCreateManyInput | Prisma.AdminSettingsCreateManyInput[]
+  skipDuplicates?: boolean
 }
 
 /**
@@ -950,6 +951,7 @@ export type AdminSettingsCreateManyAndReturnArgs<ExtArgs extends runtime.Types.E
    * The data used to create many AdminSettings.
    */
   data: Prisma.AdminSettingsCreateManyInput | Prisma.AdminSettingsCreateManyInput[]
+  skipDuplicates?: boolean
 }
 
 /**

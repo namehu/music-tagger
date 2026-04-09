@@ -1,12 +1,34 @@
 services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: music-postgres-dev
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-music_tagger}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-music_tagger}
+      POSTGRES_DB: ${POSTGRES_DB:-music_tagger}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+    restart: unless-stopped
+
   worker:
     build:
       context: .
       dockerfile: worker/Dockerfile
     image: music-tagger-worker:dev
     container_name: music-worker-dev
+    depends_on:
+      postgres:
+        condition: service_healthy
     environment:
-      DATABASE_URL: file:/workspace/web/dev.db
+      DATABASE_URL: postgresql://${POSTGRES_USER:-music_tagger}:${POSTGRES_PASSWORD:-music_tagger}@postgres:5432/${POSTGRES_DB:-music_tagger}?schema=public
       MUSIC_ROOT: /music
       CACHE_ROOT: /cache
       WORKER_ID: ${WORKER_ID:-worker-dev}
@@ -16,3 +38,6 @@ services:
       - ${LOCAL_CACHE_DIR:-./.cache/transcode_cache}:/cache
       - ${LOCAL_MUSIC_DIR:?LOCAL_MUSIC_DIR is required}:/music
     restart: unless-stopped
+
+volumes:
+  postgres_data:

@@ -70,7 +70,7 @@ flowchart TD
 
 | 依赖对象 | 类型 | 触发页面/流程 | 现状 | 处理方式 |
 | --- | --- | --- | --- | --- |
-| SQLite | 数据库 | 忽略关系查询与写入 | 已落地 | 新增 `user_ignored_tracks` / `global_ignored_tracks` |
+| PostgreSQL | 数据库 | 忽略关系查询与写入 | 已落地 | 新增 `user_ignored_tracks` / `global_ignored_tracks` |
 | `tracks.list` | tRPC | 用户曲库、管理曲库、歌单加歌候选 | 已扩展 | 增加 `surface`，按当前身份自动过滤 |
 | `library.stats` | tRPC | 用户首页、管理首页、曲库统计卡片 | 已扩展 | 统计结果遵循默认可见性 |
 | `playlists.get` | tRPC | 歌单详情页 | 已扩展 | 补充 `ignoreSource` 与 `canUnignoreTrack` |

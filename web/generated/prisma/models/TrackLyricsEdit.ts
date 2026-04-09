@@ -1302,6 +1302,7 @@ export type TrackLyricsEditCreateManyArgs<ExtArgs extends runtime.Types.Extensio
    * The data used to create many TrackLyricsEdits.
    */
   data: Prisma.TrackLyricsEditCreateManyInput | Prisma.TrackLyricsEditCreateManyInput[]
+  skipDuplicates?: boolean
 }
 
 /**
@@ -1320,6 +1321,7 @@ export type TrackLyricsEditCreateManyAndReturnArgs<ExtArgs extends runtime.Types
    * The data used to create many TrackLyricsEdits.
    */
   data: Prisma.TrackLyricsEditCreateManyInput | Prisma.TrackLyricsEditCreateManyInput[]
+  skipDuplicates?: boolean
   /**
    * Choose, which related nodes to fetch as well
    */

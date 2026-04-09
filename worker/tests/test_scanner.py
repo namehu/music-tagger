@@ -1,4 +1,3 @@
-import sqlite3
 import sys
 import tempfile
 import unittest
@@ -10,53 +9,17 @@ WORKER_DIR = Path(__file__).resolve().parents[1]
 if str(WORKER_DIR) not in sys.path:
     sys.path.insert(0, str(WORKER_DIR))
 
+TESTS_DIR = Path(__file__).resolve().parent
+if str(TESTS_DIR) not in sys.path:
+    sys.path.insert(0, str(TESTS_DIR))
+
 import scanner  # noqa: E402
-
-
-def _setup_schema(conn: sqlite3.Connection) -> None:
-    conn.executescript(
-        """
-        CREATE TABLE "tracks" (
-          "id" TEXT PRIMARY KEY,
-          "path" TEXT NOT NULL UNIQUE,
-          "dirPath" TEXT NOT NULL,
-          "filename" TEXT NOT NULL,
-          "fileSize" INTEGER NOT NULL,
-          "mtimeMs" INTEGER NOT NULL,
-          "container" TEXT NOT NULL,
-          "durationMs" INTEGER NOT NULL,
-          "bitrateKbps" INTEGER,
-          "sampleRate" INTEGER,
-          "bitDepth" INTEGER,
-          "channels" INTEGER,
-          "title" TEXT,
-          "artist" TEXT,
-          "album" TEXT,
-          "albumArtist" TEXT,
-          "trackNo" INTEGER,
-          "discNo" INTEGER,
-          "year" INTEGER,
-          "genre" TEXT,
-          "tagsJson" TEXT,
-          "artworkKind" TEXT,
-          "artworkMime" TEXT,
-          "artworkHash" TEXT,
-          "observedArtworkAssetPath" TEXT,
-          "lyricsKind" TEXT,
-          "lyricsHash" TEXT,
-          "observedLyricsText" TEXT,
-          "updatedAt" TEXT
-        );
-        """
-    )
-    conn.commit()
+from fake_db import FakeConnection  # noqa: E402
 
 
 class ScanFullTests(unittest.TestCase):
     def setUp(self) -> None:
-        self.conn = sqlite3.connect(":memory:")
-        self.conn.row_factory = sqlite3.Row
-        _setup_schema(self.conn)
+        self.conn = FakeConnection()
 
     def tearDown(self) -> None:
         self.conn.close()

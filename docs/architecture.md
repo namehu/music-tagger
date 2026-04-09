@@ -2,7 +2,7 @@
 
 本文档描述当前仓库的真实运行架构，重点覆盖：
 
-- Web、Worker、SQLite、音乐目录、转码缓存之间的关系
+- Web、Worker、PostgreSQL、音乐目录、转码缓存之间的关系
 - `scan_full`、曲库浏览、原始播放、`mp3_192` 转码缓存播放 / 边转边播的完整流转
 - Docker 部署下的数据与缓存持久化边界
 
@@ -23,7 +23,7 @@
 - 登录后用户区入口：`/dashboard`、`/library`、`/playlists`、`/ignored-tracks`
 - 用户首页聚合：继续收听、最近播放、最近更新歌单、最近更新曲目
 - `scan_full` 后台任务
-- SQLite 曲库索引与搜索
+- PostgreSQL 曲库索引与搜索
 - 全局原始音频播放
 - `mp3_192` 转码缓存播放
 - 冷缓存 `mp3_192` 达到最小起播阈值后的边转边播
@@ -48,7 +48,7 @@ flowchart LR
   Browser[Browser<br/>Admin/User UI]
   Web[Next.js 16 Web<br/>App Router + tRPC + Prisma]
   Auth[better-auth]
-  DB[(SQLite<br/>jobs / tracks / track_*_edits / playlists / playlist_items<br/>user_ignored_tracks / global_ignored_tracks<br/>plans / plan_items / transcode_cache)]
+  DB[(PostgreSQL<br/>jobs / tracks / track_*_edits / playlists / playlist_items<br/>user_ignored_tracks / global_ignored_tracks<br/>plans / plan_items / transcode_cache)]
   Worker[Python Worker]
   FF[ffmpeg / ffprobe]
   Music[(NAS Music Dir<br/>/music)]
@@ -81,7 +81,7 @@ flowchart LR
   - 通过 `trackEdits` router 与 `/api/admin/tracks/[trackId]/cover` 处理 DB-first 编辑
   - 管理员上传封面时，直接把文件写到音频同目录、同 basename 的 `.jpg/.png` sidecar
   - `trackEdits.get` 会一并返回每个编辑域最近一次同步任务摘要，供编辑面板直接展示最近结果与排障建议
-  - 通过 Prisma 直接读写 SQLite
+  - 通过 Prisma 直接读写 PostgreSQL
 - 通过 Route Handler 输出支持 `Range` 的音频流
 - 对完整缓存和原始流继续输出支持 `Range` 的音频流；对 live transcode 输出 chunked `audio/mpeg`
 - Worker：
@@ -92,7 +92,7 @@ flowchart LR
   - 执行 `plan_execute`
   - 回写 `jobs`、编辑同步状态、`plans`、`plan_items`、`transcode_cache`
   - `scan_full` 优先读取音频同目录 sidecar；没有 sidecar 时，从嵌入封面提取并落地 sidecar
-- SQLite：
+- PostgreSQL：
   - 作为当前唯一业务数据库
   - 保存认证数据、任务队列、曲库索引、歌单数据、忽略曲目关系、Plan 数据与转码缓存索引
 - 音乐目录 `/music`：
@@ -118,7 +118,7 @@ flowchart LR
 
 ### 3.2 `worker/`
 
-- `worker.py`：主循环、SQLite 重连、job dispatch
+- `worker.py`：主循环、PostgreSQL 连接、job dispatch
 - `jobs.py`：job claim / heartbeat / progress / done / failed
 - `scanner.py`：全量扫描与 `tracks` 写入
 - `scanner.py`：全量扫描与 `tracks` 写入，同时优先读取音频同目录 sidecar，并在没有 sidecar 时提取已有嵌入歌词 / 封面观察值
@@ -321,7 +321,7 @@ sequenceDiagram
   autonumber
   actor U as Browser
   participant W as Web
-  participant DB as SQLite
+  participant DB as PostgreSQL
 
   U->>W: 打开 /setup
   W->>DB: 检查是否已存在 admin
@@ -342,7 +342,7 @@ sequenceDiagram
   autonumber
   actor A as Admin
   participant W as Web
-  participant DB as SQLite
+  participant DB as PostgreSQL
   participant WK as Worker
   participant FS as /music
   participant FP as ffprobe
@@ -370,8 +370,8 @@ sequenceDiagram
 说明：
 
 - `scan_full` 在 Web 侧做了去重
-- Worker 侧通过 `BEGIN IMMEDIATE` + 条件更新避免双领
-- Worker 当前会在轮询阶段主动刷新 SQLite 连接，降低开发环境连接陈旧问题
+- Worker 侧通过 PostgreSQL 事务 + `FOR UPDATE SKIP LOCKED` 避免双领
+- Worker 当前会在轮询阶段主动刷新数据库连接，降低开发环境连接陈旧问题
 
 ## 6.2.1 管理后台运维链路
 
@@ -415,7 +415,7 @@ sequenceDiagram
   autonumber
   actor U as Browser
   participant W as Web
-  participant DB as SQLite
+  participant DB as PostgreSQL
 
   U->>W: 打开 /admin/library
   W->>DB: library.stats()
@@ -430,8 +430,8 @@ sequenceDiagram
 
 说明：
 
-- 搜索优先走 FTS5
-- 如果本地缺少 FTS 表，会回退到普通 `contains` 查询
+- 搜索优先走数据库侧的索引能力
+- 如果索引不可用，会回退到普通 `contains` 查询
 
 ## 6.4 原始播放链路
 
@@ -440,7 +440,7 @@ sequenceDiagram
   autonumber
   actor U as Browser
   participant W as Web
-  participant DB as SQLite
+  participant DB as PostgreSQL
   participant FS as /music
 
   U->>W: playback.resolve(trackId, original)
@@ -469,7 +469,7 @@ sequenceDiagram
   participant RT as PlaybackRuntime
   participant Store as Playback Store
   participant W as Web
-  participant DB as SQLite
+  participant DB as PostgreSQL
   participant WK as Worker
   participant FF as ffmpeg
   participant Music as /music
@@ -519,7 +519,7 @@ sequenceDiagram
   actor A as Admin
   participant UI as /admin/cache or /admin/settings
   participant W as Web
-  participant DB as SQLite
+  participant DB as PostgreSQL
   participant FS as /cache
 
   A->>UI: 修改冷缓存阈值 / 预算 / 批量上限

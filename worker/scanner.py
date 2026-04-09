@@ -1,18 +1,18 @@
 import hashlib
 import json
 import os
-import sqlite3
 import subprocess
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable
 
+from psycopg import Connection
 from track_cover_sidecar import build_track_cover_sidecar_path, find_existing_track_cover_sidecar, get_track_cover_sidecar_candidates
 
 
-def _utc_now_sqlite() -> str:
-    return datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+def _utc_now_sqlite() -> datetime:
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
 SUPPORTED_AUDIO_EXTENSIONS = {
@@ -295,18 +295,18 @@ def _write_embedded_cover_to_sidecar(
     }
 
 
-def _lookup_existing_track(conn: sqlite3.Connection, path: Path) -> sqlite3.Row | None:
+def _lookup_existing_track(conn: Connection, path: Path) -> dict[str, Any] | None:
     return conn.execute(
         """
         SELECT "id", "observedArtworkAssetPath"
         FROM "tracks"
-        WHERE "path" = ?
+        WHERE "path" = %s
         """,
         (str(path),),
     ).fetchone()
 
 
-def _upsert_track(conn: sqlite3.Connection, track: dict[str, Any]) -> None:
+def _upsert_track(conn: Connection, track: dict[str, Any]) -> None:
     now = _utc_now_sqlite()
     conn.execute(
         """
@@ -319,8 +319,8 @@ def _upsert_track(conn: sqlite3.Connection, track: dict[str, Any]) -> None:
           "lyricsKind","lyricsHash","observedLyricsText",
           "updatedAt"
         )
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-        ON CONFLICT("path") DO UPDATE SET
+        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+        ON CONFLICT ("path") DO UPDATE SET
           "dirPath" = excluded."dirPath",
           "filename" = excluded."filename",
           "fileSize" = excluded."fileSize",
@@ -383,14 +383,14 @@ def _upsert_track(conn: sqlite3.Connection, track: dict[str, Any]) -> None:
     )
 
 
-def _cleanup_stale_tracks(conn: sqlite3.Connection, root: Path, seen_paths: set[str]) -> int:
+def _cleanup_stale_tracks(conn: Connection, root: Path, seen_paths: set[str]) -> int:
     root_path = str(root)
     root_prefix = f"{root_path}{os.sep}"
     rows = conn.execute(
         """
         SELECT "path", "observedArtworkAssetPath"
         FROM "tracks"
-        WHERE "path" = ? OR "path" LIKE ?
+        WHERE "path" = %s OR "path" LIKE %s
         """,
         (root_path, f"{root_prefix}%"),
     ).fetchall()
@@ -405,7 +405,7 @@ def _cleanup_stale_tracks(conn: sqlite3.Connection, root: Path, seen_paths: set[
     conn.executemany(
         """
         DELETE FROM "tracks"
-        WHERE "path" = ?
+        WHERE "path" = %s
         """,
         ((row["path"],) for row in stale_rows),
     )
@@ -454,7 +454,7 @@ def _build_track_record(
 
 
 def scan_full(
-    conn: sqlite3.Connection,
+    conn: Connection,
     music_root: str,
     *,
     on_progress: Callable[[float], None] | None = None,
@@ -473,7 +473,6 @@ def scan_full(
     if not root.is_dir():
         raise RuntimeError(f"MUSIC_ROOT is not a directory: {root}")
 
-    conn.row_factory = sqlite3.Row
     audio_files = _iter_audio_files(root)
     total = len(audio_files)
     seen_paths: set[str] = set()

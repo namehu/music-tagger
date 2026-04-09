@@ -1410,6 +1410,7 @@ export type TrackCoverEditCreateManyArgs<ExtArgs extends runtime.Types.Extension
    * The data used to create many TrackCoverEdits.
    */
   data: Prisma.TrackCoverEditCreateManyInput | Prisma.TrackCoverEditCreateManyInput[]
+  skipDuplicates?: boolean
 }
 
 /**
@@ -1428,6 +1429,7 @@ export type TrackCoverEditCreateManyAndReturnArgs<ExtArgs extends runtime.Types.
    * The data used to create many TrackCoverEdits.
    */
   data: Prisma.TrackCoverEditCreateManyInput | Prisma.TrackCoverEditCreateManyInput[]
+  skipDuplicates?: boolean
   /**
    * Choose, which related nodes to fetch as well
    */

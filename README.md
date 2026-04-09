@@ -1,12 +1,12 @@
 # 本地音乐管理工具
 
-一个基于 Next.js、tRPC、Prisma(SQLite) 和 Python worker 的本地音乐库控制台。当前版本已经支持：
+一个基于 Next.js、tRPC、Prisma + PostgreSQL 和 Python worker 的本地音乐库控制台。当前版本已经支持：
 
 - 首次初始化管理员账号
 - 登录后进入用户音乐区：`/dashboard`、`/library`、`/playlists`、`/ignored-tracks`
 - 用户首页支持继续收听、最近播放、最近更新歌单和最近更新曲目
 - 触发与查看 `scan_full` 后台任务
-- 扫描本地音乐目录并写入 SQLite 索引，同时提取已有嵌入歌词与封面观察值
+- 扫描本地音乐目录并写入 PostgreSQL 索引，同时提取已有嵌入歌词与封面观察值
 - 在 Web 控制台浏览最小音乐库统计、曲目列表与全文搜索
 - 原始音频直出播放与 `mp3_192` 转码缓存播放
 - 冷缓存 `mp3_192` 已支持达到最小阈值后边转边播，转码完成后自动恢复完整拖动能力
@@ -37,17 +37,17 @@
 ### 1. 本地快速开发
 
 - Web 跑在宿主机：`pnpm dev:web`
-- worker 跑在 Docker：[`docker-compose.dev.yml`](./docker-compose.dev.yml)
+- PostgreSQL 和 worker 跑在 Docker：[`docker-compose.dev.yml`](./docker-compose.dev.yml)
 - 适合日常开发与调试页面
 
 完整教程见 [`docs/local-development.md`](./docs/local-development.md)。
 
 ### 2. NAS 生产部署
 
-- Web 和 worker 都跑 Docker
+- Web、worker 和 PostgreSQL 都跑 Docker
 - NAS 只拉取镜像并启动，不在 NAS 上构建
 - 使用 [`docker-compose.prod.yml`](./docker-compose.prod.yml)
-- 数据库通过 migrations 自动初始化，不需要提交 `example.db`
+- 数据库通过 migrations 自动初始化，不需要提交任何 `*.db` 文件
 
 完整教程见 [`docs/production-deployment.md`](./docs/production-deployment.md)。
 

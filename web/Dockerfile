@@ -32,7 +32,7 @@ COPY . .
 RUN --mount=type=cache,target=/app/web/.next/cache \
   BETTER_AUTH_SECRET="build-placeholder-secret-32-chars-ok" \
   BETTER_AUTH_URL="http://localhost:3000" \
-  DATABASE_URL="file:/tmp/music-tagger-build.db" \
+  DATABASE_URL="postgresql://music_tagger:music_tagger@127.0.0.1:5432/music_tagger?schema=public" \
   pnpm -C web build
 
 RUN pnpm deploy --filter web --prod /app/prod-web

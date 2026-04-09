@@ -1550,6 +1550,7 @@ export type TrackMetadataEditCreateManyArgs<ExtArgs extends runtime.Types.Extens
    * The data used to create many TrackMetadataEdits.
    */
   data: Prisma.TrackMetadataEditCreateManyInput | Prisma.TrackMetadataEditCreateManyInput[]
+  skipDuplicates?: boolean
 }
 
 /**
@@ -1568,6 +1569,7 @@ export type TrackMetadataEditCreateManyAndReturnArgs<ExtArgs extends runtime.Typ
    * The data used to create many TrackMetadataEdits.
    */
   data: Prisma.TrackMetadataEditCreateManyInput | Prisma.TrackMetadataEditCreateManyInput[]
+  skipDuplicates?: boolean
   /**
    * Choose, which related nodes to fetch as well
    */

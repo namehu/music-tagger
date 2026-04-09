@@ -67,6 +67,6 @@ flowchart TD
 
 | 依赖对象 | 类型 | 触发页面/流程 | 现状 | 处理方式 |
 | --- | --- | --- | --- | --- |
-| SQLite | 数据库 | 歌单 CRUD 与歌单项管理 | 已落地 | 新增 `playlists` / `playlist_items` |
+| PostgreSQL | 数据库 | 歌单 CRUD 与歌单项管理 | 已落地 | 新增 `playlists` / `playlist_items` |
 | `/api/stream/[trackId]` | Route Handler | 歌单点播 | 已落地 | 继续复用 |
 | `transcode_prepare` | 后台 job | 外网档位播放准备 | 已落地 | 通过 `playback.getPreparationStatus` 供用户区轮询 |

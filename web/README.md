@@ -4,7 +4,7 @@
 
 - better-auth 登录与管理员初始化
 - tRPC 控制面接口
-- Prisma + SQLite 数据访问
+- Prisma + PostgreSQL 数据访问
 - 用户区、管理区、全局播放器与音乐库管理页
 
 ## 环境变量
@@ -17,7 +17,7 @@ cp .env.example .env
 
 当前需要的变量：
 
-- `DATABASE_URL`: 默认 `file:./dev.db`
+- `DATABASE_URL`: PostgreSQL 连接串，local dev 通常连接 `postgresql://music_tagger:music_tagger@localhost:5432/music_tagger?schema=public`
 - `BETTER_AUTH_SECRET`: better-auth 密钥
 - `BETTER_AUTH_URL`: Web 控制台访问地址
 - `BETTER_AUTH_TRUSTED_ORIGINS`: 额外可信来源，多个值用英文逗号分隔
@@ -91,7 +91,7 @@ pnpm prisma migrate deploy && pnpm start
 
 生产环境请至少提供：
 
-- `DATABASE_URL=file:/data/app.db`
+- `DATABASE_URL=postgresql://...`，指向生产 PostgreSQL 实例
 - `BETTER_AUTH_SECRET`
 - `BETTER_AUTH_URL`
 - `BETTER_AUTH_TRUSTED_ORIGINS`（可选）

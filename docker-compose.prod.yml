@@ -1,17 +1,36 @@
 services:
+  postgres:
+    image: postgres:16-alpine
+    pull_policy: always
+    container_name: music-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is required}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB is required}
+    volumes:
+      - ${DB_DATA_DIR:-db_data}:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    restart: unless-stopped
+
   web:
     image: ${WEB_IMAGE:?WEB_IMAGE is required}
     pull_policy: always
     container_name: music-web
+    depends_on:
+      postgres:
+        condition: service_healthy
     environment:
       NODE_ENV: production
-      DATABASE_URL: file:/data/app.db
+      DATABASE_URL: postgresql://${POSTGRES_USER:?POSTGRES_USER is required}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DB:?POSTGRES_DB is required}?schema=public
       BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?BETTER_AUTH_SECRET is required}
       BETTER_AUTH_URL: ${BETTER_AUTH_URL:?BETTER_AUTH_URL is required}
       BETTER_AUTH_TRUSTED_ORIGINS: ${BETTER_AUTH_TRUSTED_ORIGINS:-}
     volumes:
-      # Default to a named volume. Set DB_DATA_DIR=/absolute/path to use a NAS host directory instead.
-      - ${DB_DATA_DIR:-data}:/data
       # Default to a named volume. Set CACHE_DIR=/absolute/path to use a NAS host directory instead.
       - ${CACHE_DIR:-transcode_cache}:/cache
       - ${NAS_MUSIC_DIR:?NAS_MUSIC_DIR is required}:/music
@@ -23,19 +42,19 @@ services:
     image: ${WORKER_IMAGE:?WORKER_IMAGE is required}
     pull_policy: always
     container_name: music-worker
+    depends_on:
+      postgres:
+        condition: service_healthy
     environment:
-      DATABASE_URL: file:/data/app.db
+      DATABASE_URL: postgresql://${POSTGRES_USER:?POSTGRES_USER is required}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DB:?POSTGRES_DB is required}?schema=public
       MUSIC_ROOT: /music
       WORKER_ID: ${WORKER_ID:-worker-1}
     volumes:
-      - ${DB_DATA_DIR:-data}:/data
       - ${CACHE_DIR:-transcode_cache}:/cache
       # track_edit_sync 需要写回源文件，因此 worker 必须对 /music 拥有写权限
       - ${NAS_MUSIC_DIR:?NAS_MUSIC_DIR is required}:/music
-    depends_on:
-      - web
     restart: unless-stopped
 
 volumes:
-  data:
+  db_data:
   transcode_cache:

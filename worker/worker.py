@@ -1,11 +1,13 @@
 import json
 import os
 import random
-import sqlite3
 import string
 import time
-from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
+
+from psycopg import Connection, Error as PsycopgError, connect, sql
+from psycopg.rows import dict_row
 
 # 以 `python worker/worker.py` 方式运行时，sys.path[0] 为 worker/ 目录，
 # 因此使用同目录导入（避免要求 worker/ 作为带 __init__.py 的包）。
@@ -18,47 +20,41 @@ from transcoder import JobCancelled, transcode_prepare
 
 
 POLL_INTERVAL_S = 2
-SQLITE_BUSY_TIMEOUT_MS = 30_000
 
 
-def _should_use_development_sqlite_pragmas(db_path: str) -> bool:
-    return Path(db_path).name == "dev.db"
+def _database_dsn_from_env() -> tuple[str, str | None]:
+    dsn = os.environ.get("DATABASE_URL", "").strip()
+    if not dsn:
+        raise RuntimeError("DATABASE_URL must be set to a PostgreSQL DSN")
+
+    if dsn.startswith("file:"):
+        raise RuntimeError("DATABASE_URL must point to PostgreSQL, not SQLite")
+
+    parts = urlsplit(dsn)
+    query_items = parse_qsl(parts.query, keep_blank_values=True)
+    schema = None
+    filtered_query: list[tuple[str, str]] = []
+    for key, value in query_items:
+        if key == "schema" and value.strip():
+            schema = value.strip()
+            continue
+        filtered_query.append((key, value))
+
+    normalized_dsn = urlunsplit(parts._replace(query=urlencode(filtered_query)))
+    return normalized_dsn, schema
 
 
-def _configure_sqlite_connection(conn: sqlite3.Connection, db_path: str) -> None:
-    # 让外键生效（Prisma migration 中有外键）
-    conn.execute("PRAGMA foreign_keys = ON;")
-    conn.execute(f"PRAGMA busy_timeout = {SQLITE_BUSY_TIMEOUT_MS};")
+def _redact_dsn(dsn: str) -> str:
+    parts = urlsplit(dsn)
+    if "@" not in parts.netloc:
+        return dsn
 
-    if not _should_use_development_sqlite_pragmas(db_path):
-        return
+    credentials, host = parts.netloc.rsplit("@", 1)
+    if ":" not in credentials:
+        return dsn
 
-    # 开发环境里 web + worker 会并发访问同一个 bind-mounted SQLite 文件。
-    # 切到 WAL 并降低 fsync 强度，可以显著减少 DELETE journal 下的瞬时坏视图。
-    conn.execute("PRAGMA journal_mode = WAL;")
-    conn.execute("PRAGMA synchronous = NORMAL;")
-    conn.execute("PRAGMA wal_autocheckpoint = 1000;")
-    conn.execute("PRAGMA temp_store = MEMORY;")
-
-
-def _default_db_path() -> str:
-    # 默认 ../web/dev.db（相对 worker/worker.py）
-    return str((Path(__file__).resolve().parent / ".." / "web" / "dev.db").resolve())
-
-
-def _db_path_from_env() -> str:
-    url = os.environ.get("DATABASE_URL", "").strip()
-    if not url:
-        return _default_db_path()
-
-    # 仅要求支持 file: 前缀
-    if url.startswith("file:"):
-        p = url[len("file:") :]
-        # file:../web/dev.db 这种相对路径按当前进程工作目录解析（符合常见 DATABASE_URL 行为）
-        return str(Path(p).expanduser().resolve())
-
-    # 容错：若直接给了路径，也当作 sqlite 文件路径
-    return str(Path(url).expanduser().resolve())
+    username, _password = credentials.split(":", 1)
+    return urlunsplit(parts._replace(netloc=f"{username}:***@{host}"))
 
 
 def _default_worker_id() -> str:
@@ -66,14 +62,17 @@ def _default_worker_id() -> str:
     return f"worker-{suffix}"
 
 
-def _connect(db_path: str) -> sqlite3.Connection:
-    conn = sqlite3.connect(db_path, timeout=30)
-    conn.row_factory = sqlite3.Row
-    _configure_sqlite_connection(conn, db_path)
+def _connect(dsn: str, schema: str | None) -> Connection:
+    conn = connect(dsn, connect_timeout=30, autocommit=True, row_factory=dict_row)
+    conn.execute("SET TIME ZONE 'UTC'")
+    if schema:
+        conn.execute(
+            sql.SQL("SET search_path TO {}").format(sql.Identifier(schema)),
+        )
     return conn
 
 
-def _close_connection(conn: Optional[sqlite3.Connection]) -> None:
+def _close_connection(conn: Optional[Connection]) -> None:
     if conn is None:
         return
 
@@ -83,57 +82,24 @@ def _close_connection(conn: Optional[sqlite3.Connection]) -> None:
         pass
 
 
-def _db_fingerprint(db_path: str) -> tuple[int, int, int, int] | None:
-    try:
-        stat = Path(db_path).stat()
-    except FileNotFoundError:
-        return None
-
-    return (stat.st_dev, stat.st_ino, stat.st_size, stat.st_mtime_ns)
-
-
-def _open_connection(db_path: str) -> tuple[sqlite3.Connection, tuple[int, int, int, int] | None]:
-    conn = _connect(db_path)
-    return conn, _db_fingerprint(db_path)
+def _open_connection(dsn: str, schema: str | None) -> Connection:
+    return _connect(dsn, schema)
 
 
 def _reconnect(
-    conn: Optional[sqlite3.Connection],
-    db_path: str,
+    conn: Optional[Connection],
+    dsn: str,
+    schema: str | None,
     *,
     reason: str,
-) -> tuple[sqlite3.Connection, tuple[int, int, int, int] | None]:
-    print(f"[worker] reconnecting SQLite connection: {reason}")
+) -> Connection:
+    print(f"[worker] reconnecting PostgreSQL connection: {reason}")
     _close_connection(conn)
-    return _open_connection(db_path)
-
-
-def _refresh_polling_connection(
-    conn: sqlite3.Connection,
-    db_path: str,
-) -> tuple[sqlite3.Connection, tuple[int, int, int, int] | None]:
-    _close_connection(conn)
-    return _open_connection(db_path)
-
-
-def _ensure_fresh_connection(
-    conn: sqlite3.Connection,
-    db_path: str,
-    fingerprint: tuple[int, int, int, int] | None,
-) -> tuple[sqlite3.Connection, tuple[int, int, int, int] | None]:
-    latest_fingerprint = _db_fingerprint(db_path)
-    if latest_fingerprint == fingerprint:
-        return conn, fingerprint
-
-    return _reconnect(
-        conn,
-        db_path,
-        reason=f"database file changed from {fingerprint} to {latest_fingerprint}",
-    )
+    return _open_connection(dsn, schema)
 
 
 def _handle_job(
-    conn: sqlite3.Connection,
+    conn: Connection,
     worker_id: str,
     job: dict,
     music_root: str,
@@ -209,36 +175,36 @@ def _handle_job(
     except Exception as e:
         try:
             mark_failed(conn, job_id, worker_id, e)
-        except sqlite3.Error as db_error:
+        except PsycopgError as db_error:
             print(f"[worker] failed to persist job failure for {job_id}: {db_error}")
             raise
 
 
 def main() -> None:
-    db_path = _db_path_from_env()
+    dsn, schema = _database_dsn_from_env()
     music_root = os.environ.get("MUSIC_ROOT", "/music")
     cache_root = os.environ.get("CACHE_ROOT", "/cache")
     worker_id = os.environ.get("WORKER_ID", _default_worker_id())
 
     print(f"[worker] WORKER_ID={worker_id}")
-    print(f"[worker] DATABASE_PATH={db_path}")
+    print(f"[worker] DATABASE_URL={_redact_dsn(dsn)}")
+    if schema:
+        print(f"[worker] DATABASE_SCHEMA={schema}")
     print(f"[worker] MUSIC_ROOT={music_root}")
     print(f"[worker] CACHE_ROOT={cache_root}")
 
-    conn, fingerprint = _open_connection(db_path)
+    conn = _open_connection(dsn, schema)
 
     try:
         while True:
             try:
-                # 开发环境里宿主机 / Docker / Prisma / sqlite3 可能分别持有不同文件句柄，
-                # 空闲轮询阶段主动刷新连接，确保下一次 claim 读取的是最新数据库视图。
-                conn, fingerprint = _refresh_polling_connection(conn, db_path)
                 job = claim_next_job(conn, worker_id)
-            except sqlite3.Error as error:
-                conn, fingerprint = _reconnect(
+            except PsycopgError as error:
+                conn = _reconnect(
                     conn,
-                    db_path,
-                    reason=f"polling failed with sqlite error: {error}",
+                    dsn,
+                    schema,
+                    reason=f"polling failed with postgres error: {error}",
                 )
                 time.sleep(POLL_INTERVAL_S)
                 continue
@@ -254,11 +220,12 @@ def main() -> None:
 
             try:
                 _handle_job(conn, worker_id, job, music_root, cache_root)
-            except sqlite3.Error as error:
-                conn, fingerprint = _reconnect(
+            except PsycopgError as error:
+                conn = _reconnect(
                     conn,
-                    db_path,
-                    reason=f"job {job['id']} failed with sqlite error: {error}",
+                    dsn,
+                    schema,
+                    reason=f"job {job['id']} failed with postgres error: {error}",
                 )
                 time.sleep(POLL_INTERVAL_S)
     finally:

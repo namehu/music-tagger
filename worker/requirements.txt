@@ -1,1 +1,2 @@
 mutagen>=1.47,<2
+psycopg[binary]>=3.2,<4
