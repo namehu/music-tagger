@@ -59,8 +59,11 @@ export function classifyTranscodeFailure(errorJson: string | null | undefined): 
   if (
     message.includes("/cache") ||
     message.includes("no space left") ||
+    message.includes("operation not permitted") ||
     message.includes("permission denied") ||
-    message.includes("read-only file system")
+    message.includes("read-only file system") ||
+    message.includes("缓存路径") ||
+    message.includes("缓存目录")
   ) {
     return "cache_io";
   }

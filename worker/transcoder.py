@@ -1,5 +1,6 @@
 import json
 import os
+import stat as stat_module
 import subprocess
 import time
 import uuid
@@ -113,6 +114,68 @@ def _terminate_process(process: subprocess.Popen[str] | None) -> None:
         process.wait(timeout=3)
 
 
+def _cache_io_error(action: str, path: Path, exc: OSError) -> RuntimeError:
+    return RuntimeError(f"缓存路径{action}失败: {path} ({exc})")
+
+
+def _ensure_cache_dir(path: Path) -> None:
+    try:
+        path.mkdir(parents=True, exist_ok=True)
+    except OSError as exc:
+        raise _cache_io_error("创建目录", path, exc) from exc
+
+
+def _get_cache_path_stat(path: Path):
+    try:
+        return path.stat()
+    except FileNotFoundError:
+        return None
+    except OSError as exc:
+        raise _cache_io_error("读取状态", path, exc) from exc
+
+
+def _cache_path_exists(path: Path) -> bool:
+    return _get_cache_path_stat(path) is not None
+
+
+def _cache_path_is_file(path: Path) -> bool:
+    stat_result = _get_cache_path_stat(path)
+    return stat_result is not None and stat_module.S_ISREG(stat_result.st_mode)
+
+
+def _safe_cache_stat_size(path: Path) -> int:
+    stat_result = _get_cache_path_stat(path)
+    return 0 if stat_result is None else int(stat_result.st_size)
+
+
+def _unlink_cache_path_if_exists(path: Path) -> bool:
+    try:
+        path.unlink()
+        return True
+    except FileNotFoundError:
+        return False
+    except OSError as exc:
+        raise _cache_io_error("删除失败", path, exc) from exc
+
+
+def _replace_cache_path(source: Path, target: Path) -> None:
+    try:
+        source.replace(target)
+    except OSError as exc:
+        raise _cache_io_error(f"原子替换失败 -> {target}", source, exc) from exc
+
+
+def _acquire_lock_file(path: Path) -> int:
+    try:
+        lock_fd = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+        os.write(lock_fd, f"{os.getpid()}\n".encode("utf-8"))
+        return lock_fd
+    except FileExistsError:
+        raise
+    except OSError as exc:
+        raise _cache_io_error("创建锁文件", path, exc) from exc
+
+
 def _wait_for_other_worker(
     *,
     final_path: Path,
@@ -123,22 +186,15 @@ def _wait_for_other_worker(
     deadline = time.monotonic() + 120
     while time.monotonic() < deadline:
         _check_should_continue(should_continue, "转码任务已取消")
-        if final_path.exists() and final_path.is_file():
+        if _cache_path_is_file(final_path):
             if on_progress:
                 on_progress(0.95)
-            return int(final_path.stat().st_size)
-        if not lock_path.exists():
+            return _safe_cache_stat_size(final_path)
+        if not _cache_path_exists(lock_path):
             raise JobCancelled("转码任务已被更新的请求替代")
         time.sleep(0.5)
 
     raise RuntimeError("等待其他 worker 完成转码超时")
-
-
-def _safe_stat_size(path: Path) -> int:
-    try:
-        return int(path.stat().st_size)
-    except FileNotFoundError:
-        return 0
 
 
 def _sync_partial_cache_state(
@@ -222,8 +278,10 @@ def transcode_prepare(
         if actual_mtime_ms != source_mtime_ms:
             raise JobCancelled("源音频文件已更新，请重新解析播放地址")
 
-        if final_path.exists() and final_path.is_file():
-            file_size = int(final_path.stat().st_size)
+        _ensure_cache_dir(final_path.parent)
+
+        if _cache_path_is_file(final_path):
+            file_size = _safe_cache_stat_size(final_path)
             _upsert_transcode_cache(
                 conn,
                 track_id=track_id,
@@ -244,15 +302,9 @@ def transcode_prepare(
                 "skipped": True,
             }
 
-        final_path.parent.mkdir(parents=True, exist_ok=True)
+        _unlink_cache_path_if_exists(partial_path)
         try:
-            if partial_path.exists():
-                partial_path.unlink()
-        except FileNotFoundError:
-            pass
-        try:
-            lock_fd = os.open(lock_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
-            os.write(lock_fd, f"{os.getpid()}\n".encode("utf-8"))
+            lock_fd = _acquire_lock_file(lock_path)
         except FileExistsError:
             file_size = _wait_for_other_worker(
                 final_path=final_path,
@@ -323,7 +375,7 @@ def transcode_prepare(
         last_status = "pending"
         while process.poll() is None:
             _check_should_continue(should_continue, "转码任务已取消")
-            partial_size = _safe_stat_size(partial_path)
+            partial_size = _safe_cache_stat_size(partial_path)
             next_status = (
                 "streaming"
                 if partial_size >= LIVE_TRANSCODE_START_THRESHOLD_BYTES
@@ -351,9 +403,9 @@ def transcode_prepare(
             raise RuntimeError(f"ffmpeg transcode failed: {message}")
 
         _check_should_continue(should_continue, "转码任务已取消")
-        file_size = _safe_stat_size(partial_path)
-        partial_path.replace(final_path)
-        file_size = int(final_path.stat().st_size)
+        file_size = _safe_cache_stat_size(partial_path)
+        _replace_cache_path(partial_path, final_path)
+        file_size = _safe_cache_stat_size(final_path)
 
         _upsert_transcode_cache(
             conn,
@@ -393,8 +445,7 @@ def transcode_prepare(
         raise
     finally:
         try:
-            if partial_path.exists():
-                partial_path.unlink()
+            _unlink_cache_path_if_exists(partial_path)
         except Exception:
             pass
         try:
@@ -403,7 +454,7 @@ def transcode_prepare(
         except Exception:
             pass
         try:
-            if lock_fd is not None and lock_path.exists():
-                lock_path.unlink()
+            if lock_fd is not None:
+                _unlink_cache_path_if_exists(lock_path)
         except Exception:
             pass
