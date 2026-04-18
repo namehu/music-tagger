@@ -457,7 +457,7 @@ def scan_full(
     conn: Connection,
     music_root: str,
     *,
-    on_progress: Callable[[float], None] | None = None,
+    on_progress: Callable[[float, dict[str, Any]], None] | None = None,
 ) -> dict[str, int]:
     """
     全量扫描真实音乐目录，并用 path 做 UPSERT。
@@ -473,14 +473,58 @@ def scan_full(
     if not root.is_dir():
         raise RuntimeError(f"MUSIC_ROOT is not a directory: {root}")
 
+    def emit_progress(
+        progress: float,
+        phase: str,
+        *,
+        total: int | None,
+        scanned: int,
+        processed: int,
+        skipped: int,
+        deleted: int,
+    ) -> None:
+        if not on_progress:
+            return
+
+        on_progress(
+            progress,
+            {
+                "kind": "scan_full",
+                "phase": phase,
+                "total": total,
+                "scanned": scanned,
+                "processed": processed,
+                "skipped": skipped,
+                "deleted": deleted,
+            },
+        )
+
+    emit_progress(
+        0.0,
+        "discovering",
+        total=None,
+        scanned=0,
+        processed=0,
+        skipped=0,
+        deleted=0,
+    )
+
     audio_files = _iter_audio_files(root)
     total = len(audio_files)
     seen_paths: set[str] = set()
     processed = 0
     skipped = 0
+    deleted = 0
 
-    if on_progress:
-        on_progress(0.0)
+    emit_progress(
+        0.0,
+        "scanning",
+        total=total,
+        scanned=0,
+        processed=0,
+        skipped=0,
+        deleted=deleted,
+    )
 
     for index, path in enumerate(audio_files, start=1):
         try:
@@ -508,13 +552,37 @@ def scan_full(
             skipped += 1
             print(f"[scanner] skipped {path}: {exc}")
         finally:
-            if on_progress and total > 0:
-                on_progress(index / total)
+            if total > 0:
+                emit_progress(
+                    index / total,
+                    "scanning",
+                    total=total,
+                    scanned=index,
+                    processed=processed,
+                    skipped=skipped,
+                    deleted=deleted,
+                )
 
+    emit_progress(
+        1.0,
+        "cleanup",
+        total=total,
+        scanned=total,
+        processed=processed,
+        skipped=skipped,
+        deleted=deleted,
+    )
     deleted = _cleanup_stale_tracks(conn, root, seen_paths)
 
-    if on_progress:
-        on_progress(1.0)
+    emit_progress(
+        1.0,
+        "done",
+        total=total,
+        scanned=total,
+        processed=processed,
+        skipped=skipped,
+        deleted=deleted,
+    )
 
     return {
         "processed": processed,

@@ -29,9 +29,12 @@ import {
   getJobScopeText,
   parseJobPayload,
   getTranscodeFailureMeta,
+  formatScanFullProgressSummary,
+  type JobProgressEvent,
 } from "@/lib/jobs";
 import { getTrackEditDomainLabel, getTrackEditStatusCopy } from "@/lib/track-edit-failures";
 import { getTranscodeFailureCategoryLabel, TRANSCODE_FAILURE_CATEGORIES } from "@/lib/transcode-failure";
+import { useJobEventSource } from "@/lib/use-job-events";
 import { cn } from "@/lib/utils";
 
 function formatDateTime(value: string | Date | null | undefined) {
@@ -66,6 +69,8 @@ export default function AdminJobsPage() {
   const pathname = usePathname();
   const router = useRouter();
   const utils = trpc.useUtils();
+  const [activeScanJobId, setActiveScanJobId] = React.useState<string | null>(null);
+  const [scanEventJob, setScanEventJob] = React.useState<JobProgressEvent | null>(null);
 
   const jobsQuery = trpc.jobs.list.useQuery();
   const { refetch } = jobsQuery;
@@ -95,6 +100,8 @@ export default function AdminJobsPage() {
   });
   const enqueueScanFull = trpc.jobs.enqueueScanFull.useMutation({
     onSuccess: async (result) => {
+      setActiveScanJobId(result.jobId);
+      setScanEventJob(null);
       toast.success(result.deduped ? "已有进行中的 scan_full 任务" : "已入队");
       await utils.jobs.list.invalidate();
     },
@@ -131,7 +138,38 @@ export default function AdminJobsPage() {
     return { variant: "outline" as const, text: status ?? "-" };
   };
 
-  const jobs = jobsQuery.data ?? [];
+  const queriedJobs = React.useMemo(() => jobsQuery.data ?? [], [jobsQuery.data]);
+  const activeQueriedScanJob =
+    queriedJobs.find((job) => job.type === "scan_full" && (job.status === "pending" || job.status === "running")) ?? null;
+  const scanEventJobId = activeQueriedScanJob?.id ?? activeScanJobId ?? null;
+  const jobs = React.useMemo(
+    () =>
+      scanEventJob
+        ? queriedJobs.map((job) => (job.id === scanEventJob.id ? { ...job, ...scanEventJob } : job))
+        : queriedJobs,
+    [queriedJobs, scanEventJob],
+  );
+
+  const handleScanJobEvent = React.useCallback(
+    (job: JobProgressEvent) => {
+      setScanEventJob(job);
+      if (job.status === "done" || job.status === "failed" || job.status === "cancelled") {
+        void utils.jobs.list.invalidate();
+      }
+    },
+    [utils.jobs.list],
+  );
+
+  useJobEventSource({
+    enabled:
+      Boolean(scanEventJobId) &&
+      scanEventJob?.status !== "done" &&
+      scanEventJob?.status !== "failed" &&
+      scanEventJob?.status !== "cancelled",
+    jobId: scanEventJobId,
+    onJob: handleScanJobEvent,
+  });
+
   const editSyncJobs = jobs.filter((job) => job.type === "track_edit_sync");
   const nonEditJobs = jobs.filter((job) => job.type !== "track_edit_sync");
   const pendingJobs = jobs.filter((job) => job.status === "pending").length;
@@ -414,6 +452,7 @@ export default function AdminJobsPage() {
                   job.type === "transcode_prepare" && job.status === "failed"
                     ? getTranscodeFailureMeta(job.errorJson)
                     : null;
+                const scanProgress = job.type === "scan_full" ? formatScanFullProgressSummary(job.progressJson) : null;
                 return (
                   <React.Fragment key={job.id}>
                     <TableRow>
@@ -432,7 +471,21 @@ export default function AdminJobsPage() {
                       <TableCell>
                         <Badge variant={badge.variant}>{badge.text}</Badge>
                       </TableCell>
-                      <TableCell>{formatProgress(job.progress)}</TableCell>
+                      <TableCell>
+                        <div className="space-y-1">
+                          <div>{formatProgress(job.progress)}</div>
+                          {scanProgress ? (
+                            <div className="max-w-56 text-xs text-muted-foreground">
+                              <div>{scanProgress.headline}</div>
+                              <div className="mt-1 flex flex-wrap gap-2">
+                                {scanProgress.details.map((detail) => (
+                                  <span key={detail}>{detail}</span>
+                                ))}
+                              </div>
+                            </div>
+                          ) : null}
+                        </div>
+                      </TableCell>
                       <TableCell>
                         {job.attempts}/{job.maxAttempts}
                       </TableCell>

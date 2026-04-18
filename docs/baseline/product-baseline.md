@@ -9,6 +9,7 @@ source_refs:
   - web/prisma/schema.prisma
   - web/server/trpc/root.ts
   - web/server/trpc/routers/trackEdits.ts
+  - web/app/api/admin/jobs/[jobId]/events/route.ts
   - web/app/api/admin/tracks/[trackId]/cover/route.ts
   - web/app/api/stream/[trackId]/route.ts
   - worker/worker.py
@@ -48,6 +49,8 @@ source_refs:
 - Python worker 轮询并原子 claim job
 - 已支持 `scan_full`、`transcode_prepare` 与 `track_edit_sync`
 - 已支持 heartbeat、失败回写、重复转码任务取消、重试和取消接口
+- `scan_full` 已支持结构化进度明细，管理员端可看到已扫描、已处理、已跳过、已删除计数
+- 已新增 admin-only SSE 任务事件流，用于把活动扫描任务状态推送到管理页面
 
 ### 3.3 曲库与搜索
 
@@ -154,6 +157,7 @@ source_refs:
 - 已有 admin 最小试听条与 admin 当前试听摘要
 - 已有用户区 shell：`/dashboard`、`/library`、`/playlists`、`/ignored-tracks`
 - `/admin/jobs` 当前已按“编辑同步”与“扫描/转码/其他任务”分区，编辑同步失败会优先显示结构化结论与建议动作
+- `/admin` 与 `/admin/jobs` 会展示 `scan_full` 的结构化扫描计数，并通过 SSE 获得活动扫描任务更新
 
 ## 4. 部分实现能力
 
@@ -191,6 +195,7 @@ source_refs:
 
 - `/api/auth/[...all]`
 - `/api/trpc/[trpc]`
+- `/api/admin/jobs/[jobId]/events`
 - `/api/admin/tracks/[trackId]/cover`
 - `/api/tracks/[trackId]/cover`
 - `/api/stream/[trackId]`
@@ -215,6 +220,8 @@ source_refs:
 - `Track`
 - `TranscodeCache`
 - `PlaybackResolveEvent`
+
+其中 `Job.progressJson` 用于保存可空结构化任务进度；当前已定义 `scan_full` 的扫描计数明细。
 
 认证相关模型为：
 

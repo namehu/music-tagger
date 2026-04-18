@@ -123,7 +123,13 @@ def _handle_job(
             scan_full(
                 conn,
                 root,
-                on_progress=lambda progress: update_progress(conn, job_id, worker_id, progress),
+                on_progress=lambda progress, progress_detail: update_progress(
+                    conn,
+                    job_id,
+                    worker_id,
+                    progress,
+                    json.dumps(progress_detail, ensure_ascii=False),
+                ),
             )
             mark_done(conn, job_id, worker_id)
             return

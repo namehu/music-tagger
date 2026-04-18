@@ -1867,6 +1867,7 @@ export const JobScalarFieldEnum = {
   priority: 'priority',
   payloadJson: 'payloadJson',
   progress: 'progress',
+  progressJson: 'progressJson',
   attempts: 'attempts',
   maxAttempts: 'maxAttempts',
   lockedBy: 'lockedBy',

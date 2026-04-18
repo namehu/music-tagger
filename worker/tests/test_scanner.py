@@ -180,6 +180,120 @@ class ScanFullTests(unittest.TestCase):
             self.assertEqual(remaining["count"], 0)
             self.assertFalse(observed_asset.exists())
 
+    def test_scan_full_emits_structured_progress_counts(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            music_root = Path(tmpdir) / "music"
+            music_root.mkdir()
+            good_track = music_root / "good.mp3"
+            bad_track = music_root / "bad.mp3"
+            good_track.write_bytes(b"fake-audio")
+            bad_track.write_bytes(b"fake-audio")
+            progress_events: list[tuple[float, dict]] = []
+
+            def fake_probe(path: Path) -> dict:
+                if path.name == "bad.mp3":
+                    raise RuntimeError("broken file")
+                return {
+                    "duration_ms": 1000,
+                    "bitrate_kbps": 320,
+                    "sample_rate": 44100,
+                    "bit_depth": 16,
+                    "channels": 2,
+                    "title": "Song",
+                    "artist": "Artist",
+                    "album": "Album",
+                    "album_artist": "Artist",
+                    "track_no": 1,
+                    "disc_no": 1,
+                    "year": 2024,
+                    "genre": "Pop",
+                    "tags_json": None,
+                }
+
+            with patch.object(scanner, "_probe_audio_file", side_effect=fake_probe), patch.object(
+                scanner,
+                "_extract_embedded_media",
+                return_value={
+                    "lyrics_text": None,
+                    "lyrics_kind": None,
+                    "lyrics_hash": None,
+                    "artwork_bytes": None,
+                    "artwork_kind": None,
+                    "artwork_mime": None,
+                    "artwork_hash": None,
+                },
+            ):
+                result = scanner.scan_full(
+                    self.conn,
+                    str(music_root),
+                    on_progress=lambda progress, detail: progress_events.append((progress, detail)),
+                )
+
+            self.assertEqual(result, {"processed": 1, "skipped": 1, "deleted": 0})
+            self.assertEqual(progress_events[0][1]["phase"], "discovering")
+            self.assertIsNone(progress_events[0][1]["total"])
+            self.assertEqual(progress_events[1][1]["phase"], "scanning")
+            self.assertEqual(progress_events[1][1]["total"], 2)
+            done_event = progress_events[-1][1]
+            self.assertEqual(done_event["phase"], "done")
+            self.assertEqual(done_event["scanned"], 2)
+            self.assertEqual(done_event["processed"], 1)
+            self.assertEqual(done_event["skipped"], 1)
+            self.assertEqual(done_event["deleted"], 0)
+
+    def test_scan_full_emits_deleted_count_after_cleanup(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            music_root = Path(tmpdir) / "music"
+            music_root.mkdir()
+            track_path = music_root / "song.mp3"
+            track_path.write_bytes(b"fake-audio")
+
+            with patch.object(
+                scanner,
+                "_probe_audio_file",
+                return_value={
+                    "duration_ms": 1000,
+                    "bitrate_kbps": 320,
+                    "sample_rate": 44100,
+                    "bit_depth": 16,
+                    "channels": 2,
+                    "title": "Song",
+                    "artist": "Artist",
+                    "album": "Album",
+                    "album_artist": "Artist",
+                    "track_no": 1,
+                    "disc_no": 1,
+                    "year": 2024,
+                    "genre": "Pop",
+                    "tags_json": None,
+                },
+            ), patch.object(
+                scanner,
+                "_extract_embedded_media",
+                return_value={
+                    "lyrics_text": None,
+                    "lyrics_kind": None,
+                    "lyrics_hash": None,
+                    "artwork_bytes": None,
+                    "artwork_kind": None,
+                    "artwork_mime": None,
+                    "artwork_hash": None,
+                },
+            ):
+                scanner.scan_full(self.conn, str(music_root))
+
+            track_path.unlink()
+            progress_events: list[tuple[float, dict]] = []
+            result = scanner.scan_full(
+                self.conn,
+                str(music_root),
+                on_progress=lambda progress, detail: progress_events.append((progress, detail)),
+            )
+
+            self.assertEqual(result, {"processed": 0, "skipped": 0, "deleted": 1})
+            self.assertEqual(progress_events[-1][1]["phase"], "done")
+            self.assertEqual(progress_events[-1][1]["deleted"], 1)
+
 
 if __name__ == "__main__":
     unittest.main()

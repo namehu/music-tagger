@@ -161,17 +161,28 @@ def update_progress(
     job_id: str,
     worker_id: str,
     progress: float,
+    progress_json: str | None = None,
 ) -> bool:
     now = _utc_now()
     safe_progress = max(0.0, min(1.0, progress))
-    cur = conn.execute(
-        """
-        UPDATE "jobs"
-        SET "progress" = %s, "heartbeatAt" = %s, "updatedAt" = %s
-        WHERE "id" = %s AND "status" = 'running' AND "lockedBy" = %s
-        """,
-        (safe_progress, now, now, job_id, worker_id),
-    )
+    if progress_json is None:
+        cur = conn.execute(
+            """
+            UPDATE "jobs"
+            SET "progress" = %s, "heartbeatAt" = %s, "updatedAt" = %s
+            WHERE "id" = %s AND "status" = 'running' AND "lockedBy" = %s
+            """,
+            (safe_progress, now, now, job_id, worker_id),
+        )
+    else:
+        cur = conn.execute(
+            """
+            UPDATE "jobs"
+            SET "progress" = %s, "progressJson" = %s, "heartbeatAt" = %s, "updatedAt" = %s
+            WHERE "id" = %s AND "status" = 'running' AND "lockedBy" = %s
+            """,
+            (safe_progress, progress_json, now, now, job_id, worker_id),
+        )
     conn.commit()
     return cur.rowcount == 1
 

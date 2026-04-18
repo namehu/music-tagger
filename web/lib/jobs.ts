@@ -15,6 +15,89 @@ export type ParsedJobPayload = {
   domain?: "metadata" | "lyrics" | "cover";
 };
 
+export type ScanFullProgressPhase = "discovering" | "scanning" | "cleanup" | "done";
+
+export type ScanFullProgress = {
+  kind: "scan_full";
+  phase: ScanFullProgressPhase;
+  total: number | null;
+  scanned: number;
+  processed: number;
+  skipped: number;
+  deleted: number;
+};
+
+export type JobProgressEvent = {
+  id: string;
+  type: string;
+  status: string;
+  progress: number;
+  progressJson: string | null;
+  errorJson: string | null;
+  updatedAt: string | Date;
+};
+
+export function parseScanFullProgress(progressJson: string | null | undefined): ScanFullProgress | null {
+  if (!progressJson) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(progressJson) as Partial<ScanFullProgress> | null;
+    if (!parsed || parsed.kind !== "scan_full") {
+      return null;
+    }
+
+    const phase = parsed.phase;
+    if (phase !== "discovering" && phase !== "scanning" && phase !== "cleanup" && phase !== "done") {
+      return null;
+    }
+
+    return {
+      kind: "scan_full",
+      phase,
+      total: typeof parsed.total === "number" && Number.isFinite(parsed.total) ? parsed.total : null,
+      scanned: coerceProgressCount(parsed.scanned),
+      processed: coerceProgressCount(parsed.processed),
+      skipped: coerceProgressCount(parsed.skipped),
+      deleted: coerceProgressCount(parsed.deleted),
+    };
+  } catch {
+    return null;
+  }
+}
+
+export function formatScanFullProgressSummary(progressJson: string | null | undefined) {
+  const progress = parseScanFullProgress(progressJson);
+  if (!progress) {
+    return null;
+  }
+
+  const totalText = progress.total == null ? "?" : String(progress.total);
+  const headline =
+    progress.phase === "discovering"
+      ? "正在统计音乐文件"
+      : progress.phase === "cleanup"
+        ? "正在清理已不存在的曲目"
+        : progress.phase === "done"
+          ? `扫描完成 ${progress.scanned} / ${totalText}`
+          : `已扫描 ${progress.scanned} / ${totalText}`;
+
+  return {
+    headline,
+    details: [
+      `已处理 ${progress.processed}`,
+      `跳过 ${progress.skipped}`,
+      `删除 ${progress.deleted}`,
+    ],
+    progress,
+  };
+}
+
+function coerceProgressCount(value: unknown) {
+  return typeof value === "number" && Number.isFinite(value) ? Math.max(0, Math.floor(value)) : 0;
+}
+
 export function parseJobPayload(payloadJson: string | null | undefined): ParsedJobPayload | null {
   if (!payloadJson) {
     return null;

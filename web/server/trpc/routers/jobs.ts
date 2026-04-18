@@ -87,11 +87,12 @@ async function resetJobForRetry(
 
   await ctx.prisma.job.update({
     where: { id: job.id },
-    data: {
-      status: "pending",
-      progress: 0,
-      attempts: 0,
-      lockedBy: null,
+      data: {
+        status: "pending",
+        progress: 0,
+        progressJson: null,
+        attempts: 0,
+        lockedBy: null,
       lockedAt: null,
       heartbeatAt: null,
       errorJson: null,
@@ -162,6 +163,7 @@ async function cancelJob(
     data: {
       status: "cancelled",
       progress: 0,
+      progressJson: null,
       lockedBy: null,
       lockedAt: null,
       heartbeatAt: null,
@@ -226,6 +228,7 @@ export const jobsRouter = router({
           type: true,
           status: true,
           progress: true,
+          progressJson: true,
           attempts: true,
           maxAttempts: true,
           payloadJson: true,
@@ -384,6 +387,7 @@ export const jobsRouter = router({
         type: true,
         status: true,
         progress: true,
+        progressJson: true,
         attempts: true,
         maxAttempts: true,
         payloadJson: true,

@@ -32,7 +32,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { getJobDisplayName, getJobErrorSummary } from "@/lib/jobs";
+import {
+  formatScanFullProgressSummary,
+  getJobDisplayName,
+  getJobErrorSummary,
+  type JobProgressEvent,
+} from "@/lib/jobs";
+import { useJobEventSource } from "@/lib/use-job-events";
 import { cn } from "@/lib/utils";
 
 function formatDateTime(value: string | Date | null | undefined) {
@@ -139,6 +145,8 @@ function OverviewStatCard({
 
 export default function AdminOverviewPage() {
   const utils = trpc.useUtils();
+  const [activeScanJobId, setActiveScanJobId] = React.useState<string | null>(null);
+  const [scanEventJob, setScanEventJob] = React.useState<JobProgressEvent | null>(null);
   const statsQuery = trpc.library.stats.useQuery({ surface: "admin" });
   const cacheOverviewQuery = trpc.library.cacheOverview.useQuery();
   const settingsQuery = trpc.settings.get.useQuery();
@@ -165,6 +173,8 @@ export default function AdminOverviewPage() {
 
   const enqueueScanFull = trpc.jobs.enqueueScanFull.useMutation({
     onSuccess: async (result) => {
+      setActiveScanJobId(result.jobId);
+      setScanEventJob(null);
       toast.success(result.deduped ? "已有进行中的 scan_full 任务" : "已入队");
       await Promise.all([
         utils.jobs.list.invalidate(),
@@ -245,7 +255,12 @@ export default function AdminOverviewPage() {
 
   const jobs = jobsQuery.data ?? [];
   const recentTracks = tracksQuery.data?.items ?? [];
-  const latestScanJob = jobs.find((job) => job.type === "scan_full") ?? null;
+  const activeQueriedScanJob =
+    jobs.find((job) => job.type === "scan_full" && (job.status === "pending" || job.status === "running")) ?? null;
+  const latestQueriedScanJob = jobs.find((job) => job.type === "scan_full") ?? null;
+  const scanEventJobId = activeQueriedScanJob?.id ?? activeScanJobId ?? null;
+  const latestScanJob = scanEventJob?.id === scanEventJobId ? scanEventJob : latestQueriedScanJob;
+  const latestScanProgress = latestScanJob ? formatScanFullProgressSummary(latestScanJob.progressJson) : null;
   const latestScanStatus = statusBadge(latestScanJob?.status);
   const pendingJobs = jobs.filter((job) => job.status === "pending").length;
   const runningJobs = jobs.filter((job) => job.status === "running").length;
@@ -257,6 +272,31 @@ export default function AdminOverviewPage() {
   const transcodePolicy = settingsQuery.data?.transcodePolicy;
   const transcodeMetrics = transcodeMetricsQuery.data;
   const cacheActionsDisabled = maintainCache.isPending;
+
+  const handleScanJobEvent = React.useCallback(
+    (job: JobProgressEvent) => {
+      setScanEventJob(job);
+      if (job.status === "done" || job.status === "failed" || job.status === "cancelled") {
+        void Promise.all([
+          utils.jobs.list.invalidate(),
+          utils.library.stats.invalidate(),
+          utils.library.cacheOverview.invalidate(),
+          utils.tracks.list.invalidate(),
+        ]);
+      }
+    },
+    [utils.jobs.list, utils.library.cacheOverview, utils.library.stats, utils.tracks.list],
+  );
+
+  useJobEventSource({
+    enabled:
+      Boolean(scanEventJobId) &&
+      scanEventJob?.status !== "done" &&
+      scanEventJob?.status !== "failed" &&
+      scanEventJob?.status !== "cancelled",
+    jobId: scanEventJobId,
+    onJob: handleScanJobEvent,
+  });
 
   const overviewCards = [
     {
@@ -357,6 +397,16 @@ export default function AdminOverviewPage() {
                   {latestScanJob ? `进度 ${formatProgress(latestScanJob.progress)}` : "尚未触发扫描"}
                 </span>
               </div>
+              {latestScanProgress ? (
+                <div className="mt-3 space-y-2 text-sm">
+                  <div className="font-medium">{latestScanProgress.headline}</div>
+                  <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+                    {latestScanProgress.details.map((detail) => (
+                      <span key={detail}>{detail}</span>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
             </div>
 
             <div className="rounded-xl border bg-muted/20 p-4">
@@ -653,6 +703,7 @@ export default function AdminOverviewPage() {
           <CardContent className="grid gap-3 pt-4">
             {jobs.slice(0, 5).map((job) => {
               const badge = statusBadge(job.status);
+              const scanProgress = job.type === "scan_full" ? formatScanFullProgressSummary(job.progressJson) : null;
               return (
                 <div key={job.id} className="rounded-xl border bg-muted/20 p-4">
                   <div className="flex items-start justify-between gap-3">
@@ -671,6 +722,16 @@ export default function AdminOverviewPage() {
                     <span>进度 {formatProgress(job.progress)}</span>
                     <span>{formatDateTime(job.updatedAt)}</span>
                   </div>
+                  {scanProgress ? (
+                    <div className="mt-3 space-y-1 text-sm">
+                      <div className="font-medium">{scanProgress.headline}</div>
+                      <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+                        {scanProgress.details.map((detail) => (
+                          <span key={detail}>{detail}</span>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
               );
             })}

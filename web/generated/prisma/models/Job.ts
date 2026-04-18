@@ -47,6 +47,7 @@ export type JobMinAggregateOutputType = {
   priority: number | null
   payloadJson: string | null
   progress: number | null
+  progressJson: string | null
   attempts: number | null
   maxAttempts: number | null
   lockedBy: string | null
@@ -64,6 +65,7 @@ export type JobMaxAggregateOutputType = {
   priority: number | null
   payloadJson: string | null
   progress: number | null
+  progressJson: string | null
   attempts: number | null
   maxAttempts: number | null
   lockedBy: string | null
@@ -81,6 +83,7 @@ export type JobCountAggregateOutputType = {
   priority: number
   payloadJson: number
   progress: number
+  progressJson: number
   attempts: number
   maxAttempts: number
   lockedBy: number
@@ -114,6 +117,7 @@ export type JobMinAggregateInputType = {
   priority?: true
   payloadJson?: true
   progress?: true
+  progressJson?: true
   attempts?: true
   maxAttempts?: true
   lockedBy?: true
@@ -131,6 +135,7 @@ export type JobMaxAggregateInputType = {
   priority?: true
   payloadJson?: true
   progress?: true
+  progressJson?: true
   attempts?: true
   maxAttempts?: true
   lockedBy?: true
@@ -148,6 +153,7 @@ export type JobCountAggregateInputType = {
   priority?: true
   payloadJson?: true
   progress?: true
+  progressJson?: true
   attempts?: true
   maxAttempts?: true
   lockedBy?: true
@@ -252,6 +258,7 @@ export type JobGroupByOutputType = {
   priority: number
   payloadJson: string
   progress: number
+  progressJson: string | null
   attempts: number
   maxAttempts: number
   lockedBy: string | null
@@ -292,6 +299,7 @@ export type JobWhereInput = {
   priority?: Prisma.IntFilter<"Job"> | number
   payloadJson?: Prisma.StringFilter<"Job"> | string
   progress?: Prisma.FloatFilter<"Job"> | number
+  progressJson?: Prisma.StringNullableFilter<"Job"> | string | null
   attempts?: Prisma.IntFilter<"Job"> | number
   maxAttempts?: Prisma.IntFilter<"Job"> | number
   lockedBy?: Prisma.StringNullableFilter<"Job"> | string | null
@@ -309,6 +317,7 @@ export type JobOrderByWithRelationInput = {
   priority?: Prisma.SortOrder
   payloadJson?: Prisma.SortOrder
   progress?: Prisma.SortOrder
+  progressJson?: Prisma.SortOrderInput | Prisma.SortOrder
   attempts?: Prisma.SortOrder
   maxAttempts?: Prisma.SortOrder
   lockedBy?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -329,6 +338,7 @@ export type JobWhereUniqueInput = Prisma.AtLeast<{
   priority?: Prisma.IntFilter<"Job"> | number
   payloadJson?: Prisma.StringFilter<"Job"> | string
   progress?: Prisma.FloatFilter<"Job"> | number
+  progressJson?: Prisma.StringNullableFilter<"Job"> | string | null
   attempts?: Prisma.IntFilter<"Job"> | number
   maxAttempts?: Prisma.IntFilter<"Job"> | number
   lockedBy?: Prisma.StringNullableFilter<"Job"> | string | null
@@ -346,6 +356,7 @@ export type JobOrderByWithAggregationInput = {
   priority?: Prisma.SortOrder
   payloadJson?: Prisma.SortOrder
   progress?: Prisma.SortOrder
+  progressJson?: Prisma.SortOrderInput | Prisma.SortOrder
   attempts?: Prisma.SortOrder
   maxAttempts?: Prisma.SortOrder
   lockedBy?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -371,6 +382,7 @@ export type JobScalarWhereWithAggregatesInput = {
   priority?: Prisma.IntWithAggregatesFilter<"Job"> | number
   payloadJson?: Prisma.StringWithAggregatesFilter<"Job"> | string
   progress?: Prisma.FloatWithAggregatesFilter<"Job"> | number
+  progressJson?: Prisma.StringNullableWithAggregatesFilter<"Job"> | string | null
   attempts?: Prisma.IntWithAggregatesFilter<"Job"> | number
   maxAttempts?: Prisma.IntWithAggregatesFilter<"Job"> | number
   lockedBy?: Prisma.StringNullableWithAggregatesFilter<"Job"> | string | null
@@ -388,6 +400,7 @@ export type JobCreateInput = {
   priority?: number
   payloadJson: string
   progress?: number
+  progressJson?: string | null
   attempts?: number
   maxAttempts?: number
   lockedBy?: string | null
@@ -405,6 +418,7 @@ export type JobUncheckedCreateInput = {
   priority?: number
   payloadJson: string
   progress?: number
+  progressJson?: string | null
   attempts?: number
   maxAttempts?: number
   lockedBy?: string | null
@@ -422,6 +436,7 @@ export type JobUpdateInput = {
   priority?: Prisma.IntFieldUpdateOperationsInput | number
   payloadJson?: Prisma.StringFieldUpdateOperationsInput | string
   progress?: Prisma.FloatFieldUpdateOperationsInput | number
+  progressJson?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   attempts?: Prisma.IntFieldUpdateOperationsInput | number
   maxAttempts?: Prisma.IntFieldUpdateOperationsInput | number
   lockedBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -439,6 +454,7 @@ export type JobUncheckedUpdateInput = {
   priority?: Prisma.IntFieldUpdateOperationsInput | number
   payloadJson?: Prisma.StringFieldUpdateOperationsInput | string
   progress?: Prisma.FloatFieldUpdateOperationsInput | number
+  progressJson?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   attempts?: Prisma.IntFieldUpdateOperationsInput | number
   maxAttempts?: Prisma.IntFieldUpdateOperationsInput | number
   lockedBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -456,6 +472,7 @@ export type JobCreateManyInput = {
   priority?: number
   payloadJson: string
   progress?: number
+  progressJson?: string | null
   attempts?: number
   maxAttempts?: number
   lockedBy?: string | null
@@ -473,6 +490,7 @@ export type JobUpdateManyMutationInput = {
   priority?: Prisma.IntFieldUpdateOperationsInput | number
   payloadJson?: Prisma.StringFieldUpdateOperationsInput | string
   progress?: Prisma.FloatFieldUpdateOperationsInput | number
+  progressJson?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   attempts?: Prisma.IntFieldUpdateOperationsInput | number
   maxAttempts?: Prisma.IntFieldUpdateOperationsInput | number
   lockedBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -490,6 +508,7 @@ export type JobUncheckedUpdateManyInput = {
   priority?: Prisma.IntFieldUpdateOperationsInput | number
   payloadJson?: Prisma.StringFieldUpdateOperationsInput | string
   progress?: Prisma.FloatFieldUpdateOperationsInput | number
+  progressJson?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   attempts?: Prisma.IntFieldUpdateOperationsInput | number
   maxAttempts?: Prisma.IntFieldUpdateOperationsInput | number
   lockedBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -507,6 +526,7 @@ export type JobCountOrderByAggregateInput = {
   priority?: Prisma.SortOrder
   payloadJson?: Prisma.SortOrder
   progress?: Prisma.SortOrder
+  progressJson?: Prisma.SortOrder
   attempts?: Prisma.SortOrder
   maxAttempts?: Prisma.SortOrder
   lockedBy?: Prisma.SortOrder
@@ -531,6 +551,7 @@ export type JobMaxOrderByAggregateInput = {
   priority?: Prisma.SortOrder
   payloadJson?: Prisma.SortOrder
   progress?: Prisma.SortOrder
+  progressJson?: Prisma.SortOrder
   attempts?: Prisma.SortOrder
   maxAttempts?: Prisma.SortOrder
   lockedBy?: Prisma.SortOrder
@@ -548,6 +569,7 @@ export type JobMinOrderByAggregateInput = {
   priority?: Prisma.SortOrder
   payloadJson?: Prisma.SortOrder
   progress?: Prisma.SortOrder
+  progressJson?: Prisma.SortOrder
   attempts?: Prisma.SortOrder
   maxAttempts?: Prisma.SortOrder
   lockedBy?: Prisma.SortOrder
@@ -590,6 +612,7 @@ export type JobSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = ru
   priority?: boolean
   payloadJson?: boolean
   progress?: boolean
+  progressJson?: boolean
   attempts?: boolean
   maxAttempts?: boolean
   lockedBy?: boolean
@@ -607,6 +630,7 @@ export type JobSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extension
   priority?: boolean
   payloadJson?: boolean
   progress?: boolean
+  progressJson?: boolean
   attempts?: boolean
   maxAttempts?: boolean
   lockedBy?: boolean
@@ -624,6 +648,7 @@ export type JobSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extension
   priority?: boolean
   payloadJson?: boolean
   progress?: boolean
+  progressJson?: boolean
   attempts?: boolean
   maxAttempts?: boolean
   lockedBy?: boolean
@@ -641,6 +666,7 @@ export type JobSelectScalar = {
   priority?: boolean
   payloadJson?: boolean
   progress?: boolean
+  progressJson?: boolean
   attempts?: boolean
   maxAttempts?: boolean
   lockedBy?: boolean
@@ -651,7 +677,7 @@ export type JobSelectScalar = {
   updatedAt?: boolean
 }
 
-export type JobOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "type" | "status" | "priority" | "payloadJson" | "progress" | "attempts" | "maxAttempts" | "lockedBy" | "lockedAt" | "heartbeatAt" | "errorJson" | "createdAt" | "updatedAt", ExtArgs["result"]["job"]>
+export type JobOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "type" | "status" | "priority" | "payloadJson" | "progress" | "progressJson" | "attempts" | "maxAttempts" | "lockedBy" | "lockedAt" | "heartbeatAt" | "errorJson" | "createdAt" | "updatedAt", ExtArgs["result"]["job"]>
 
 export type $JobPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   name: "Job"
@@ -663,6 +689,7 @@ export type $JobPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = 
     priority: number
     payloadJson: string
     progress: number
+    progressJson: string | null
     attempts: number
     maxAttempts: number
     lockedBy: string | null
@@ -1100,6 +1127,7 @@ export interface JobFieldRefs {
   readonly priority: Prisma.FieldRef<"Job", 'Int'>
   readonly payloadJson: Prisma.FieldRef<"Job", 'String'>
   readonly progress: Prisma.FieldRef<"Job", 'Float'>
+  readonly progressJson: Prisma.FieldRef<"Job", 'String'>
   readonly attempts: Prisma.FieldRef<"Job", 'Int'>
   readonly maxAttempts: Prisma.FieldRef<"Job", 'Int'>
   readonly lockedBy: Prisma.FieldRef<"Job", 'String'>

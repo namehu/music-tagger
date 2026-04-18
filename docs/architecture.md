@@ -82,6 +82,7 @@ flowchart LR
   - 管理员上传封面时，直接把文件写到音频同目录、同 basename 的 `.jpg/.png` sidecar
   - `trackEdits.get` 会一并返回每个编辑域最近一次同步任务摘要，供编辑面板直接展示最近结果与排障建议
   - 通过 Prisma 直接读写 PostgreSQL
+  - 通过 `/api/admin/jobs/[jobId]/events` 向管理员页面推送活动任务状态
 - 通过 Route Handler 输出支持 `Range` 的音频流
 - 对完整缓存和原始流继续输出支持 `Range` 的音频流；对 live transcode 输出 chunked `audio/mpeg`
 - Worker：
@@ -139,6 +140,7 @@ flowchart LR
 - `status`：`pending | running | done | failed`
 - `payloadJson`
 - `progress`
+- `progressJson`：可空结构化进度明细，当前 `scan_full` 写入扫描计数
 - `attempts`
 - `maxAttempts`
 - `lockedBy / lockedAt / heartbeatAt`
@@ -361,7 +363,7 @@ sequenceDiagram
   loop 每个音频文件
     WK->>FP: ffprobe
     WK->>DB: upsert tracks
-    WK->>DB: update_progress
+    WK->>DB: update_progress + progressJson
   end
   WK->>DB: 清理已删除的旧 tracks
   WK->>DB: mark_done
