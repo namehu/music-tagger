@@ -1,10 +1,13 @@
 "use client";
 
 import React from "react";
+import { Virtuoso, type VirtuosoHandle } from "react-virtuoso";
 import { toast } from "sonner";
 import { EyeOffIcon, LoaderCircleIcon, PauseCircleIcon, PlayCircleIcon } from "lucide-react";
+import type { inferRouterOutputs } from "@trpc/server";
 
 import { trpc } from "@/app/_trpc/provider";
+import type { AppRouter } from "@/server/trpc/root";
 import { TrackEditSheet } from "@/components/library/track-edit-sheet";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -17,6 +20,7 @@ import { cn } from "@/lib/utils";
 import {
   usePlaybackSession,
   usePlaybackStore,
+  type PlaybackQueueContext,
   type PlaybackQueueTrack,
   type PlaybackSessionKind,
 } from "@/store/playback-store";
@@ -24,6 +28,9 @@ import {
 type TrackOrder = "recent" | "title" | "artist";
 type EditedFilter = "all" | "edited" | "unedited";
 type LibraryBrowserMode = "user" | "admin";
+
+const USER_PAGE_SIZE = 100;
+const ADMIN_PAGE_SIZE_OPTIONS = [50, 100, 200] as const;
 
 const ORDER_OPTIONS: Array<{ value: TrackOrder; label: string }> = [
   { value: "recent", label: "最近更新" },
@@ -48,13 +55,35 @@ function renderCell(primary: string | null | undefined, fallback: string) {
   return primary && primary.trim().length > 0 ? primary : fallback;
 }
 
+function toPlaybackTrack(track: TrackListItem): PlaybackQueueTrack {
+  return {
+    id: track.id,
+    title: renderCell(track.title, track.filename),
+    artist: renderCell(track.artist, "未知艺人"),
+  };
+}
+
+function getPlaybackWindow(tracks: TrackListItem[], trackId: string) {
+  const index = tracks.findIndex((track) => track.id === trackId);
+  if (index < 0) {
+    return tracks.slice(0, 43).map(toPlaybackTrack);
+  }
+
+  return tracks.slice(Math.max(0, index - 12), index + 31).map(toPlaybackTrack);
+}
+
+type TrackListItem = inferRouterOutputs<AppRouter>["tracks"]["list"]["items"][number];
+
 export function LibraryBrowser({ mode }: { mode: LibraryBrowserMode }) {
   const isAdminMode = mode === "admin";
   const sessionKind: PlaybackSessionKind = isAdminMode ? "admin" : "user";
   const utils = trpc.useUtils();
+  const virtuosoRef = React.useRef<VirtuosoHandle>(null);
   const [search, setSearch] = React.useState("");
   const [order, setOrder] = React.useState<TrackOrder>("recent");
   const [editedFilter, setEditedFilter] = React.useState<EditedFilter>("all");
+  const [adminPageIndex, setAdminPageIndex] = React.useState(0);
+  const [adminPageSize, setAdminPageSize] = React.useState<(typeof ADMIN_PAGE_SIZE_OPTIONS)[number]>(50);
   const [editingTrackId, setEditingTrackId] = React.useState<string | null>(null);
   const deferredSearch = React.useDeferredValue(search);
   const query = deferredSearch.trim();
@@ -72,19 +101,36 @@ export function LibraryBrowser({ mode }: { mode: LibraryBrowserMode }) {
   const statsQuery = trpc.library.stats.useQuery({
     surface: isAdminMode ? "admin" : "user",
   });
-  const tracksQuery = trpc.tracks.list.useQuery({
-    limit: 50,
-    order,
-    edited: isAdminMode ? editedFilter : "all",
-    q: query.length > 0 ? query : undefined,
-    surface: isAdminMode ? "admin" : "user",
-  });
+  const adminTracksQuery = trpc.tracks.list.useQuery(
+    {
+      limit: adminPageSize,
+      pageIndex: adminPageIndex,
+      order,
+      edited: editedFilter,
+      q: query.length > 0 ? query : undefined,
+      surface: "admin",
+    },
+    { enabled: isAdminMode },
+  );
+  const userTracksQuery = trpc.tracks.list.useInfiniteQuery(
+    {
+      limit: USER_PAGE_SIZE,
+      order,
+      edited: "all",
+      q: query.length > 0 ? query : undefined,
+      surface: "user",
+    },
+    {
+      enabled: !isAdminMode,
+      getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
+    },
+  );
 
   const ignoreMine = trpc.ignoredTracks.ignoreMine.useMutation({
     onSuccess: async () => {
       toast.success("已加入我的忽略");
       await Promise.all([
-        tracksQuery.refetch(),
+        userTracksQuery.refetch(),
         statsQuery.refetch(),
         utils.ignoredTracks.listMine.invalidate(),
         utils.playlists.invalidate(),
@@ -98,7 +144,7 @@ export function LibraryBrowser({ mode }: { mode: LibraryBrowserMode }) {
     onSuccess: async () => {
       toast.success("已设为全局忽略");
       await Promise.all([
-        tracksQuery.refetch(),
+        adminTracksQuery.refetch(),
         statsQuery.refetch(),
         utils.ignoredTracks.listGlobal.invalidate(),
         utils.playlists.invalidate(),
@@ -109,24 +155,44 @@ export function LibraryBrowser({ mode }: { mode: LibraryBrowserMode }) {
     },
   });
 
-  const currentTracks = React.useMemo(() => tracksQuery.data?.items ?? [], [tracksQuery.data?.items]);
-  const playbackQueueTracks = React.useMemo<PlaybackQueueTrack[]>(
+  const currentTracks = React.useMemo(
     () =>
-      currentTracks.map((track) => ({
-        id: track.id,
-        title: renderCell(track.title, track.filename),
-        artist: renderCell(track.artist, "未知艺人"),
-      })),
-    [currentTracks],
+      isAdminMode
+        ? (adminTracksQuery.data?.items ?? [])
+        : (userTracksQuery.data?.pages.flatMap((page) => page.items) ?? []),
+    [adminTracksQuery.data?.items, isAdminMode, userTracksQuery.data?.pages],
   );
+  const totalCount =
+    (isAdminMode ? adminTracksQuery.data?.totalCount : userTracksQuery.data?.pages[0]?.totalCount) ?? 0;
   const sourceKey = isAdminMode ? "admin:library" : "user-library";
+  const playbackQueueTracks = React.useMemo(() => currentTracks.map(toPlaybackTrack), [currentTracks]);
+  const userQueueContext = React.useMemo<PlaybackQueueContext>(
+    () => ({
+      source: "library",
+      surface: "user",
+      order,
+      edited: "all",
+      q: query.length > 0 ? query : undefined,
+    }),
+    [order, query],
+  );
 
   React.useEffect(() => {
+    if (!isAdminMode) {
+      return;
+    }
+
     setQueue(sessionKind, {
       tracks: playbackQueueTracks,
       sourceKey,
+      totalCount: playbackQueueTracks.length,
     });
-  }, [playbackQueueTracks, sessionKind, setQueue, sourceKey]);
+  }, [isAdminMode, playbackQueueTracks, sessionKind, setQueue, sourceKey]);
+
+  React.useEffect(() => {
+    setAdminPageIndex(0);
+    virtuosoRef.current?.scrollToIndex({ index: 0, align: "start" });
+  }, [editedFilter, order, query]);
 
   React.useEffect(() => {
     if (statsQuery.error) {
@@ -135,16 +201,230 @@ export function LibraryBrowser({ mode }: { mode: LibraryBrowserMode }) {
   }, [statsQuery.error]);
 
   React.useEffect(() => {
-    if (tracksQuery.error) {
-      toast.error(tracksQuery.error.message ?? "曲目列表加载失败");
+    const error = isAdminMode ? adminTracksQuery.error : userTracksQuery.error;
+    if (error) {
+      toast.error(error.message ?? "曲目列表加载失败");
     }
-  }, [tracksQuery.error]);
+  }, [adminTracksQuery.error, isAdminMode, userTracksQuery.error]);
 
   const statCards = [
     { title: "曲目", value: statsQuery.data?.tracks ?? 0 },
     { title: "专辑", value: statsQuery.data?.albums ?? 0 },
     { title: "艺人", value: statsQuery.data?.artists ?? 0 },
   ];
+  const isLoadingTracks = isAdminMode ? adminTracksQuery.isLoading : userTracksQuery.isLoading;
+  const hasNextPage = !isAdminMode && Boolean(userTracksQuery.hasNextPage);
+  const adminPageCount = Math.max(1, Math.ceil(totalCount / adminPageSize));
+
+  function handlePlay(track: TrackListItem) {
+    const playbackTrack = toPlaybackTrack(track);
+    if (isAdminMode) {
+      if (queueSourceKey !== sourceKey) {
+        replaceQueueFromUserIntent(sessionKind, {
+          tracks: playbackQueueTracks,
+          sourceKey,
+          totalCount: playbackQueueTracks.length,
+        });
+        requestPlayTrack(sessionKind, playbackTrack);
+        return;
+      }
+
+      if (activeTrackId === track.id) {
+        toggleTrack(sessionKind, playbackTrack);
+        return;
+      }
+
+      requestPlayTrack(sessionKind, playbackTrack);
+      return;
+    }
+
+    if (queueSourceKey !== sourceKey) {
+      replaceQueueFromUserIntent("user", {
+        tracks: getPlaybackWindow(currentTracks, track.id),
+        sourceKey,
+        queueContext: userQueueContext,
+        totalCount,
+      });
+      requestPlayTrack("user", playbackTrack);
+      return;
+    }
+
+    if (activeTrackId === track.id) {
+      toggleTrack("user", playbackTrack);
+      return;
+    }
+
+    replaceQueueFromUserIntent("user", {
+      tracks: getPlaybackWindow(currentTracks, track.id),
+      sourceKey,
+      queueContext: userQueueContext,
+      totalCount,
+    });
+    requestPlayTrack("user", playbackTrack);
+  }
+
+  function renderTrackRow(track: TrackListItem, virtualIndex?: number) {
+    const isActiveTrack = activeTrackId === track.id;
+    const isPendingTrack = pendingTrackId === track.id;
+    const canTogglePlayback = isActiveTrack && !isPendingTrack;
+    const editSummary = getTrackEditSummary({
+      metadataEdit: track.hasMetadataEdit
+        ? {
+            syncStatus: track.metadataSyncStatus ?? "synced",
+            syncErrorJson: null,
+          }
+        : null,
+      lyricsEdit: track.hasLyricsEdit
+        ? {
+            syncStatus: track.lyricsSyncStatus ?? "synced",
+            syncErrorJson: null,
+          }
+        : null,
+      coverEdit: track.hasCoverEdit
+        ? {
+            syncStatus: track.coverSyncStatus ?? "synced",
+            syncErrorJson: null,
+          }
+        : null,
+    });
+
+    if (!isAdminMode) {
+      return (
+        <div
+          className={cn(
+            "grid min-h-24 grid-cols-[auto_1fr_auto] items-center gap-3 border-b border-[color:var(--ghost-border)] bg-white/55 px-3 py-3 sm:grid-cols-[auto_1.4fr_1fr_auto]",
+            isActiveTrack && "bg-[color:color-mix(in_srgb,var(--primary-container)_78%,white)]",
+          )}
+        >
+          <Button
+            type="button"
+            variant={isActiveTrack ? "secondary" : "ghost"}
+            size="icon-sm"
+            onClick={() => handlePlay(track)}
+            aria-label={`播放 ${renderCell(track.title, track.filename)}`}
+          >
+            {isPendingTrack ? (
+              <LoaderCircleIcon className="animate-spin" />
+            ) : canTogglePlayback && isAudioPlaying ? (
+              <PauseCircleIcon />
+            ) : (
+              <PlayCircleIcon />
+            )}
+          </Button>
+          <div className="min-w-0">
+            <div className="flex min-w-0 flex-wrap items-center gap-2">
+              <span className="truncate font-medium">{renderCell(track.title, track.filename)}</span>
+              {isPendingTrack ? <Badge variant="outline">准备中</Badge> : null}
+              {isActiveTrack ? (
+                <Badge variant="secondary">{isAudioPlaying && !isPreparing ? "当前播放" : "当前已暂停"}</Badge>
+              ) : null}
+            </div>
+            <div className="truncate text-sm text-muted-foreground">{renderCell(track.path, "-")}</div>
+          </div>
+          <div className="hidden min-w-0 text-sm sm:block">
+            <div className="truncate">{renderCell(track.artist, "未知艺人")}</div>
+            <div className="truncate text-muted-foreground">{renderCell(track.album, "-")}</div>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={ignoreMine.isPending}
+            onClick={() => ignoreMine.mutate({ trackId: track.id })}
+          >
+            <EyeOffIcon data-icon="inline-start" />
+            忽略
+          </Button>
+          <span className="sr-only">第 {(virtualIndex ?? 0) + 1} 条</span>
+        </div>
+      );
+    }
+
+    return (
+      <TableRow
+        key={track.id}
+        className={cn(
+          "odd:bg-white/25",
+          isActiveTrack && "bg-[color:color-mix(in_srgb,var(--primary-container)_78%,white)]",
+        )}
+      >
+        <TableCell className="w-16">
+          <Button
+            type="button"
+            variant={isActiveTrack ? "secondary" : "ghost"}
+            size="icon-sm"
+            onClick={() => handlePlay(track)}
+            aria-label={`播放 ${renderCell(track.title, track.filename)}`}
+          >
+            {isPendingTrack ? (
+              <LoaderCircleIcon className="animate-spin" />
+            ) : canTogglePlayback && isAudioPlaying ? (
+              <PauseCircleIcon />
+            ) : (
+              <PlayCircleIcon />
+            )}
+          </Button>
+        </TableCell>
+        <TableCell className="w-20">
+          <Button type="button" variant="outline" size="sm" onClick={() => setEditingTrackId(track.id)}>
+            编辑
+          </Button>
+        </TableCell>
+        <TableCell className="w-28">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={ignoreGlobal.isPending}
+            onClick={() => ignoreGlobal.mutate({ trackId: track.id })}
+          >
+            <EyeOffIcon data-icon="inline-start" />
+            全局忽略
+          </Button>
+        </TableCell>
+        <TableCell>
+          <div className="flex flex-wrap items-center gap-2">
+            <span>{renderCell(track.title, track.filename)}</span>
+            {isPendingTrack ? <Badge variant="outline">准备中</Badge> : null}
+            {isActiveTrack ? (
+              <Badge variant="secondary">{isAudioPlaying && !isPreparing ? "当前播放" : "当前已暂停"}</Badge>
+            ) : null}
+            {editSummary.hasEdits ? (
+              <Badge
+                variant={
+                  editSummary.state === "failed"
+                    ? "destructive"
+                    : editSummary.state === "synced"
+                      ? "secondary"
+                      : "outline"
+                }
+              >
+                {editSummary.label}
+              </Badge>
+            ) : null}
+          </div>
+        </TableCell>
+        <TableCell>
+          <div className="space-y-0.5">
+            <div>{renderCell(track.artist, "-")}</div>
+            {track.genre ? <div className="text-xs text-muted-foreground">{track.genre}</div> : null}
+          </div>
+        </TableCell>
+        <TableCell>
+          <div className="space-y-0.5">
+            <div>{renderCell(track.album, "-")}</div>
+            {track.year || track.albumArtist ? (
+              <div className="text-xs text-muted-foreground">
+                {[track.albumArtist, track.year].filter(Boolean).join(" · ")}
+              </div>
+            ) : null}
+          </div>
+        </TableCell>
+        <TableCell className="max-w-[28rem] truncate font-mono text-xs">{track.path}</TableCell>
+        <TableCell>{formatDateTime(track.updatedAt)}</TableCell>
+      </TableRow>
+    );
+  }
 
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
@@ -177,7 +457,11 @@ export function LibraryBrowser({ mode }: { mode: LibraryBrowserMode }) {
             <div>
               <CardTitle>曲目列表</CardTitle>
               <CardDescription>
-                {tracksQuery.isLoading ? "加载中…" : `当前展示 ${(tracksQuery.data?.items ?? []).length} 条结果`}
+                {isLoadingTracks
+                  ? "加载中…"
+                  : isAdminMode
+                    ? `第 ${adminPageIndex + 1} / ${adminPageCount} 页，共 ${totalCount} 条`
+                    : `已加载 ${currentTracks.length} / ${totalCount} 条`}
               </CardDescription>
             </div>
 
@@ -227,211 +511,149 @@ export function LibraryBrowser({ mode }: { mode: LibraryBrowserMode }) {
           </div>
 
           {isAdminMode ? (
-            <div className="flex flex-wrap gap-2">
-              {EDITED_FILTER_OPTIONS.map((option) => (
-                <Button
-                  key={option.value}
-                  type="button"
-                  size="sm"
-                  variant={editedFilter === option.value ? "secondary" : "outline"}
-                  onClick={() => {
-                    React.startTransition(() => {
-                      setEditedFilter(option.value);
-                    });
-                  }}
-                >
-                  {option.label}
-                </Button>
-              ))}
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex flex-wrap gap-2">
+                {EDITED_FILTER_OPTIONS.map((option) => (
+                  <Button
+                    key={option.value}
+                    type="button"
+                    size="sm"
+                    variant={editedFilter === option.value ? "secondary" : "outline"}
+                    onClick={() => {
+                      React.startTransition(() => {
+                        setEditedFilter(option.value);
+                      });
+                    }}
+                  >
+                    {option.label}
+                  </Button>
+                ))}
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                {ADMIN_PAGE_SIZE_OPTIONS.map((size) => (
+                  <Button
+                    key={size}
+                    type="button"
+                    size="sm"
+                    variant={adminPageSize === size ? "secondary" : "outline"}
+                    onClick={() => {
+                      setAdminPageSize(size);
+                      setAdminPageIndex(0);
+                    }}
+                  >
+                    {size} / 页
+                  </Button>
+                ))}
+              </div>
             </div>
           ) : null}
 
           <div className="overflow-hidden rounded-[1.5rem] border border-[color:var(--ghost-border)] bg-white/64 shadow-[var(--surface-shadow)]">
-            <Table>
-              <TableHeader className="bg-[color:color-mix(in_srgb,var(--surface-container-low)_86%,white)]">
-                <TableRow>
-                  <TableHead>播放</TableHead>
-                  {isAdminMode ? <TableHead>编辑</TableHead> : null}
-                  <TableHead>{isAdminMode ? "忽略" : "操作"}</TableHead>
-                  <TableHead>标题</TableHead>
-                  <TableHead>艺人</TableHead>
-                  <TableHead>专辑</TableHead>
-                  <TableHead>路径</TableHead>
-                  <TableHead>更新时间</TableHead>
-                </TableRow>
-              </TableHeader>
+            {isAdminMode ? (
+              <Table>
+                <TableHeader className="bg-[color:color-mix(in_srgb,var(--surface-container-low)_86%,white)]">
+                  <TableRow>
+                    <TableHead>播放</TableHead>
+                    <TableHead>编辑</TableHead>
+                    <TableHead>忽略</TableHead>
+                    <TableHead>标题</TableHead>
+                    <TableHead>艺人</TableHead>
+                    <TableHead>专辑</TableHead>
+                    <TableHead>路径</TableHead>
+                    <TableHead>更新时间</TableHead>
+                  </TableRow>
+                </TableHeader>
 
-              <TableBody>
-                {currentTracks.map((track) => {
-                  const isActiveTrack = activeTrackId === track.id;
-                  const isPendingTrack = pendingTrackId === track.id;
-                  const canTogglePlayback = isActiveTrack && !isPendingTrack;
-                  const editSummary = getTrackEditSummary({
-                    metadataEdit: track.hasMetadataEdit
-                      ? {
-                          syncStatus: track.metadataSyncStatus ?? "synced",
-                          syncErrorJson: null,
-                        }
-                      : null,
-                    lyricsEdit: track.hasLyricsEdit
-                      ? {
-                          syncStatus: track.lyricsSyncStatus ?? "synced",
-                          syncErrorJson: null,
-                        }
-                      : null,
-                    coverEdit: track.hasCoverEdit
-                      ? {
-                          syncStatus: track.coverSyncStatus ?? "synced",
-                          syncErrorJson: null,
-                        }
-                      : null,
-                  });
-                  const playbackTrack = {
-                    id: track.id,
-                    title: renderCell(track.title, track.filename),
-                    artist: renderCell(track.artist, "未知艺人"),
-                  };
-
-                  return (
-                    <TableRow
-                      key={track.id}
-                      className={cn(
-                        "odd:bg-white/25",
-                        isActiveTrack && "bg-[color:color-mix(in_srgb,var(--primary-container)_78%,white)]",
-                      )}
-                    >
-                      <TableCell className="w-16">
-                        <Button
-                          type="button"
-                          variant={isActiveTrack ? "secondary" : "ghost"}
-                          size="icon-sm"
-                          onClick={() => {
-                            if (queueSourceKey !== sourceKey) {
-                              replaceQueueFromUserIntent(sessionKind, {
-                                tracks: playbackQueueTracks,
-                                sourceKey,
-                              });
-                              requestPlayTrack(sessionKind, playbackTrack);
-                              return;
-                            }
-
-                            if (activeTrackId === track.id) {
-                              toggleTrack(sessionKind, playbackTrack);
-                              return;
-                            }
-
-                            requestPlayTrack(sessionKind, playbackTrack);
-                          }}
-                          aria-label={`播放 ${renderCell(track.title, track.filename)}`}
-                        >
-                          {isPendingTrack ? (
-                            <LoaderCircleIcon className="animate-spin" />
-                          ) : canTogglePlayback && isAudioPlaying ? (
-                            <PauseCircleIcon />
-                          ) : (
-                            <PlayCircleIcon />
-                          )}
-                        </Button>
+                <TableBody>
+                  {currentTracks.map((track) => renderTrackRow(track))}
+                  {!isLoadingTracks && currentTracks.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={8} className="py-10 text-center text-muted-foreground">
+                        {query.length > 0 ? "没有匹配的曲目，换个关键词试试。" : "暂无曲目，请先触发一次 scan_full。"}
                       </TableCell>
-                      {isAdminMode ? (
-                        <TableCell className="w-20">
-                          <Button type="button" variant="outline" size="sm" onClick={() => setEditingTrackId(track.id)}>
-                            编辑
-                          </Button>
-                        </TableCell>
-                      ) : null}
-                      <TableCell className="w-28">
-                        {isAdminMode ? (
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            disabled={ignoreGlobal.isPending}
-                            onClick={() => ignoreGlobal.mutate({ trackId: track.id })}
-                          >
-                            <EyeOffIcon data-icon="inline-start" />
-                            全局忽略
-                          </Button>
-                        ) : (
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            disabled={ignoreMine.isPending}
-                            onClick={() => ignoreMine.mutate({ trackId: track.id })}
-                          >
-                            <EyeOffIcon data-icon="inline-start" />
-                            忽略
-                          </Button>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span>{renderCell(track.title, track.filename)}</span>
-                          {isPendingTrack ? (
-                            <Badge variant="outline">准备中</Badge>
-                          ) : isActiveTrack ? (
-                            <Badge variant="secondary">{isAudioPlaying && !isPreparing ? "当前播放" : "当前已暂停"}</Badge>
-                          ) : null}
-                          {isAdminMode && editSummary.hasEdits ? (
-                            <Badge
-                              variant={
-                                editSummary.state === "failed"
-                                  ? "destructive"
-                                  : editSummary.state === "synced"
-                                    ? "secondary"
-                                    : "outline"
-                              }
-                            >
-                              {editSummary.label}
-                            </Badge>
-                          ) : null}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="space-y-0.5">
-                          <div>{renderCell(track.artist, "-")}</div>
-                          {track.genre ? <div className="text-xs text-muted-foreground">{track.genre}</div> : null}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="space-y-0.5">
-                          <div>{renderCell(track.album, "-")}</div>
-                          {(track.year || track.albumArtist) ? (
-                            <div className="text-xs text-muted-foreground">
-                              {[track.albumArtist, track.year].filter(Boolean).join(" · ")}
-                            </div>
-                          ) : null}
-                        </div>
-                      </TableCell>
-                      <TableCell className="max-w-[28rem] truncate font-mono text-xs">{track.path}</TableCell>
-                      <TableCell>{formatDateTime(track.updatedAt)}</TableCell>
                     </TableRow>
-                  );
-                })}
-
-                {!tracksQuery.isLoading && currentTracks.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={isAdminMode ? 8 : 7} className="py-10 text-center text-muted-foreground">
-                      {query.length > 0 ? "没有匹配的曲目，换个关键词试试。" : "暂无曲目，请先触发一次 scan_full。"}
-                    </TableCell>
-                  </TableRow>
-                ) : null}
-                {tracksQuery.isLoading ? (
-                  <TableRow>
-                    <TableCell colSpan={isAdminMode ? 8 : 7} className="py-10 text-center text-muted-foreground">
-                      正在加载曲目列表…
-                    </TableCell>
-                  </TableRow>
-                ) : null}
-              </TableBody>
-            </Table>
+                  ) : null}
+                  {isLoadingTracks ? (
+                    <TableRow>
+                      <TableCell colSpan={8} className="py-10 text-center text-muted-foreground">
+                        正在加载曲目列表…
+                      </TableCell>
+                    </TableRow>
+                  ) : null}
+                </TableBody>
+              </Table>
+            ) : (
+              <Virtuoso
+                ref={virtuosoRef}
+                style={{ height: "min(70vh, 760px)" }}
+                data={currentTracks}
+                endReached={() => {
+                  if (hasNextPage && !userTracksQuery.isFetchingNextPage) {
+                    void userTracksQuery.fetchNextPage();
+                  }
+                }}
+                itemContent={(index, track) => renderTrackRow(track, index)}
+                components={{
+                  EmptyPlaceholder: () =>
+                    !isLoadingTracks ? (
+                      <div className="py-10 text-center text-sm text-muted-foreground">
+                        {query.length > 0 ? "没有匹配的曲目，换个关键词试试。" : "暂无曲目，请先触发一次 scan_full。"}
+                      </div>
+                    ) : null,
+                  Footer: () => (
+                    <div className="py-4 text-center text-sm text-muted-foreground">
+                      {userTracksQuery.isFetchingNextPage
+                        ? "继续加载中…"
+                        : hasNextPage
+                          ? "向下滚动加载更多"
+                          : currentTracks.length > 0
+                            ? "已经到底了"
+                            : isLoadingTracks
+                              ? "正在加载曲目列表…"
+                              : null}
+                    </div>
+                  ),
+                }}
+              />
+            )}
           </div>
+
+          {isAdminMode ? (
+            <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-muted-foreground">
+              <span>
+                第 {adminPageIndex + 1} / {adminPageCount} 页
+              </span>
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={adminPageIndex === 0 || adminTracksQuery.isFetching}
+                  onClick={() => setAdminPageIndex((value) => Math.max(0, value - 1))}
+                >
+                  上一页
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={adminPageIndex >= adminPageCount - 1 || adminTracksQuery.isFetching}
+                  onClick={() => setAdminPageIndex((value) => Math.min(adminPageCount - 1, value + 1))}
+                >
+                  下一页
+                </Button>
+              </div>
+            </div>
+          ) : null}
         </CardContent>
       </Card>
 
       {isAdminMode ? (
-        <TrackEditSheet trackId={editingTrackId} open={editingTrackId !== null} onOpenChange={(open) => !open && setEditingTrackId(null)} />
+        <TrackEditSheet
+          trackId={editingTrackId}
+          open={editingTrackId !== null}
+          onOpenChange={(open) => !open && setEditingTrackId(null)}
+        />
       ) : null}
     </div>
   );

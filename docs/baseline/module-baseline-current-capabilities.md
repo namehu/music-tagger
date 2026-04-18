@@ -34,13 +34,13 @@ source_refs:
 | Setup / Auth | implemented | `/sign-in` | `setup` router, better-auth models | 登录与首个管理员初始化共用入口；未初始化时显示初始化表单，初始化后显示登录表单 |
 | Jobs Queue | implemented | `/admin` `/admin/jobs` | `Job`, `jobs` router, `/api/admin/jobs/[jobId]/events`, `worker.py` | 已支持 scan 与转码任务，worker 通过 PostgreSQL jobs 队列表领取任务；`scan_full` 已有结构化扫描计数和 admin-only SSE 观察通道 |
 | User Dashboard | implemented | `/dashboard` | `library.dashboard`, `playback` components, `PlaybackResolveEvent` | 已支持继续收听、最近播放、最近更新歌单和最近更新曲目 |
-| Library Browse | implemented | `/library` `/admin/library` | `tracks.list`, `library.stats`, `Track` | 用户区与管理区共享浏览层，但分别驱动 `user/admin` 播放会话 |
+| Library Browse | implemented | `/library` `/admin/library` | `tracks.list`, `tracks.queueWindow`, `library.stats`, `Track` | 用户区使用无限加载虚拟滚动；管理区使用分页表格；两者共享筛选、排序、忽略和编辑真值规则 |
 | Track Editing Sync | implemented | `/admin/library` | `TrackMetadataEdit` / `TrackLyricsEdit` / `TrackCoverEdit`, `trackEdits` router, `track_edit_sync` job | 元数据、歌词、封面先写数据库，再异步回写源文件；封面先落为音频同目录 sidecar，再异步嵌回；歌词编辑已支持 `plain / lrc / elrc`，没有 edit 真值时会回退显示扫描到的已有歌词和封面 |
 | Playback Resolve | implemented | 用户播放器 + admin 试听条 | `playback.resolve`, `playback.getPreparationStatus`, `playback.getTrackMedia`, `/api/stream/[trackId]`, `/api/tracks/[trackId]/cover` | 已支持原始与 `mp3_192`，冷缓存 `mp3_192` 可边转边播；live 阶段限制 seek，完成后恢复完整拖动能力，并支持播放详情读取、歌词格式回传、实时 seek 与刷新后重新动态签发 |
 | Transcode Cache Ops | implemented | `/admin/cache` `/admin/settings` | `TranscodeCache`, `library.cacheOverview`, settings router | 已支持容量治理与失败分类 |
 | Dashboard Overview | partial | `/admin` | `library`, `jobs`, `tracks` 聚合查询 | 还不是独立定义的首页模块 |
 | Playback Modes | implemented | 用户播放器 | `playback-store`, `PlaybackRuntime`, `playback.resolve` | 用户会话已支持顺序、随机、单曲循环、实时进度 / 缓冲 / seek 与 localStorage 恢复；admin 试听保持线性 |
-| Playback Queue | implemented | 用户播放器详情抽屉 | `playback-store`, `global-player`, `playback.resolve` | 已支持当前队列、Up Next、队列内跳播、移除单首、清空队列与刷新后恢复 |
+| Playback Queue | implemented | 用户播放器详情抽屉 | `playback-store`, `global-player`, `playback.resolve`, `tracks.queueWindow` | 已支持当前队列窗口、Up Next、队列内跳播、移除单首、清空队列与刷新后恢复；曲库播放保存轻量上下文并按需解析邻近窗口 |
 | Plan Workflow | partial | `/admin/plans` `/admin/plans/[planId]` | `Plan` / `PlanItem`, `plans` router, `plan_execute` job | 当前保留历史记录读取与兼容执行器；不再承担日常元数据编辑主线 |
 | Playlist | implemented | `/playlists` `/playlists/[playlistId]` | `Playlist` / `PlaylistItem`, `playlists` router | 已支持个人歌单 CRUD、加歌、移歌与顺序点播 |
 | Ignored Tracks | implemented | `/ignored-tracks` `/admin/ignored-tracks` | `UserIgnoredTrack` / `GlobalIgnoredTrack`, `ignoredTracks` router | 已支持双层忽略、默认过滤与歌单忽略标记 |
@@ -58,7 +58,7 @@ source_refs:
 - 歌单已拥有独立数据模型与页面入口
 - 忽略曲目已拥有独立数据模型、用户页、管理页与过滤规则
 - 播放模式已拥有独立 store、runtime、底部控制入口与浏览器内恢复能力
-- 播放队列已拥有独立 store 动作、底部抽屉入口与用户侧队列编辑能力
+- 播放队列已拥有独立 store 动作、底部抽屉入口与用户侧队列编辑能力；曲库上下文不会把全量曲目写入前端队列
 - 播放已拆成 `user` 持续播放会话与 `admin` 临时试听会话
 - `/admin/plans` 当前主要承担历史记录页角色
 

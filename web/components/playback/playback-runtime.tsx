@@ -33,8 +33,29 @@ export function PlaybackRuntime({ sessionKind }: { sessionKind: PlaybackSessionK
   const preparingJobId = usePlaybackSession(sessionKind, (state) => state.preparingJobId);
   const preparingRequest = usePlaybackSession(sessionKind, (state) => state.preparingRequest);
   const activePlayback = usePlaybackSession(sessionKind, (state) => state.activePlayback);
+  const activeTrackId = usePlaybackSession(sessionKind, (state) => state.activeTrackId);
+  const queueSourceKey = usePlaybackSession(sessionKind, (state) => state.queueSourceKey);
+  const queueContext = usePlaybackSession(sessionKind, (state) => state.queueContext);
   const playbackError = usePlaybackSession(sessionKind, (state) => state.playbackError);
   const resolvePlayback = trpc.playback.resolve.useMutation();
+  const queueWindowQuery = trpc.tracks.queueWindow.useQuery(
+    {
+      context: queueContext ?? {
+        source: "library",
+        surface: "user",
+        order: "recent",
+        edited: "all",
+      },
+      trackId: activeTrackId ?? "",
+      before: 12,
+      after: 30,
+    },
+    {
+      enabled: Boolean(queueContext && activeTrackId && queueSourceKey === "user-library"),
+      refetchOnWindowFocus: false,
+      retry: false,
+    },
+  );
   const statusJobId =
     preparingJobId ?? (activePlayback?.liveTranscode ? activePlayback.jobId : null) ?? "";
   const isPollingPreparingJob = Boolean(preparingJobId);
@@ -59,6 +80,19 @@ export function PlaybackRuntime({ sessionKind }: { sessionKind: PlaybackSessionK
   const lastToastedErrorRef = React.useRef<string | null>(null);
   const submittedResolveSeqRef = React.useRef<number | null>(null);
   const staleSourceRetriedKeyRef = React.useRef<string | null>(null);
+
+  React.useEffect(() => {
+    if (!queueContext || queueSourceKey !== "user-library" || !queueWindowQuery.data) {
+      return;
+    }
+
+    getPlaybackStoreState().updateQueueWindow(sessionKind, {
+      tracks: queueWindowQuery.data.items,
+      sourceKey: "user-library",
+      queueContext,
+      totalCount: queueWindowQuery.data.totalCount,
+    });
+  }, [queueContext, queueSourceKey, queueWindowQuery.data, sessionKind]);
 
   React.useEffect(() => {
     if (!resolveRequest) {

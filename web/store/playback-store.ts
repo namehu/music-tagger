@@ -23,6 +23,13 @@ export type PlaybackSessionKind = "user" | "admin";
 export type PlaybackProfile = "original" | "mp3_192";
 export type PlaybackSourceKind = "original" | "transcode_cache";
 export type QueueReplaceReason = "initial_page_sync" | "user_intent";
+export type PlaybackQueueContext = {
+  source: "library";
+  surface: "user" | "admin";
+  order: "recent" | "title" | "artist";
+  q?: string;
+  edited: "all" | "edited" | "unedited";
+};
 
 export type ActivePlayback = PlaybackQueueTrack & {
   url: string;
@@ -44,6 +51,8 @@ type ResolveRequest = {
 type PersistedPlaybackSessionState = {
   queue: PlaybackQueueTrack[];
   queueSourceKey: string | null;
+  queueContext: PlaybackQueueContext | null;
+  queueTotalCount: number | null;
   displayTrack: PlaybackQueueTrack | null;
   currentProfile: PlaybackProfile | null;
   playbackMode: PlaybackMode;
@@ -102,11 +111,15 @@ type PlaybackStoreState = {
   restoreFromPersistedSession: (sessionKind: PlaybackSessionKind) => void;
   setQueue: (
     sessionKind: PlaybackSessionKind,
-    input: { tracks: PlaybackQueueTrack[]; sourceKey: string },
+    input: { tracks: PlaybackQueueTrack[]; sourceKey: string; queueContext?: PlaybackQueueContext | null; totalCount?: number | null },
   ) => void;
   replaceQueueFromUserIntent: (
     sessionKind: PlaybackSessionKind,
-    input: { tracks: PlaybackQueueTrack[]; sourceKey: string },
+    input: { tracks: PlaybackQueueTrack[]; sourceKey: string; queueContext?: PlaybackQueueContext | null; totalCount?: number | null },
+  ) => void;
+  updateQueueWindow: (
+    sessionKind: PlaybackSessionKind,
+    input: { tracks: PlaybackQueueTrack[]; sourceKey: string; queueContext: PlaybackQueueContext; totalCount: number },
   ) => void;
   removeQueueTrack: (sessionKind: PlaybackSessionKind, trackId: string) => void;
   clearQueue: (sessionKind: PlaybackSessionKind) => void;
@@ -240,6 +253,8 @@ function createInitialSessionState(sessionKind: PlaybackSessionKind): PlaybackSe
   return {
     queue: [],
     queueSourceKey: null,
+    queueContext: null,
+    queueTotalCount: null,
     displayTrack: null,
     currentProfile: null,
     playbackMode: "ordered",
@@ -299,7 +314,7 @@ function computeSessionState(
     currentTrack,
     activeTrackId,
     activeTrackIndex,
-    queueSize: session.queue.length,
+    queueSize: session.queueTotalCount ?? session.queue.length,
     queueItems: session.queue,
     upNextItems,
     previousTrack: usesShuffle ? getShufflePreviousTrack(session.shuffleHistory) : orderedPreviousTrack,
@@ -337,6 +352,8 @@ function buildPersistedSessionState(session: PlaybackSessionState): PersistedPla
   return {
     queue: session.queue,
     queueSourceKey: session.queueSourceKey,
+    queueContext: session.queueContext,
+    queueTotalCount: session.queueTotalCount,
     displayTrack: session.displayTrack,
     currentProfile: session.currentProfile,
     playbackMode: session.playbackMode,
@@ -367,6 +384,8 @@ function buildClearedQueueSessionState(session: PlaybackSessionState): Partial<P
   return {
     queue: [],
     queueSourceKey: null,
+    queueContext: null,
+    queueTotalCount: null,
     displayTrack: null,
     activePlayback: null,
     pendingTrackId: null,
@@ -502,7 +521,7 @@ export function createPlaybackStoreApi(storage?: StateStorage, random = Math.ran
         }),
       );
     },
-    setQueue: (sessionKind, { tracks, sourceKey }) => {
+    setQueue: (sessionKind, { tracks, sourceKey, queueContext = null, totalCount = null }) => {
       const session = get().sessions[sessionKind];
       if (
         !shouldAcceptPassiveQueueUpdate({
@@ -524,17 +543,35 @@ export function createPlaybackStoreApi(storage?: StateStorage, random = Math.ran
         buildSessionUpdate(current, sessionKind, {
           queue: tracks,
           queueSourceKey: sourceKey,
+          queueContext,
+          queueTotalCount: totalCount,
         }),
       );
     },
-    replaceQueueFromUserIntent: (sessionKind, { tracks, sourceKey }) => {
+    replaceQueueFromUserIntent: (sessionKind, { tracks, sourceKey, queueContext = null, totalCount = null }) => {
       set((current) =>
         buildSessionUpdate(current, sessionKind, {
           queue: tracks,
           queueSourceKey: sourceKey,
+          queueContext,
+          queueTotalCount: totalCount,
           shuffleHistory: [],
           resumeLock: false,
           hydrationStatus: "ready",
+        }),
+      );
+    },
+    updateQueueWindow: (sessionKind, { tracks, sourceKey, queueContext, totalCount }) => {
+      const session = get().sessions[sessionKind];
+      if (session.queueSourceKey !== sourceKey) {
+        return;
+      }
+
+      set((current) =>
+        buildSessionUpdate(current, sessionKind, {
+          queue: tracks,
+          queueContext,
+          queueTotalCount: totalCount,
         }),
       );
     },
@@ -556,6 +593,8 @@ export function createPlaybackStoreApi(storage?: StateStorage, random = Math.ran
           buildSessionUpdate(current, sessionKind, {
             queue: nextQueue,
             queueSourceKey: nextQueue.length > 0 ? session.queueSourceKey : null,
+            queueContext: nextQueue.length > 0 ? session.queueContext : null,
+            queueTotalCount: nextQueue.length > 0 ? session.queueTotalCount : null,
             shuffleHistory: nextShuffleHistory,
           }),
         );
@@ -587,6 +626,8 @@ export function createPlaybackStoreApi(storage?: StateStorage, random = Math.ran
         buildSessionUpdate(current, sessionKind, {
           queue: nextQueue,
           queueSourceKey: session.queueSourceKey,
+          queueContext: session.queueContext,
+          queueTotalCount: session.queueTotalCount,
           shuffleHistory: nextShuffleHistory,
         }),
       );
