@@ -36,7 +36,7 @@ source_refs:
 ### 3.1 认证与初始化
 
 - 已接入 `better-auth`
-- 已支持通过 `/setup` 创建首个管理员
+- 已支持通过 `/sign-in` 统一入口创建首个管理员或登录；系统未初始化时该页面显示初始化表单，初始化后显示登录表单
 - 已有 `admin` / `user` 两类角色
 - 页面与 tRPC 已具备基础鉴权边界
 - 登录后默认进入用户区 `/dashboard`
@@ -191,7 +191,6 @@ source_refs:
 
 - `/api/auth/[...all]`
 - `/api/trpc/[trpc]`
-- `/api/setup/create-admin`
 - `/api/admin/tracks/[trackId]/cover`
 - `/api/tracks/[trackId]/cover`
 - `/api/stream/[trackId]`

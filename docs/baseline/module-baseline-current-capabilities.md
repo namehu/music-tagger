@@ -30,7 +30,7 @@ source_refs:
 
 | 模块 | 状态 | 当前入口 | 主要接口/模型 | 备注 |
 | --- | --- | --- | --- | --- |
-| Setup / Auth | implemented | `/setup` `/sign-in` | `setup` router, better-auth models | 首个管理员初始化已落地 |
+| Setup / Auth | implemented | `/sign-in` | `setup` router, better-auth models | 登录与首个管理员初始化共用入口；未初始化时显示初始化表单，初始化后显示登录表单 |
 | Jobs Queue | implemented | `/admin` `/admin/jobs` | `Job`, `jobs` router, `worker.py` | 已支持 scan 与转码任务，worker 通过 PostgreSQL jobs 队列表领取任务 |
 | User Dashboard | implemented | `/dashboard` | `library.dashboard`, `playback` components, `PlaybackResolveEvent` | 已支持继续收听、最近播放、最近更新歌单和最近更新曲目 |
 | Library Browse | implemented | `/library` `/admin/library` | `tracks.list`, `library.stats`, `Track` | 用户区与管理区共享浏览层，但分别驱动 `user/admin` 播放会话 |

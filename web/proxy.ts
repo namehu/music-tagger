@@ -1,12 +1,14 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 
+import { getAdminInitializationStatus } from "@/lib/admin-init";
 import { auth } from "@/lib/auth";
+import { getProxyRoutingDecision } from "@/lib/proxy-routing";
 
 /**
  * Next.js 16 middleware-like proxy hook.
  */
-export function proxy(req: NextRequest) {
+export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   // ---- Allowlist: 静态资源与 API 永远放行 ----
@@ -27,32 +29,36 @@ export function proxy(req: NextRequest) {
   // All API routes should be reachable (auth/trpc 需要）
   if (pathname.startsWith("/api/")) return NextResponse.next();
 
-  // ---- Allowlist: 登录/初始化入口 ----
-  // 初始化逻辑在 app/setup/layout.tsx（会查 DB）；proxy 不做 DB 查询
-  if (pathname === "/setup" || pathname.startsWith("/setup/")) return NextResponse.next();
-  // 登录页必须可访问
-  if (pathname === "/sign-in") return NextResponse.next();
+  // ---- 页面入口：登录态优先，未登录时再判断是否完成初始化 ----
+  // role 校验仍在 app/admin/layout.tsx，proxy 只决定是否能进入页面层。
+  try {
+    const session = await auth.api.getSession({ headers: req.headers });
+    const isLoggedIn = Boolean(session?.user?.id);
+    const initStatus = isLoggedIn ? { initialized: true } : await getAdminInitializationStatus();
+    const decision = getProxyRoutingDecision({
+      pathname,
+      search: req.nextUrl.search,
+      isLoggedIn,
+      initialized: initStatus.initialized,
+    });
 
-  // ---- 默认策略：除以上路径外，所有页面必须登录 ----
-  // 这里仅做“是否登录”检查（不查 DB）；role 校验在 app/admin/layout.tsx
-  {
-    return auth.api
-      .getSession({ headers: req.headers })
-      .then((session) => {
-        if (!session?.user?.id) {
-          const url = req.nextUrl.clone();
-          url.pathname = "/sign-in";
-          url.searchParams.set("next", pathname);
-          return NextResponse.redirect(url);
-        }
-        return NextResponse.next();
-      })
-      .catch(() => {
-        const url = req.nextUrl.clone();
-        url.pathname = "/sign-in";
-        url.searchParams.set("next", pathname);
-        return NextResponse.redirect(url);
-      });
+    if (decision.type === "next") {
+      return NextResponse.next();
+    }
+
+    const url = req.nextUrl.clone();
+    url.pathname = decision.pathname;
+    url.search = "";
+    for (const [key, value] of Object.entries(decision.searchParams ?? {})) {
+      url.searchParams.set(key, value);
+    }
+    return NextResponse.redirect(url);
+  } catch {
+    const url = req.nextUrl.clone();
+    url.pathname = "/sign-in";
+    url.search = "";
+    url.searchParams.set("next", `${pathname}${req.nextUrl.search}`);
+    return NextResponse.redirect(url);
   }
 }
 

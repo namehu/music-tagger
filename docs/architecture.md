@@ -288,7 +288,7 @@ flowchart LR
 - 管理员：
   - 进入用户区
   - 从右上角进入 `/admin`
-  - `/setup` 后的管理入口
+  - `/sign-in` 初始化完成后的管理入口
   - `scan_full`
   - `jobs.list`
   - `jobs.get`
@@ -323,15 +323,15 @@ sequenceDiagram
   participant W as Web
   participant DB as PostgreSQL
 
-  U->>W: 打开 /setup
-  W->>DB: 检查是否已存在 admin
+  U->>W: 打开 /sign-in 或任意页面
+  W->>DB: 未登录时检查是否已存在 admin
   alt 不存在 admin
-    W-->>U: 展示初始化页面
+    W-->>U: 跳转 /sign-in 并展示初始化表单
     U->>W: 提交管理员创建表单
     W->>DB: 创建 user(role=admin)
-    W-->>U: 初始化完成，跳转登录或后台
+    W-->>U: 初始化完成，回到登录表单
   else 已存在 admin
-    W-->>U: 404 或跳转
+    W-->>U: 展示登录表单或按登录态进入系统
   end
 ```
 

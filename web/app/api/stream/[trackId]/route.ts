@@ -90,7 +90,7 @@ function createLiveTranscodeStream(input: {
 }) {
   return new ReadableStream<Uint8Array>({
     async start(controller) {
-      let fileHandle = await open(input.streamPath, "r");
+      const fileHandle = await open(input.streamPath, "r");
       let position = 0;
 
       try {

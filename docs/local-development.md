@@ -94,7 +94,7 @@ docker compose --env-file .env.dev -f docker-compose.dev.yml up --build -d worke
 
 ## 开发时如何使用
 
-1. 打开 `http://localhost:3000/setup`，创建首个管理员。
+1. 打开 `http://localhost:3000/sign-in`。如果系统尚未初始化，该页面会先创建首个管理员；初始化完成后再登录。
 2. 登录后进入 `/admin/jobs`，触发一次 `scan_full`。
 3. 打开 `/admin/library`，确认曲目已经被扫出来。
 

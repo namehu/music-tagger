@@ -159,9 +159,9 @@ docker compose --env-file .env.prod -f docker-compose.prod.yml logs -f
 
 ## 第一次上线后的初始化
 
-1. 打开 `BETTER_AUTH_URL/setup`
-2. 创建首个管理员
-3. 登录后进入 `/admin/jobs`
+1. 打开 `BETTER_AUTH_URL/sign-in`
+2. 如果系统尚未初始化，先在登录入口创建首个管理员
+3. 初始化完成后登录，并进入 `/admin/jobs`
 4. 触发一次 `scan_full`
 5. 到 `/admin/library` 确认扫描结果，并测试原始音频播放
 6. 再点播一首未缓存的曲目，确认 `mp3_192` 转码任务能进入 `done`，随后播放恢复正常
